@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence, useMotionValue } from "framer-motion";
 import {
@@ -20,33 +20,7 @@ import chatbotGif from "@/assets/aichatbot_sakura.gif";
 import chatbotPoster from "@/assets/sakura_chatbot_poster.png";
 import sakuraBranch from "@/assets/sakura_branch.png";
 
-// ── Path alias: terjemahan Bahasa → route internal ────────────────────────────
-// FIX: AI backend sering kembalikan path versi Indonesia (e.g. /arsip).
-// Semua alias di sini di-resolve ke route React Router yang valid.
-const PATH_ALIASES = {
-  "/arsip": "/archive",
-  "/arsip-digital": "/archive",
-  "/beranda": "/home",
-  "/profil": "/profile",
-  "/pengaturan": "/settings",
-  "/sampah": "/trash",
-  "/sampah-digital": "/trash",
-  "/persetujuan": "/approval/pending",
-  "/menunggu": "/approval/pending",
-  "/disetujui": "/approval/approved",
-  "/pengguna": "/users",
-  "/peran": "/roles",
-  "/log": "/logs",
-  "/riwayat": "/logs",
-};
-
-function resolvePath(path) {
-  if (!path) return "/";
-  const lower = path.toLowerCase().trim();
-  return PATH_ALIASES[lower] || path;
-}
-
-// ── Avatar petal config ───────────────────────────────────────────────────────
+// ── Avatar SAKURA AI (dipakai di header & bubble chat) — efek hover: glow + kelopak beterbangan ──
 const AVATAR_PETALS = [
   { x: 26, y: -22, rot: 160, delay: 0 },
   { x: -28, y: -18, rot: 260, delay: 0.05 },
@@ -75,8 +49,6 @@ function PetalRing({ scale = 1 }) {
   );
 }
 
-// FIX LOGO: object-contain + bg-white/90 agar logo penuh kelihatan (sebelumnya
-// object-cover memotong gambar sehingga logo tidak tampak di beberapa ukuran).
 function SakuraAvatar({ size = 44, className = "", interactive = false }) {
   return (
     <div
@@ -91,25 +63,12 @@ function SakuraAvatar({ size = 44, className = "", interactive = false }) {
           style={{ transition: "box-shadow 300ms ease" }}
         />
       )}
-      {/* FIX: object-contain + p-0.5 + bg-white/90 agar logo tidak terpotong */}
       <img
         src={profileLogo}
         alt="SAKURA AI"
-        className="sakura-avatar-img relative w-full h-full rounded-full object-contain bg-white/90 border-2 border-white/80 shadow-md p-0.5"
+        className="sakura-avatar-img relative w-full h-full rounded-full object-cover border-2 border-white/80 shadow-md"
         style={{ transition: "transform 300ms ease" }}
-        onError={(e) => {
-          // Fallback: tampilkan teks "S" jika gambar gagal load
-          e.target.style.display = "none";
-          e.target.nextSibling && (e.target.nextSibling.style.display = "flex");
-        }}
       />
-      {/* Fallback teks jika img gagal */}
-      <div
-        className="absolute inset-0 rounded-full bg-primary/20 items-center justify-center text-primary font-bold text-sm hidden"
-        aria-hidden="true"
-      >
-        S
-      </div>
     </div>
   );
 }
@@ -118,16 +77,17 @@ function formatTime(date) {
   return new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit" }).format(date);
 }
 
-// ── Bubble pesan ──────────────────────────────────────────────────────────────
+// ── Komponen bubble pesan ──────────────────────────────────────────────────────
 function MessageBubble({ msg, navigate, onLinkClick }) {
   const isUser = msg.role === "user";
 
+  // Simple mapping: keyword -> internal route
   const routeMap = [
     { keys: ["upload dokumen", "halaman upload", "upload"], path: "/upload", label: "Buka halaman upload" },
     { keys: ["dashboard", "statistik", "statistik dokumen"], path: "/dashboard", label: "Buka dashboard" },
     { keys: ["arsip", "archive", "arsip digital"], path: "/archive", label: "Buka arsip" },
-    { keys: ["persetujuan", "approval", "menunggu"], path: "/approval/pending", label: "Lihat persetujuan" },
-    { keys: ["persetujuan pending", "approval pending"], path: "/approval/pending", label: "Lihat persetujuan (menunggu)" },
+    { keys: ["persetujuan", "approval", "menunggu"], path: "/approval", label: "Lihat persetujuan" },
+    { keys: ["persetujuan pending", "approval pending", "menunggu"], path: "/approval/pending", label: "Lihat persetujuan (menunggu)" },
     { keys: ["persetujuan disetujui", "approved", "approval approved"], path: "/approval/approved", label: "Lihat persetujuan (disetujui)" },
     { keys: ["profil", "profile"], path: "/profile", label: "Buka profil" },
     { keys: ["ganti password", "change password", "ubah kata sandi"], path: "/change-password", label: "Ganti password" },
@@ -144,11 +104,10 @@ function MessageBubble({ msg, navigate, onLinkClick }) {
     const lower = text.toLowerCase();
     const found = [];
 
-    // Deteksi path eksplisit (/upload, /arsip, dll) — lalu resolve alias
+    // explicit relative path detection, e.g. /upload
     const pathMatch = text.match(/\/(?:[a-z0-9\-_/]+)/i);
     if (pathMatch) {
-      const resolved = resolvePath(pathMatch[0]);
-      found.push({ path: resolved, label: `Buka ${resolved}` });
+      found.push({ path: pathMatch[0], label: `Buka ${pathMatch[0]}` });
     }
 
     for (const m of routeMap) {
@@ -160,10 +119,8 @@ function MessageBubble({ msg, navigate, onLinkClick }) {
     return found;
   }
 
-  // Prefer structured links dari backend; fallback ke deteksi teks
-  const rawLinks = msg.links && msg.links.length ? msg.links : findLinksFromText(msg.text || "");
-  // FIX: resolve alias untuk semua link (termasuk yang dari backend)
-  const links = rawLinks.map((l) => ({ ...l, path: resolvePath(l.path) }));
+  // prefer structured links from backend if provided on the message
+  const links = msg.links && msg.links.length ? msg.links : findLinksFromText(msg.text || "");
   const time = formatTime(msg.time || new Date());
 
   return (
@@ -181,12 +138,13 @@ function MessageBubble({ msg, navigate, onLinkClick }) {
           }`}
         >
           {msg.text}
+          {/* Quick link buttons */}
           {!isUser && !msg.isError && links.length > 0 && (
             <div className="mt-2.5 flex flex-wrap gap-2">
               {links.map((l, idx) => (
                 <button
                   key={idx}
-                  onClick={() => (onLinkClick ? onLinkClick(l) : navigate(resolvePath(l.path)))}
+                  onClick={() => (onLinkClick ? onLinkClick(l) : navigate(l.path))}
                   className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-primary/10 hover:bg-primary/20 text-primary transition-colors"
                 >
                   <Upload className="w-3.5 h-3.5" />
@@ -223,7 +181,7 @@ function MessageBubble({ msg, navigate, onLinkClick }) {
   );
 }
 
-// ── Quick actions ─────────────────────────────────────────────────────────────
+// ── Quick actions (sesuai spec: Cari dokumen / Statistik / Bantuan / lainnya) ──
 const QUICK_ACTIONS = [
   { key: "cari", label: "Cari dokumen", icon: Search, prompt: "Saya ingin mencari dokumen" },
   { key: "statistik", label: "Statistik dokumen", icon: ChartNoAxesColumnIncreasing, prompt: "Tampilkan statistik dokumen" },
@@ -244,7 +202,6 @@ export default function ChatBot() {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [showMore, setShowMore] = useState(false);
-
   const welcomeMessage = {
     role: "assistant",
     text: "Halo! Saya SAKURA AI 🌸\nSaya siap membantu kamu mencari informasi seputar dokumen di sistem SAKURA DMS.",
@@ -257,40 +214,24 @@ export default function ChatBot() {
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
   const dragConstraintsRef = useRef(null);
-  // FIX: dragX dipakai BERSAMA oleh button dan chat panel agar keduanya sinkron
   const dragX = useMotionValue(0);
 
-  // Auto-resize textarea
-  const handleInputChange = useCallback((e) => {
-    setInput(e.target.value);
-    // Reset tinggi dulu agar bisa mengecil kembali
-    e.target.style.height = "auto";
-    e.target.style.height = `${Math.min(e.target.scrollHeight, 80)}px`;
-  }, []);
-
+  // Auto-scroll ke bawah setiap ada pesan baru
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isOpen, isMinimized]);
 
+  // Fokus input saat jendela dibuka / tidak diminimize
   useEffect(() => {
-    if (isOpen && !isMinimized) {
-      // Delay kecil agar animasi selesai dulu sebelum focus
-      const t = setTimeout(() => inputRef.current?.focus(), 150);
-      return () => clearTimeout(t);
-    }
+    if (isOpen && !isMinimized) inputRef.current?.focus();
   }, [isOpen, isMinimized]);
 
-  // Reset tinggi textarea saat input dikosongkan (setelah kirim)
-  useEffect(() => {
-    if (!input && inputRef.current) {
-      inputRef.current.style.height = "auto";
-    }
-  }, [input]);
-
+  // Hanya tampilkan jika user sudah login
   if (!isLoggedIn) return null;
 
   async function sendText(text) {
     if (!text || loading) return;
+
     setMessages((prev) => [...prev, { role: "user", text, time: new Date() }]);
     setInput("");
     setLoading(true);
@@ -303,9 +244,15 @@ export default function ChatBot() {
     } catch (err) {
       const serverMsg =
         err?.response?.data?.error || err?.message || "Terjadi kesalahan saat menghubungi AI. Silakan coba lagi.";
+
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", text: `⚠️ ${serverMsg}`, isError: true, time: new Date() },
+        {
+          role: "assistant",
+          text: `⚠️ ${serverMsg}`,
+          isError: true,
+          time: new Date(),
+        },
       ]);
     } finally {
       setLoading(false);
@@ -330,28 +277,19 @@ export default function ChatBot() {
   async function handleLinkClick(link) {
     try {
       if (!link || !link.path) return;
-
-      // FIX: resolve alias sebelum navigate
-      const resolved = resolvePath(link.path);
-
-      if (resolved.startsWith("/documents/")) {
-        const parts = resolved.split("/");
+      // If it's a document link like /documents/:id, fetch and show inline
+      if (link.path.startsWith("/documents/")) {
+        const parts = link.path.split("/");
         const id = parts[parts.length - 1];
         if (!id) return;
+        // show a temporary loading message
         setMessages((prev) => [...prev, { role: "assistant", text: `Memuat dokumen ${id}...`, time: new Date() }]);
         try {
           const { document } = await documentService.getDocument(id);
+          // replace the loading message with the document card
           setMessages((prev) => {
             const copy = prev.slice(0, -1);
-            return [
-              ...copy,
-              {
-                role: "assistant",
-                text: `Detail dokumen: ${document.judul || document.nomor || ""}`,
-                doc: { id: document.id, judul: document.judul, nomor: document.nomor_dokumen || document.nomor, status: document.status },
-                time: new Date(),
-              },
-            ];
+            return [...copy, { role: "assistant", text: `Detail dokumen: ${document.judul || document.nomor || ''}`, doc: { id: document.id, judul: document.judul, nomor: document.nomor_dokumen || document.nomor, status: document.status }, time: new Date() }];
           });
         } catch (e) {
           setMessages((prev) => [...prev, { role: "assistant", text: `Gagal memuat dokumen: ${e.message || e}`, time: new Date() }]);
@@ -359,14 +297,14 @@ export default function ChatBot() {
         return;
       }
 
-      navigate(resolved);
+      // Otherwise navigate to the path
+      navigate(link.path);
     } catch (e) {
       console.error("handleLinkClick error", e);
     }
   }
 
   function handleKeyDown(e) {
-    // Enter kirim pesan; Shift+Enter baris baru
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -380,7 +318,7 @@ export default function ChatBot() {
 
   return (
     <>
-      {/* ── Chat Window ─────────────────────────────────────────────────────── */}
+      {/* ── Chat Window ─────────────────────────────────────────────────── */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -388,13 +326,12 @@ export default function ChatBot() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 16, scale: 0.97 }}
             transition={{ duration: 0.22, ease: "easeOut" }}
-            // FIX DRAG SYNC: gunakan dragX yang sama dengan floating button,
-            // sehingga panel chat mengikuti posisi icon ke manapun ia digeser.
-            style={{ x: dragX, height: isMinimized ? "auto" : "520px", maxHeight: "80vh" }}
             className="fixed bottom-24 right-5 z-50 w-80 sm:w-96 flex flex-col rounded-2xl shadow-2xl ring-1 ring-black/5 border border-secondary bg-card overflow-hidden"
+            style={{ height: isMinimized ? "auto" : "520px", maxHeight: "80vh" }}
           >
             {/* Header */}
             <div className="relative flex items-center gap-2.5 px-4 py-3.5 flex-shrink-0 overflow-hidden text-primary-foreground">
+              {/* Background: sakura branch photo + gradient overlay for legibility */}
               <div
                 className="absolute inset-0"
                 style={{
@@ -419,6 +356,7 @@ export default function ChatBot() {
                   onClick={() => setIsMinimized((v) => !v)}
                   className="w-7 h-7 rounded-full flex items-center justify-center text-primary-foreground/85 hover:text-primary-foreground hover:bg-white/15 transition-colors"
                   aria-label={isMinimized ? "Perbesar chatbot" : "Kecilkan chatbot"}
+                  title={isMinimized ? "Perbesar" : "Kecilkan"}
                 >
                   <Minus className="w-4 h-4" />
                 </button>
@@ -426,6 +364,7 @@ export default function ChatBot() {
                   onClick={() => setIsOpen(false)}
                   className="w-7 h-7 rounded-full flex items-center justify-center text-primary-foreground/85 hover:text-primary-foreground hover:bg-white/15 transition-colors"
                   aria-label="Tutup chatbot"
+                  title="Tutup"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -477,6 +416,7 @@ export default function ChatBot() {
                         disabled={loading}
                         className="w-8 h-8 flex items-center justify-center rounded-full border border-primary/25 text-primary hover:bg-primary/10 transition-colors disabled:opacity-40"
                         aria-label="Opsi lainnya"
+                        title="Lainnya"
                       >
                         <Ellipsis className="w-4 h-4" />
                       </button>
@@ -505,26 +445,19 @@ export default function ChatBot() {
                   </div>
                 </div>
 
-                {/* FIX INPUT: textarea (wrap otomatis ke bawah) + border halus tanpa ring biru */}
-                <div className="flex items-end gap-2 px-3 py-3 flex-shrink-0 bg-background">
-                  <div className="flex-1 flex items-end gap-2 rounded-2xl border border-input/70 bg-card px-3.5 py-2.5 hover:border-primary/40 focus-within:border-primary/60 transition-colors">
-                    <span
-                      className="text-base leading-none flex-shrink-0 mb-0.5"
-                      aria-hidden="true"
-                    >
-                      🌸
-                    </span>
-                    {/* textarea menggantikan input: teks panjang wrap ke bawah bukan ke samping */}
-                    <textarea
+                {/* Input */}
+                <div className="flex items-center gap-2 px-3 py-3 flex-shrink-0 bg-background">
+                  <div className="flex-1 flex items-center gap-2 rounded-full border border-input bg-card px-3.5 py-2 focus-within:ring-2 focus-within:ring-ring transition-shadow">
+                    <span className="text-base leading-none flex-shrink-0" aria-hidden="true">🌸</span>
+                    <input
                       ref={inputRef}
+                      type="text"
                       value={input}
-                      onChange={handleInputChange}
+                      onChange={(e) => setInput(e.target.value)}
                       onKeyDown={handleKeyDown}
-                      placeholder="Tanyakan sesuatu tentang dokume… (Enter kirim, Shift+Enter baris baru)"
+                      placeholder="Tanyakan sesuatu tentang dokumen…"
                       disabled={loading}
-                      rows={1}
-                      className="flex-1 min-w-0 bg-transparent text-sm focus:outline-none disabled:opacity-50 resize-none overflow-y-auto leading-relaxed"
-                      style={{ maxHeight: "80px" }}
+                      className="flex-1 min-w-0 bg-transparent text-sm focus:outline-none disabled:opacity-50"
                     />
                   </div>
                   <button
@@ -542,31 +475,23 @@ export default function ChatBot() {
         )}
       </AnimatePresence>
 
-      {/* ── Floating Button ─────────────────────────────────────────────────── */}
-      {/* dragConstraintsRef diletakkan di sini agar button bisa drag kiri-kanan */}
-      <div
-        ref={dragConstraintsRef}
-        className="fixed inset-x-4 bottom-5 h-16 pointer-events-none z-40"
-        aria-hidden="true"
-      />
+      {/* ── Floating Button (bisa digeser kiri-kanan, tetap di bawah) ─────── */}
+      <div ref={dragConstraintsRef} className="fixed inset-x-4 bottom-5 h-16 pointer-events-none z-40" aria-hidden="true" />
       {!isOpen && (
         <motion.button
           drag="x"
           dragConstraints={dragConstraintsRef}
           dragElastic={0.06}
           dragMomentum={false}
-          // FIX DRAG SYNC: gunakan dragX yang sama dengan chat panel
           style={{ x: dragX }}
           onTap={openChat}
           className="sakura-avatar-group group fixed bottom-5 right-5 z-50 w-16 h-16 rounded-full shadow-xl ring-1 ring-black/5 flex items-center justify-center cursor-grab active:cursor-grabbing transition-[transform,box-shadow] duration-300 ease-out hover:scale-105 focus:outline-none focus:ring-4 focus:ring-primary/30"
           aria-label="Buka SAKURA AI Assistant (bisa digeser ke kiri/kanan)"
-          title="SAKURA AI — geser untuk memindahkan"
+          title="SAKURA AI Search Assistant — geser untuk memindahkan"
         >
           <PetalRing scale={1.3} />
-          <div
-            className="sakura-avatar-glow absolute inset-0 rounded-full"
-            style={{ transition: "box-shadow 300ms ease" }}
-          />
+          <div className="sakura-avatar-glow absolute inset-0 rounded-full" style={{ transition: "box-shadow 300ms ease" }} />
+
           {/* Poster statis (default) */}
           <img
             src={chatbotPoster}
@@ -574,13 +499,15 @@ export default function ChatBot() {
             aria-hidden="true"
             draggable={false}
             className="sakura-avatar-img absolute inset-0 w-full h-full rounded-full object-cover border-2 border-white shadow-lg opacity-100 group-hover:opacity-0 transition-opacity duration-200"
+            style={{ transition: "opacity 200ms ease, transform 300ms ease" }}
           />
-          {/* GIF animasi saat hover */}
+          {/* GIF animasi — terlihat & "bergerak" saat kursor diarahkan ke sini */}
           <img
             src={chatbotGif}
             alt="SAKURA AI"
             draggable={false}
-            className="sakura-avatar-img absolute inset-0 w-full h-full rounded-full object-cover border-2 border-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+            className="sakura-avatar-img absolute inset-0 w-full h-full rounded-full object-cover border-2 border-white shadow-lg opacity-0 group-hover:opacity-100"
+            style={{ transition: "opacity 200ms ease, transform 300ms ease" }}
           />
         </motion.button>
       )}

@@ -17,7 +17,7 @@
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
-import { Bell, User, LogOut, KeyRound, ChevronDown, CheckCheck, RefreshCw, X, FileCheck, FileX, Info, Clock } from "lucide-react";
+import { Bell, User, LogOut, KeyRound, ChevronDown, CheckCheck, RefreshCw, X, FileCheck, FileX, Info, Clock, Menu } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
 import { useState, useRef, useEffect } from "react";
 import { format } from "date-fns";
@@ -106,6 +106,7 @@ export default function AppHeader({ title, subtitle }) {
     markAllNotificationsRead,
     dismissNotification,
     logout,
+    setMobileSidebarOpen,
   } = useApp();
 
   const navigate = useNavigate();
@@ -157,13 +158,23 @@ export default function AppHeader({ title, subtitle }) {
   };
 
   return (
-    <header className="sticky top-0 z-30 flex items-center justify-between px-6 lg:px-8 py-4 bg-card/80 glass border-b border-border/60">
-      <div>
-        <h1 className="text-lg font-bold text-foreground tracking-tight">{title}</h1>
-        {subtitle && <p className="text-[13px] text-muted-foreground mt-0.5">{subtitle}</p>}
+    <header className="sticky top-0 z-30 flex items-center justify-between gap-2 px-4 sm:px-6 lg:px-8 py-4 bg-card/80 glass border-b border-border/60">
+      <div className="flex items-center gap-2 min-w-0">
+        {/* Hamburger — hanya tampil di layar HP/tablet untuk membuka sidebar drawer */}
+        <button
+          onClick={() => setMobileSidebarOpen(true)}
+          className="lg:hidden shrink-0 p-2 -ml-2 rounded-lg text-foreground hover:bg-muted"
+          aria-label="Buka menu"
+        >
+          <Menu size={20} />
+        </button>
+        <div className="min-w-0">
+          <h1 className="text-base sm:text-lg font-bold text-foreground tracking-tight truncate">{title}</h1>
+          {subtitle && <p className="text-[13px] text-muted-foreground mt-0.5 truncate hidden sm:block">{subtitle}</p>}
+        </div>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1 sm:gap-2 shrink-0">
         {/* ── Notification Bell ── */}
         <div className="relative" ref={notifRef}>
           <button

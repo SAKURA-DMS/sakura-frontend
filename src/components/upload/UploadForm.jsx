@@ -20,6 +20,7 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import api from "@/lib/apiClient";
 import { saveDraft, loadDraft, clearDraft, hasDraft } from "@/services/uploadDraftService";
+import { previewDocumentNumber } from "@/services/documentService";
 
 // ─── Mode constants ────────────────────────────────────────────────────────
 const MODE_JUDUL = "hanya_judul";
@@ -306,6 +307,28 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
     tanggalUpload: new Date(),
   });
   const [metaData, setMetaData] = useState({});
+
+  // ── Nomor Dokumen (generated, readonly) ───────────────────────────────
+  // Nilai ini hanya preview sisi klien — nomor final (berurutan, unik)
+  // di-generate ulang di server saat submit. Ditampilkan di form agar user
+  // bisa melihat format nomor sebelum dokumen disimpan.
+  const [nomorPreview, setNomorPreview] = useState("");
+  const [nomorLoading, setNomorLoading] = useState(false);
+
+  // Otomatis fetch preview nomor setiap kali kategori & jenis berubah
+  useEffect(() => {
+    if (!selectedCategoryId || !selectedTypeId) {
+      setNomorPreview("");
+      return;
+    }
+    let cancelled = false;
+    setNomorLoading(true);
+    previewDocumentNumber(selectedCategoryId, selectedTypeId)
+      .then((nomor) => { if (!cancelled) setNomorPreview(nomor); })
+      .catch(() => { if (!cancelled) setNomorPreview(""); })
+      .finally(() => { if (!cancelled) setNomorLoading(false); });
+    return () => { cancelled = true; };
+  }, [selectedCategoryId, selectedTypeId]);
 
   const update = (key, val) => setForm((p) => ({ ...p, [key]: val }));
   const updateMeta = (key, val) => setMetaData((p) => ({ ...p, [key]: val }));
@@ -1064,6 +1087,30 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
               Informasi Dokumen {fillMode === MODE_JUDUL ? "(Hanya Judul)" : ""}
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+              {/* ── Nomor Dokumen (generated otomatis, readonly) ── */}
+              <div className="sm:col-span-2">
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  Nomor Dokumen *
+                </label>
+                <div className="relative">
+                  <input
+                    readOnly
+                    value={
+                      nomorLoading
+                        ? "Menghitung…"
+                        : nomorPreview || (selectedCategoryId && selectedTypeId ? "" : "Pilih kategori & jenis dulu")
+                    }
+                    className="w-full px-3 py-2.5 pr-10 rounded-lg border border-input bg-muted text-sm text-muted-foreground cursor-not-allowed font-mono"
+                    placeholder="Akan terisi otomatis setelah memilih kategori & jenis"
+                  />
+                  <Lock size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Nomor dokumen dibuat otomatis oleh sistem.
+                </p>
+              </div>
+
               {/* Judul Dokumen */}
               <div className="sm:col-span-1">
                 <label className="block text-sm font-medium text-foreground mb-1">Judul Dokumen *</label>
@@ -1324,7 +1371,7 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
 
       {showPdfPreview && (
         <PdfPreviewOverlay onClose={() => setShowPdfPreview(false)} document={{
-          id: 0, nomorDokumen: form.nomorDokumen || "DRAFT", judul: form.judul || "Dokumen Baru",
+          id: 0, nomorDokumen: nomorPreview || "—", judul: form.judul || "Dokumen Baru",
           kategori: form.kategori || "Umum", kelas: metaData.kelas || "-", jenisDokumen: form.jenisDokumen,
           namaSiswa: metaData.namaSiswa || "", nisn: metaData.nisn || "", tahunAjaran: metaData.tahunAjaran || "",
           pengunggah: { id: currentUser.id, nama: currentUser.nama, role: currentUser.role, avatar: currentUser.avatar },

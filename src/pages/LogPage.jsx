@@ -33,6 +33,7 @@ export default function LogPage() {
       const normalized = raw.map((t) => ({
           docId: t.document_id,
           docTitle: t.document_judul || `Dokumen #${t.document_id}`,
+          docNomor: t.document_nomor || null,
           time: t.created_at,
           userId: t.user_id,
           userName: t.nama || "Sistem",
@@ -257,6 +258,11 @@ export default function LogPage() {
                           <div className="text-xs text-muted-foreground flex items-center gap-1.5">
                             <FileText size={12} className="text-primary/70" />
                             {log.docTitle}
+                            {log.docNomor && (
+                              <span className="font-mono bg-muted px-1.5 py-0.5 rounded text-[10px] text-muted-foreground">
+                                {log.docNomor}
+                              </span>
+                            )}
                           </div>
                           {log.integrityStatus && (
                           <div className="mt-2 space-y-2">

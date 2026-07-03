@@ -68,6 +68,17 @@ export function normalizeAuditTrail(trail = []) {
 
 // ── API Functions ─────────────────────────────────────────────────────────────
 
+// Preview nomor dokumen berikutnya untuk kategori + jenis tertentu.
+// Digunakan agar field "Nomor Dokumen" bisa ditampilkan readonly di form
+// SEBELUM dokumen disimpan. Ini tidak mengunci counter sehingga nomor final
+// (saat submit) dijamin urut meski ada preview bersamaan.
+export async function previewDocumentNumber(category_id, type_id) {
+  const { data } = await api.get("/documents/meta/next-number", {
+    params: { category_id, type_id },
+  });
+  return data.nomor_dokumen;
+}
+
 export async function listDocuments(params = {}) {
   const { data } = await api.get("/documents", { params });
   return { documents: (data.documents || []).map(normalizeDocument) };
@@ -203,4 +214,3 @@ export async function getApprovalAudit(requestId) {
   const { data } = await api.get(`/approvals/${requestId}/audit`);
   return data;
 }
-

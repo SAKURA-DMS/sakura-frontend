@@ -33,6 +33,10 @@ export const AppProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
 
+  // Mobile off-canvas sidebar toggle (dipakai oleh AppSidebar + AppHeader
+  // agar drawer sidebar bisa dibuka/ditutup dari luar komponen sidebar itu sendiri)
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
   // ── Document State ────────────────────────────────────────────────────────
   const [documents, setDocuments] = useState([]);
   const [trashedDocuments, setTrashedDocuments] = useState([]);
@@ -707,6 +711,9 @@ export const AppProvider = ({ children }) => {
         login,
         finalizeLogin,
         logout,
+        // Mobile sidebar drawer
+        mobileSidebarOpen,
+        setMobileSidebarOpen,
         // Users
         users,
         pendingUsers,

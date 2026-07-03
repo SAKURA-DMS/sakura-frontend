@@ -16,6 +16,7 @@ import {
   GitBranch,
   FolderOpen,
   Trash2,
+  X,
 } from "lucide-react";
 
 import logoSakura from "@/assets/logo_sakura.png";
@@ -27,7 +28,7 @@ export default function AppSidebar() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
 
-  const { hasPermission, documents, currentUser } = useApp();
+  const { hasPermission, documents, currentUser, mobileSidebarOpen, setMobileSidebarOpen } = useApp();
 
   const [collapsed, setCollapsed] = useState(false);
 
@@ -100,6 +101,9 @@ export default function AppSidebar() {
       document.activeElement.blur();
     }
     navigate(path);
+    // Di layar HP, sidebar berupa drawer overlay — tutup otomatis setelah
+    // memilih menu supaya konten halaman langsung terlihat.
+    setMobileSidebarOpen(false);
   };
 
   const simpleItems = [
@@ -183,11 +187,23 @@ export default function AppSidebar() {
   );
 
   return (
-    <aside
-      className={`sticky top-0 h-screen bg-sidebar flex flex-col shrink-0 border-r border-sidebar-border ${
-        collapsed ? "w-[72px]" : "w-[260px]"
-      }`}
-    >
+    <>
+      {/* Backdrop — hanya tampil di layar HP/tablet saat drawer terbuka */}
+      {mobileSidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          onClick={() => setMobileSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 h-screen bg-sidebar flex flex-col shrink-0 border-r border-sidebar-border
+          w-[260px] max-w-[80vw] transition-transform duration-300 ease-in-out
+          ${mobileSidebarOpen ? "translate-x-0" : "-translate-x-full"}
+          lg:translate-x-0 lg:sticky lg:top-0 lg:z-auto
+          ${collapsed ? "lg:w-[72px]" : "lg:w-[260px]"}`}
+      >
       {/* Header */}
       <div className="px-3 pt-5 pb-3">
         {collapsed ? (
@@ -196,7 +212,7 @@ export default function AppSidebar() {
               tabIndex={-1}
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => setCollapsed(false)}
-              className="p-2 rounded-lg text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              className="hidden lg:block p-2 rounded-lg text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
             >
               <PanelLeft size={18} />
             </button>
@@ -228,13 +244,23 @@ export default function AppSidebar() {
               <div className="text-primary font-semibold text-sm tracking-wider">SAKURA</div>
               <div className="text-sidebar-foreground/50 text-[10px] font-medium">Document Management</div>
             </button>
+            {/* Tombol collapse — hanya berguna di layar besar */}
             <button
               tabIndex={-1}
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => setCollapsed(true)}
-              className="p-2 rounded-lg text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              className="hidden lg:block p-2 rounded-lg text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
             >
               <PanelLeftClose size={18} />
+            </button>
+            {/* Tombol tutup drawer — hanya tampil di layar HP/tablet */}
+            <button
+              tabIndex={-1}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => setMobileSidebarOpen(false)}
+              className="lg:hidden p-2 rounded-lg text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            >
+              <X size={18} />
             </button>
           </div>
         )}
@@ -389,6 +415,7 @@ export default function AppSidebar() {
           onClick={(e) => handleNavigate(e, "/settings")}
         />
       </nav>
-    </aside>
+      </aside>
+    </>
   );
 }

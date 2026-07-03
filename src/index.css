@@ -445,6 +445,53 @@
   }
 }
 
+/* SAKURA AI avatar — petals fluttering on hover */
+@keyframes avatarPetalFly {
+  0% {
+    transform: translate(0, 0) scale(0.3) rotate(0deg);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--fly-x, 30px), var(--fly-y, -30px)) scale(1) rotate(var(--fly-rot, 200deg));
+    opacity: 0;
+  }
+}
+
+@keyframes avatarGlowPulse {
+  0%, 100% { box-shadow: 0 0 0px hsl(347 70% 65% / 0), 0 0 0px hsl(347 70% 65% / 0); }
+  50% { box-shadow: 0 0 4px hsl(347 70% 65% / 0.5), 0 0 18px hsl(347 70% 65% / 0.4); }
+}
+
+.sakura-avatar-group:hover .sakura-avatar-glow,
+.sakura-avatar-group:focus-visible .sakura-avatar-glow {
+  animation: avatarGlowPulse 1.6s ease-in-out infinite;
+}
+
+.sakura-avatar-group:hover .sakura-avatar-img,
+.sakura-avatar-group:focus-visible .sakura-avatar-img {
+  transform: scale(1.05);
+}
+
+.sakura-avatar-petal {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 8px;
+  height: 6px;
+  border-radius: 50% 0 50% 0;
+  background: hsl(345 70% 78%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.sakura-avatar-group:hover .sakura-avatar-petal,
+.sakura-avatar-group:focus-visible .sakura-avatar-petal {
+  animation: avatarPetalFly 1s ease-out forwards;
+}
+
 /* Scan line for QR mockup */
 @keyframes scanLine {
   0% { top: 10%; opacity: 0.6; }

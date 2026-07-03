@@ -200,7 +200,7 @@ export default function AppHeader({ title, subtitle }) {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -8, scale: 0.96 }}
                 transition={{ duration: 0.15 }}
-                className="absolute right-0 top-14 z-50 w-96 bg-card border border-border rounded-2xl shadow-elevated overflow-hidden"
+                className="absolute right-2 sm:right-0 top-14 z-50 w-[90vw] max-w-sm sm:w-96 max-h-[70vh] bg-card border border-border rounded-2xl shadow-elevated overflow-hidden"
               >
                 {/* Header panel notifikasi */}
                 <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/20">
@@ -239,7 +239,7 @@ export default function AppHeader({ title, subtitle }) {
                 </div>
 
                 {/* Daftar notifikasi */}
-                <div className="max-h-[400px] overflow-y-auto divide-y divide-border scrollbar-thin">
+                <div className="max-h-[calc(70vh-7rem)] overflow-y-auto divide-y divide-border scrollbar-thin">
                   {notificationsLoading && visibleNotifications.length === 0 && (
                     <>
                       <NotifSkeleton />

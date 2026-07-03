@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { FileText, Clock, CheckCircle, Archive, XCircle, Eye, RefreshCw, AlertCircle } from "lucide-react";
-import Header from "@/components/layout/Header";
+import AppHeader from "@/components/layout/AppHeader";
 import DashboardCard from "@/components/dashboard/DashboardCard";
 import ActivityChart from "@/components/dashboard/ActivityChart";
 import DocumentDetailModal from "@/components/document/DocumentDetail";
@@ -93,7 +93,7 @@ export default function DashboardPage() {
 
   return (
     <>
-      <Header title="Dashboard" subtitle="Ringkasan aktivitas dokumen" />
+      <AppHeader title="Dashboard" subtitle="Ringkasan aktivitas dokumen" />
 
       <div className="p-6 lg:p-8 space-y-6 bg-background">
         {/* Hero greeting */}

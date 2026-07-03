@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useMotionValue } from "framer-motion";
 import {
   X,
   Minus,
@@ -15,11 +15,12 @@ import {
 import { sendChatMessage } from "@/services/chatbotService";
 import { useApp } from "@/contexts/AppContext";
 import * as documentService from "@/services/documentService";
-import SakuraPetals from "@/components/sakura/SakuraPetals";
-import sakuraLogo from "@/assets/sakura_1.png";
+import profileLogo from "@/assets/logo_sakura.jpg";
+import chatbotGif from "@/assets/aichatbot_sakura.gif";
+import chatbotPoster from "@/assets/sakura_chatbot_poster.png";
 import sakuraBranch from "@/assets/sakura_branch.png";
 
-// ── Avatar SAKURA AI dengan efek hover: glow + kelopak beterbangan ────────────
+// ── Avatar SAKURA AI (dipakai di header & bubble chat) — efek hover: glow + kelopak beterbangan ──
 const AVATAR_PETALS = [
   { x: 26, y: -22, rot: 160, delay: 0 },
   { x: -28, y: -18, rot: 260, delay: 0.05 },
@@ -29,31 +30,41 @@ const AVATAR_PETALS = [
   { x: -6, y: 30, rot: 200, delay: 0.12 },
 ];
 
-function SakuraAvatar({ size = 44, className = "" }) {
+function PetalRing({ scale = 1 }) {
   return (
-    <div
-      className={`sakura-avatar-group relative flex-shrink-0 outline-none ${className}`}
-      style={{ width: size, height: size }}
-      tabIndex={0}
-    >
+    <>
       {AVATAR_PETALS.map((p, i) => (
         <span
           key={i}
           className="sakura-avatar-petal"
           style={{
-            "--fly-x": `${p.x}px`,
-            "--fly-y": `${p.y}px`,
+            "--fly-x": `${p.x * scale}px`,
+            "--fly-y": `${p.y * scale}px`,
             "--fly-rot": `${p.rot}deg`,
             animationDelay: `${p.delay}s`,
           }}
         />
       ))}
-      <div
-        className="sakura-avatar-glow absolute inset-0 rounded-full"
-        style={{ transition: "box-shadow 300ms ease" }}
-      />
+    </>
+  );
+}
+
+function SakuraAvatar({ size = 44, className = "", interactive = false }) {
+  return (
+    <div
+      className={`sakura-avatar-group relative flex-shrink-0 outline-none ${className}`}
+      style={{ width: size, height: size }}
+      tabIndex={interactive ? 0 : -1}
+    >
+      {interactive && <PetalRing />}
+      {interactive && (
+        <div
+          className="sakura-avatar-glow absolute inset-0 rounded-full"
+          style={{ transition: "box-shadow 300ms ease" }}
+        />
+      )}
       <img
-        src={sakuraLogo}
+        src={profileLogo}
         alt="SAKURA AI"
         className="sakura-avatar-img relative w-full h-full rounded-full object-cover border-2 border-white/80 shadow-md"
         style={{ transition: "transform 300ms ease" }}
@@ -202,6 +213,8 @@ export default function ChatBot() {
 
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
+  const dragConstraintsRef = useRef(null);
+  const dragX = useMotionValue(0);
 
   // Auto-scroll ke bawah setiap ada pesan baru
   useEffect(() => {
@@ -313,23 +326,23 @@ export default function ChatBot() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 16, scale: 0.97 }}
             transition={{ duration: 0.22, ease: "easeOut" }}
-            className="fixed bottom-24 right-5 z-50 w-80 sm:w-96 flex flex-col rounded-3xl shadow-2xl border border-secondary bg-card overflow-hidden"
+            className="fixed bottom-24 right-5 z-50 w-80 sm:w-96 flex flex-col rounded-2xl shadow-2xl ring-1 ring-black/5 border border-secondary bg-card overflow-hidden"
             style={{ height: isMinimized ? "auto" : "520px", maxHeight: "80vh" }}
           >
             {/* Header */}
-            <div className="relative flex items-center gap-2.5 px-4 py-3.5 flex-shrink-0 overflow-hidden bg-gradient-to-br from-[hsl(347,70%,52%)] via-primary to-[hsl(347,60%,34%)] text-primary-foreground">
-              {/* Decorative branch + falling petals */}
-              <img
-                src={sakuraBranch}
-                alt=""
-                aria-hidden="true"
-                className="pointer-events-none select-none absolute -top-3 -right-4 w-32 opacity-30 mix-blend-screen"
+            <div className="relative flex items-center gap-2.5 px-4 py-3.5 flex-shrink-0 overflow-hidden text-primary-foreground">
+              {/* Background: sakura branch photo + gradient overlay for legibility */}
+              <div
+                className="absolute inset-0"
+                style={{
+                  backgroundImage: `url(${sakuraBranch})`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "right center",
+                }}
               />
-              <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <SakuraPetals count={6} />
-              </div>
+              <div className="absolute inset-0 bg-gradient-to-r from-primary via-primary/95 to-primary/60" />
 
-              <SakuraAvatar size={40} className="relative z-10" />
+              <SakuraAvatar size={40} className="relative z-10" interactive />
 
               <div className="flex-1 min-w-0 relative z-10">
                 <p className="font-semibold text-sm leading-none flex items-center gap-1">
@@ -361,33 +374,28 @@ export default function ChatBot() {
             {!isMinimized && (
               <>
                 {/* Messages */}
-                <div className="relative flex-1 overflow-y-auto px-3.5 py-4 bg-gradient-to-b from-secondary/40 to-background">
-                  <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-60">
-                    <SakuraPetals count={8} />
-                  </div>
-                  <div className="relative">
-                    {messages.map((msg, i) => (
-                      <MessageBubble key={i} msg={msg} navigate={navigate} onLinkClick={handleLinkClick} />
-                    ))}
-                    {loading && (
-                      <div className="flex items-end gap-2 mb-3.5">
-                        <SakuraAvatar size={28} />
-                        <div className="bg-card border border-secondary px-3.5 py-2.5 rounded-2xl rounded-bl-md text-sm shadow-sm">
-                          <span className="inline-flex gap-1">
-                            <span className="animate-bounce [animation-delay:0ms] text-primary">●</span>
-                            <span className="animate-bounce [animation-delay:150ms] text-primary">●</span>
-                            <span className="animate-bounce [animation-delay:300ms] text-primary">●</span>
-                          </span>
-                        </div>
+                <div className="flex-1 overflow-y-auto px-3.5 py-4 bg-background">
+                  {messages.map((msg, i) => (
+                    <MessageBubble key={i} msg={msg} navigate={navigate} onLinkClick={handleLinkClick} />
+                  ))}
+                  {loading && (
+                    <div className="flex items-end gap-2 mb-3.5">
+                      <SakuraAvatar size={28} />
+                      <div className="bg-card border border-secondary px-3.5 py-2.5 rounded-2xl rounded-bl-md text-sm shadow-sm">
+                        <span className="inline-flex gap-1">
+                          <span className="animate-bounce [animation-delay:0ms] text-primary">●</span>
+                          <span className="animate-bounce [animation-delay:150ms] text-primary">●</span>
+                          <span className="animate-bounce [animation-delay:300ms] text-primary">●</span>
+                        </span>
                       </div>
-                    )}
-                    <div ref={bottomRef} />
-                  </div>
+                    </div>
+                  )}
+                  <div ref={bottomRef} />
                 </div>
 
                 {/* Quick actions */}
                 <div className="px-3 pt-2.5 pb-1 flex-shrink-0 bg-background border-t border-secondary">
-                  <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     {QUICK_ACTIONS.map((qa) => {
                       const Icon = qa.icon;
                       return (
@@ -395,14 +403,14 @@ export default function ChatBot() {
                           key={qa.key}
                           onClick={() => handleQuickAction(qa)}
                           disabled={loading}
-                          className="flex-shrink-0 inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border border-primary/25 text-primary hover:bg-primary/10 transition-colors disabled:opacity-40"
+                          className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border border-primary/25 text-primary hover:bg-primary/10 transition-colors disabled:opacity-40"
                         >
                           <Icon className="w-3.5 h-3.5" />
                           {qa.label}
                         </button>
                       );
                     })}
-                    <div className="relative flex-shrink-0">
+                    <div className="relative">
                       <button
                         onClick={() => setShowMore((v) => !v)}
                         disabled={loading}
@@ -441,16 +449,15 @@ export default function ChatBot() {
                 <div className="flex items-center gap-2 px-3 py-3 flex-shrink-0 bg-background">
                   <div className="flex-1 flex items-center gap-2 rounded-full border border-input bg-card px-3.5 py-2 focus-within:ring-2 focus-within:ring-ring transition-shadow">
                     <span className="text-base leading-none flex-shrink-0" aria-hidden="true">🌸</span>
-                    <textarea
+                    <input
                       ref={inputRef}
+                      type="text"
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
                       onKeyDown={handleKeyDown}
                       placeholder="Tanyakan sesuatu tentang dokumen…"
-                      rows={1}
                       disabled={loading}
-                      className="flex-1 resize-none bg-transparent text-sm focus:outline-none disabled:opacity-50 max-h-24 overflow-y-auto"
-                      style={{ lineHeight: "1.4" }}
+                      className="flex-1 min-w-0 bg-transparent text-sm focus:outline-none disabled:opacity-50"
                     />
                   </div>
                   <button
@@ -468,34 +475,41 @@ export default function ChatBot() {
         )}
       </AnimatePresence>
 
-      {/* ── Floating Button ─────────────────────────────────────────────── */}
+      {/* ── Floating Button (bisa digeser kiri-kanan, tetap di bawah) ─────── */}
+      <div ref={dragConstraintsRef} className="fixed inset-x-4 bottom-5 h-16 pointer-events-none z-40" aria-hidden="true" />
       {!isOpen && (
-        <button
-          onClick={openChat}
-          className="sakura-avatar-group fixed bottom-5 right-5 z-50 w-16 h-16 rounded-full shadow-xl flex items-center justify-center transition-transform duration-300 ease-out hover:scale-105 focus:outline-none focus:ring-4 focus:ring-primary/30"
-          aria-label="Buka SAKURA AI Assistant"
-          title="SAKURA AI Search Assistant"
+        <motion.button
+          drag="x"
+          dragConstraints={dragConstraintsRef}
+          dragElastic={0.06}
+          dragMomentum={false}
+          style={{ x: dragX }}
+          onTap={openChat}
+          className="sakura-avatar-group group fixed bottom-5 right-5 z-50 w-16 h-16 rounded-full shadow-xl ring-1 ring-black/5 flex items-center justify-center cursor-grab active:cursor-grabbing transition-[transform,box-shadow] duration-300 ease-out hover:scale-105 focus:outline-none focus:ring-4 focus:ring-primary/30"
+          aria-label="Buka SAKURA AI Assistant (bisa digeser ke kiri/kanan)"
+          title="SAKURA AI Search Assistant — geser untuk memindahkan"
         >
-          {AVATAR_PETALS.map((p, i) => (
-            <span
-              key={i}
-              className="sakura-avatar-petal"
-              style={{
-                "--fly-x": `${p.x * 1.3}px`,
-                "--fly-y": `${p.y * 1.3}px`,
-                "--fly-rot": `${p.rot}deg`,
-                animationDelay: `${p.delay}s`,
-              }}
-            />
-          ))}
+          <PetalRing scale={1.3} />
           <div className="sakura-avatar-glow absolute inset-0 rounded-full" style={{ transition: "box-shadow 300ms ease" }} />
+
+          {/* Poster statis (default) */}
           <img
-            src={sakuraLogo}
-            alt="SAKURA AI"
-            className="sakura-avatar-img relative w-full h-full rounded-full object-cover border-2 border-white shadow-lg"
-            style={{ transition: "transform 300ms ease" }}
+            src={chatbotPoster}
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+            className="sakura-avatar-img absolute inset-0 w-full h-full rounded-full object-cover border-2 border-white shadow-lg opacity-100 group-hover:opacity-0 transition-opacity duration-200"
+            style={{ transition: "opacity 200ms ease, transform 300ms ease" }}
           />
-        </button>
+          {/* GIF animasi — terlihat & "bergerak" saat kursor diarahkan ke sini */}
+          <img
+            src={chatbotGif}
+            alt="SAKURA AI"
+            draggable={false}
+            className="sakura-avatar-img absolute inset-0 w-full h-full rounded-full object-cover border-2 border-white shadow-lg opacity-0 group-hover:opacity-100"
+            style={{ transition: "opacity 200ms ease, transform 300ms ease" }}
+          />
+        </motion.button>
       )}
     </>
   );

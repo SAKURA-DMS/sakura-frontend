@@ -112,8 +112,10 @@ export default function AppHeader({ title, subtitle }) {
   const navigate = useNavigate();
   const [showNotifs, setShowNotifs] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [notifMenuStyle, setNotifMenuStyle] = useState({ top: 0, right: 12 });
   const dropdownRef = useRef(null);
   const notifRef = useRef(null);
+  const notifButtonRef = useRef(null);
 
   useEffect(() => {
     const handler = (e) => {
@@ -127,6 +129,25 @@ export default function AppHeader({ title, subtitle }) {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+
+  useEffect(() => {
+    if (!showNotifs || !notifButtonRef.current) return;
+
+    const updatePosition = () => {
+      const rect = notifButtonRef.current.getBoundingClientRect();
+      const right = Math.max(12, window.innerWidth - rect.right - 12);
+      const top = rect.bottom + 8;
+      setNotifMenuStyle({ top, right });
+    };
+
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [showNotifs]);
 
   // Klik notifikasi: tandai baca, lalu navigasi ke dokumen jika ada
   const handleNotifClick = async (notif) => {
@@ -178,6 +199,7 @@ export default function AppHeader({ title, subtitle }) {
         {/* ── Notification Bell ── */}
         <div className="relative" ref={notifRef}>
           <button
+            ref={notifButtonRef}
             onClick={() => setShowNotifs((v) => !v)}
             className="relative p-2.5 rounded-xl hover:bg-muted transition-all duration-200"
             aria-label={`Notifikasi${unreadCount > 0 ? ` (${unreadCount} belum dibaca)` : ""}`}
@@ -200,7 +222,8 @@ export default function AppHeader({ title, subtitle }) {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -8, scale: 0.96 }}
                 transition={{ duration: 0.15 }}
-                className="absolute right-2 sm:right-0 top-14 z-50 w-[90vw] max-w-sm sm:w-96 max-h-[70vh] bg-card border border-border rounded-2xl shadow-elevated overflow-hidden"
+                className="fixed z-50 w-[90vw] max-w-sm sm:w-96 max-h-[70vh] bg-card border border-border rounded-2xl shadow-elevated overflow-hidden"
+                style={{ top: notifMenuStyle.top, right: notifMenuStyle.right }}
               >
                 {/* Header panel notifikasi */}
                 <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/20">

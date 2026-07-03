@@ -7,5 +7,6 @@ import api from "@/lib/apiClient";
  */
 export async function sendChatMessage(message) {
   const { data } = await api.post("/chatbot", { message });
-  return data.answer;
+  // return full payload so frontend can use `data.links` if present
+  return data;
 }

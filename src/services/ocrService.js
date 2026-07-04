@@ -1,6 +1,6 @@
-/**
+﻿/**
  * ocrService.js
- * OCR menggunakan Tesseract.js — library paling stabil untuk OCR di browser.
+ * OCR menggunakan Tesseract.js â€” library paling stabil untuk OCR di browser.
  * Load via dynamic import agar tidak mempengaruhi bundle size.
  *
  * Tesseract.js v5 (latest stable): https://github.com/naptha/tesseract.js
@@ -34,7 +34,7 @@ async function loadTesseract() {
 
 /**
  * Inisialisasi worker (satu kali).
- * @param {function} onProgress - callback progress (0–1)
+ * @param {function} onProgress - callback progress (0â€“1)
  */
 export async function initOCR(onProgress) {
   if (workerReady) return worker;
@@ -54,7 +54,7 @@ export async function initOCR(onProgress) {
           onProgress(m.progress);
         }
       },
-      // WASM path — Tesseract.js akan fetch dari CDN secara otomatis
+      // WASM path â€” Tesseract.js akan fetch dari CDN secara otomatis
     });
 
     workerReady = true;
@@ -69,7 +69,7 @@ export async function initOCR(onProgress) {
 /**
  * Jalankan OCR pada gambar.
  * @param {string|File|Blob} image - bisa berupa dataUrl, File, atau Blob
- * @param {function} onProgress - callback (0–1)
+ * @param {function} onProgress - callback (0â€“1)
  * @returns {Promise<{text: string, confidence: number, words: Array}>}
  */
 export async function recognizeImage(image, onProgress) {
@@ -81,6 +81,24 @@ export async function recognizeImage(image, onProgress) {
     words: result.data.words || [],
     lines: result.data.lines || [],
   };
+}
+
+export function getOCRTemplateByType(typeId, typeName) {
+  const normalized = (typeName || "").toString().toLowerCase();
+
+  if (typeId === 4 || /\bijazah\b/.test(normalized)) return "ijazah";
+  if (
+    typeId === 3 ||
+    /\bskl\b/.test(normalized) ||
+    /\bskhu\b/.test(normalized) ||
+    /surat\s*keterangan\s*(?:lulus|hasil\s*ujian)/i.test(normalized)
+  ) {
+    return "skl";
+  }
+  if (typeId === 6 || /\bsertifikat\b/.test(normalized)) return "sertifikat";
+  if (/\btranskrip\b/.test(normalized) || /rekap\s*nilai/i.test(normalized)) return "transkrip";
+
+  return null;
 }
 
 /**
@@ -96,84 +114,92 @@ export async function terminateOCR() {
 
 /**
  * Parse teks OCR dan ekstrak field-field umum dokumen sekolah.
- * Ini adalah heuristic parser — confidence bervariasi tergantung kualitas scan.
+ * Ini adalah heuristic parser â€” confidence bervariasi tergantung kualitas scan.
  *
  * @param {string} rawText - hasil OCR
  * @returns {object} field yang terdeteksi
  */
-export function parseDocumentFields(rawText) {
-  const text = rawText.replace(/\s+/g, " ").trim();
-  const lines = rawText.split(/\n/).map((l) => l.trim()).filter(Boolean);
+export function parseDocumentFields(rawText, templateKey) {
+  const normalizedText = rawText.replace(/\r\n/g, "\n").trim();
+  const text = normalizedText.replace(/\n+/g, " ").replace(/\s+/g, " ").trim();
+  const lines = normalizedText.split(/\n/).map((l) => l.trim()).filter(Boolean);
 
+  if (!templateKey) return {};
   const fields = {};
 
-  // Helper: cari nilai setelah label (case-insensitive, spasi fleksibel)
   const extract = (pattern) => {
-    const m = text.match(pattern);
+    const m = normalizedText.match(pattern) || text.match(pattern);
     return m ? m[1].trim() : "";
   };
 
-  // ── Nama siswa ──
-  fields.namaSiswa =
-    extract(/nama\s*(?:siswa|lengkap|:)[\s:]*([A-Za-z\s]+?)(?:\n|NIS|NISN|TTL|$)/i) ||
-    extract(/nama[\s:]+([A-Za-z\s]{3,40})/i);
+  const setCommonSchoolFields = () => {
+    fields.namaSiswa =
+      extract(/nama\s*(?:siswa|lengkap)?[\s:]*([A-Za-z\s]{3,80}?)(?=\s*(?:NIS|NISN|TTL|Kelas|Tahun|$))/i) ||
+      extract(/nama[\s:]+([A-Za-z\s]{3,80})/i);
+    fields.nis = extract(/NIS[\s:]+(\d{4,12})/i);
+    fields.nisn = extract(/NISN[\s:]+(\d{6,12})/i);
+    fields.kelas = extract(/kelas[\s:]+([0-9A-Za-z\s/-]{1,15})/i);
+    fields.tahunAjaran = extract(/tahun\s*ajaran[\s:]+(\d{4}[/\\-]\d{4})/i) ||
+      extract(/semester[\s:]+(\d{4}[/\\-]\d{4})/i);
+    fields.tempatLahir = extract(/tempat\s*(?:lahir|ttl)[\s:,]+([A-Za-z\s]{3,30})/i);
+    fields.tanggalLahir =
+      extract(/(?:tanggal\s*lahir|tgl\.?\s*lahir)[\s:]+(\d{1,2}[/\\-]\d{1,2}[/\\-]\d{4})/i) ||
+      extract(/ttl[\s:]+[A-Za-z\s,]+,\s*(\d{1,2}[/\\-]\d{1,2}[/\\-]\d{4})/i);
+    if (/\b(laki-laki|laki laki|L\b)/i.test(text)) fields.jenisKelamin = "Laki-Laki";
+    else if (/\b(perempuan|P\b)/i.test(text)) fields.jenisKelamin = "Perempuan";
+  };
 
-  // ── NIS / NISN ──
-  fields.nis = extract(/NIS[\s:]+(\d{4,12})/i);
-  fields.nisn = extract(/NISN[\s:]+(\d{6,12})/i);
+  const setCommonDocumentTitle = () => {
+    const titleCandidates = lines.slice(0, 7).filter((line) => line.length > 8 && line.length < 120);
+    if (titleCandidates.length) fields.judul = titleCandidates[0];
+  };
 
-  // ── Kelas ──
-  fields.kelas = extract(/kelas[\s:]+([0-9A-Za-z\s/-]{1,15})/i);
+  switch (templateKey) {
+    case "ijazah":
+      setCommonSchoolFields();
+      setCommonDocumentTitle();
+      break;
+    case "transkrip":
+      setCommonSchoolFields();
+      fields.judul =
+        extract(/(transkrip\s+nilai|rekap\s+nilai|daftar\s+nilai|daftar\s+nilai\s*siswa|nilai\s*siswa)[^\n]{0,80}/i) ||
+        fields.judul;
+      setCommonDocumentTitle();
+      break;
+    case "sertifikat":
+      fields.judul =
+        extract(/(sertifikat[^\n]{3,80})/i) ||
+        extract(/judul[\s:]+([^\n]{3,80})/i);
+      fields.namaSiswa =
+        extract(/(?:nama\s*(?:peserta|penerima)?|kepada)[\s:]+([A-Za-z\s]{3,80})/i) ||
+        extract(/nama[\s:]+([A-Za-z\s]{3,80})/i);
+      fields.tanggalSurat = extract(/(?:tanggal|tgl\.?)[\s:]+(\d{1,2}\s+\w+\s+\d{4})/i);
+      fields.pengirim = extract(/(?:diberikan oleh|oleh|instansi|sekolah|lembaga)[\s:]+([^\n]{3,80})/i);
+      fields.perihal = extract(/(?:perihal|atas nama|diberikan kepada)[\s:]+([^\n]{3,80})/i);
+      setCommonDocumentTitle();
+      break;
+    case "skl":
+      setCommonSchoolFields();
+      fields.judul =
+        extract(/(surat\s+keterangan\s+lulus|surat\s+lulus|skl|skhu)[^\n]{0,80}/i) ||
+        fields.judul;
+      fields.tanggalSurat = extract(/(?:tanggal|tgl\.?)[\s:]+(\d{1,2}\s+\w+\s+\d{4})/i);
+      setCommonDocumentTitle();
+      break;
+    default:
+      return {};
+  }
 
-  // ── Tahun ajaran ──
-  fields.tahunAjaran = extract(/tahun\s*ajaran[\s:]+(\d{4}[/\-]\d{4})/i);
-
-  // ── Tanggal / Tempat lahir ──
-  fields.tempatLahir = extract(/tempat\s*(?:lahir|ttl)[\s:,]+([A-Za-z\s]{3,30})/i);
-  fields.tanggalLahir = extract(/(?:tanggal\s*lahir|tgl\.?\s*lahir)[\s:]+(\d{1,2}[/\-]\d{1,2}[/\-]\d{4})/i) ||
-    extract(/ttl[\s:]+[A-Za-z\s,]+,\s*(\d{1,2}[/\-]\d{1,2}[/\-]\d{4})/i);
-
-  // ── Jenis kelamin ──
-  if (/\b(laki-laki|laki laki|L\b)/i.test(text)) fields.jenisKelamin = "Laki-Laki";
-  else if (/\b(perempuan|P\b)/i.test(text)) fields.jenisKelamin = "Perempuan";
-
-  // ── Nama orang tua ──
+  fields.nomorSurat = extract(/(?:nomor\s*surat|no\.?\s*surat|no\s*:\s*)([A-Za-z0-9/\-.]{4,50})/i);
   fields.namaOrangTua =
     extract(/(?:nama\s*)?orang\s*tua[\s:]+([A-Za-z\s]{3,40})/i) ||
     extract(/(?:nama\s*)?ayah[\s:]+([A-Za-z\s]{3,40})/i);
-
-  // ── Nomor HP ──
   fields.noHpOrangTua = extract(/(?:no\.?\s*hp|telepon|hp)[\s:]+(\+?[\d\s-]{9,15})/i);
-
-  // ── NIP guru ──
   fields.nip = extract(/NIP[\s:]+(\d{10,20})/i);
-
-  // ── Nomor surat ──
-  fields.nomorSurat = extract(/(?:nomor\s*surat|no\.?\s*surat)[\s:]+([A-Za-z0-9/\-.]{4,30})/i);
-
-  // ── Perihal ──
-  fields.perihal = extract(/(?:perihal|hal)[\s:]+([^\n]{3,80})/i);
-
-  // ── Tanggal surat ──
-  fields.tanggalSurat = extract(/(?:tanggal|tgl\.?)[\s:]+(\d{1,2}\s+\w+\s+\d{4})/i);
-
-  // ── Pengirim / Asal surat ──
-  fields.pengirim = extract(/(?:dari|pengirim|asal)[\s:]+([^\n]{3,60})/i);
-
-  // ── Tujuan surat ──
+  fields.perihal = fields.perihal || extract(/(?:perihal|hal)[\s:]+([^\n]{3,80})/i);
+  fields.pengirim = fields.pengirim || extract(/(?:dari|pengirim|asal|lembaga)[\s:]+([^\n]{3,60})/i);
   fields.tujuan = extract(/(?:kepada|tujuan|yth)[\s.,:]+([^\n]{3,60})/i);
 
-  // ── Nama barang (inventaris) ──
-  fields.namaBarang = extract(/(?:nama\s*barang|barang)[\s:]+([^\n]{3,60})/i);
-
-  // ── Judul dokumen — ambil baris ke-1 atau ke-2 yang cukup panjang ──
-  for (const line of lines.slice(0, 5)) {
-    if (line.length > 8 && line.length < 120 && !fields.judul) {
-      fields.judul = line.replace(/[^A-Za-z0-9\s\-().,]/g, "").trim();
-    }
-  }
-
-  // Bersihkan nilai kosong
   Object.keys(fields).forEach((k) => {
     if (!fields[k]) delete fields[k];
   });

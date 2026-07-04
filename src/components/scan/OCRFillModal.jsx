@@ -12,12 +12,12 @@
  * 5. Konfirmasi → kirim ke parent via onConfirm(fields)
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   X, FileText, Scan, Loader2, CheckCircle, AlertTriangle,
   Edit3, RotateCcw, ChevronRight, Eye, EyeOff,
 } from "lucide-react";
-import { recognizeImage, parseDocumentFields, terminateOCR } from "@/services/ocrService";
+import { recognizeImage, parseDocumentFields, getOCRTemplateByType } from "@/services/ocrService";
 
 // ── Label mapping field → bahasa Indonesia ──────────────────────────────────
 const FIELD_LABELS = {
@@ -58,6 +58,8 @@ export default function OCRFillModal({
   onConfirm,
   scanImageUrl,      // dataUrl gambar yang sudah di-scan (untuk di-OCR)
   categoryId,        // untuk menentukan field mana yang relevan
+  typeId,
+  typeName,
   autoConfirm = false,
 }) {
   const [mode, setMode] = useState(null); // null | "manual" | "ocr"
@@ -67,7 +69,15 @@ export default function OCRFillModal({
   const [confidence, setConfidence] = useState(0);
   const [fields, setFields] = useState({});
   const [showRaw, setShowRaw] = useState(false);
+  const [ocrStatusMessage, setOcrStatusMessage] = useState("");
   const [selectedCategory, setSelectedCategory] = useState(categoryId || 1);
+
+  const templateKey = useMemo(() => getOCRTemplateByType(typeId, typeName), [typeId, typeName]);
+  const isSupportedOCR = Boolean(templateKey);
+
+  useEffect(() => {
+    if (categoryId) setSelectedCategory(categoryId);
+  }, [categoryId]);
 
   // Tentukan field yang relevan berdasarkan kategori
   const relevantFields = CATEGORY_FIELDS[selectedCategory] || Object.keys(FIELD_LABELS);
@@ -83,17 +93,27 @@ export default function OCRFillModal({
   // ── Jalankan OCR ──────────────────────────────────────────────────────────
   const runOCR = useCallback(async () => {
     if (!scanImageUrl) {
+      setOcrStatusMessage("Scan dokumen terlebih dahulu untuk menggunakan OCR.");
       setOcrStep("error");
       return;
     }
+    if (!isSupportedOCR) {
+      setOcrStatusMessage(
+        "OCR hanya mendukung dokumen terstruktur tertentu seperti Ijazah, SKL, Sertifikat, dan Transkrip/Rekap Nilai."
+      );
+      setOcrStep("error");
+      return;
+    }
+
     setOcrStep("loading");
     setOcrProgress(0);
+    setOcrStatusMessage("");
 
     try {
       const result = await recognizeImage(scanImageUrl, (p) => setOcrProgress(Math.round(p * 100)));
       setRawText(result.text);
       setConfidence(Math.round(result.confidence));
-      const parsed = parseDocumentFields(result.text);
+      const parsed = parseDocumentFields(result.text, templateKey);
 
       // Hanya ambil field yang relevan dengan kategori ini
       const filteredFields = {};
@@ -105,13 +125,21 @@ export default function OCRFillModal({
       setOcrStep("done");
     } catch (err) {
       console.error("OCR error:", err);
+      setOcrStatusMessage("Terjadi kesalahan saat membaca dokumen. Coba lagi atau isi manual.");
       setOcrStep("error");
     }
-  }, [scanImageUrl, relevantFields]);
+  }, [scanImageUrl, relevantFields, templateKey, isSupportedOCR]);
 
   useEffect(() => {
     if (mode === "ocr") runOCR();
   }, [mode, runOCR]);
+
+  useEffect(() => {
+    if (autoConfirm && scanImageUrl && mode === null) {
+      setMode("ocr");
+      setOcrStep("idle");
+    }
+  }, [autoConfirm, scanImageUrl, mode]);
 
   useEffect(() => {
     if (autoConfirm && mode === "ocr" && ocrStep === "done") {
@@ -165,9 +193,9 @@ export default function OCRFillModal({
         {/* OCR */}
         <button
           onClick={() => { setMode("ocr"); setOcrStep("idle"); }}
-          disabled={!scanImageUrl}
+          disabled={!scanImageUrl || !isSupportedOCR}
           className={`relative flex items-start gap-4 p-4 rounded-xl border-2 text-left transition-all ${
-            scanImageUrl
+            scanImageUrl && isSupportedOCR
               ? "border-primary/40 bg-primary/[0.03] hover:border-primary hover:bg-primary/[0.06]"
               : "border-border bg-muted/30 opacity-50 cursor-not-allowed"
           }`}
@@ -181,11 +209,13 @@ export default function OCRFillModal({
               Sistem membaca isi dokumen scan secara otomatis dan mengisi form. Anda tetap dapat mengedit hasilnya.
             </p>
             <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-              OCR hanya mendukung dokumen tercetak yang jelas seperti ijazah, transkrip, sertifikat, surat resmi, formulir.
+              OCR hanya mendukung dokumen cetak terstruktur seperti Ijazah, SKL, Sertifikat, dan Transkrip/Rekap Nilai.
             </p>
-            {!scanImageUrl && (
+            {(!scanImageUrl || !isSupportedOCR) && (
               <p className="text-xs text-amber-600 mt-1 font-medium">
-                ⚠ Scan dokumen terlebih dahulu untuk menggunakan OCR.
+                {isSupportedOCR
+                  ? "⚠ Scan dokumen terlebih dahulu untuk menggunakan OCR."
+                  : "⚠ Dokumen ini tidak didukung untuk OCR. Pilih isi manual atau gunakan scan dokumen lain."}
               </p>
             )}
           </div>
@@ -251,7 +281,7 @@ export default function OCRFillModal({
       <div className="text-center">
         <p className="font-semibold text-foreground">OCR Gagal</p>
         <p className="text-sm text-muted-foreground mt-1">
-          Tidak dapat membaca dokumen. Pastikan koneksi internet tersedia untuk mengunduh model OCR.
+          {ocrStatusMessage || "Tidak dapat membaca dokumen. Pastikan koneksi internet tersedia untuk mengunduh model OCR."}
         </p>
       </div>
       <div className="flex gap-3">
@@ -327,9 +357,9 @@ export default function OCRFillModal({
         )}
 
         {/* Editable fields */}
-        <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
+        <div className="space-y-3 max-h-[calc(92vh-280px)] overflow-y-auto pr-1">
           {relevantFields.map((key) => (
-            <div key={key}>
+            <div key={key} className="space-y-2">
               <label className="block text-xs font-medium text-foreground mb-1">
                 {FIELD_LABELS[key] || key}
                 {fields[key] && (
@@ -403,7 +433,7 @@ export default function OCRFillModal({
       onClick={onClose}
     >
       <div
-        className="bg-card rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden"
+        className="bg-card rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

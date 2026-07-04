@@ -13,7 +13,7 @@
  * Library: hanya browser Canvas API bawaan (zero extra dependencies)
  */
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import {
   Camera, X, ZoomIn, ZoomOut, Sun, Contrast, Scan,
   RotateCw, Check, Sliders, ChevronRight, AlertTriangle,
@@ -373,7 +373,7 @@ export default function DocumentScanner({ onClose, onCapture }) {
   const [brightness, setBrightness] = useState(10);
   const [contrast, setContrast] = useState(15);
   const [sharpen, setSharpen] = useState(true);
-  const [autoPerspective, setAutoPerspective] = useState(true);
+  const [autoPerspective, setAutoPerspective] = useState(false);
 
   // ── Start kamera ──
   const startCamera = useCallback(async () => {
@@ -482,7 +482,7 @@ export default function DocumentScanner({ onClose, onCapture }) {
 
     // Hentikan kamera
     stream?.getTracks().forEach((t) => t.stop());
-    setStep(autoPerspective && corners ? "result" : "adjust");
+    setStep(autoPerspective && corners ? "result" : "result");
   }, [brightness, contrast, sharpen, autoPerspective, stream]);
 
   // ── Terapkan perspektif manual ──
@@ -512,11 +512,16 @@ export default function DocumentScanner({ onClose, onCapture }) {
       contrast,
       sharpen,
       perspectiveCorners: adjustedCorners,
-      applyPerspective: true,
+      applyPerspective: autoPerspective,
     });
     setProcessedUrl(dataUrl);
     setIsProcessing(false);
-  }, [capturedRaw, brightness, contrast, sharpen, adjustedCorners]);
+  }, [capturedRaw, brightness, contrast, sharpen, adjustedCorners, autoPerspective]);
+
+  useEffect(() => {
+    if (step !== "result" || !capturedRaw) return;
+    reprocess();
+  }, [step, brightness, contrast, sharpen, autoPerspective, reprocess]);
 
   // ── Selesai / kirim ke parent ──
   const handleDone = useCallback(() => {

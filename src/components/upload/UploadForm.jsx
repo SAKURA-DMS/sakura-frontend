@@ -1005,12 +1005,12 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
                     setShowOCRModal(true);
                   } else {
                     setShouldAutoConfirmOCR(true);
-                  setScanForOCR(true);
-                  setShowCameraScan(true);
-                }
-              }}
-              className="w-full mt-2 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border border-primary/40 bg-primary/[0.04] text-primary text-sm font-medium hover:bg-primary/10 transition-colors"
-            >
+                    setScanForOCR(true);
+                    setShowCameraScan(true);
+                  }
+                }}
+                className="w-full mt-2 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border border-primary/40 bg-primary/[0.04] text-primary text-sm font-medium hover:bg-primary/10 transition-colors"
+              >
               <Wand2 size={16} /> {lastScanUrl || scanPageImages.length > 0 ? "Isi Form dengan OCR" : "Scan + OCR Otomatis"}
             </button>
 
@@ -1397,6 +1397,8 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
           onConfirm={handleOCRConfirm}
           scanImageUrl={lastScanUrl || scanPageImages[0] || null}
           categoryId={selectedCategoryId}
+          typeId={selectedTypeId}
+          typeName={form.jenisDokumen}
           autoConfirm={shouldAutoConfirmOCR}
         />
       )}

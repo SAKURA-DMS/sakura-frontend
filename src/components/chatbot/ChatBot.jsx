@@ -19,6 +19,7 @@ import profileLogo from "@/assets/logo_sakura.jpg";
 import chatbotGif from "@/assets/aichatbot_sakura.gif";
 import chatbotPoster from "@/assets/sakura_chatbot_poster.png";
 import sakuraBranch from "@/assets/sakura_branch.png";
+import sakuraAlt from "@/assets/sakura_1.png";
 
 // ── Avatar SAKURA AI (dipakai di header & bubble chat) — efek hover: glow + kelopak beterbangan ──
 const AVATAR_PETALS = [
@@ -49,7 +50,7 @@ function PetalRing({ scale = 1 }) {
   );
 }
 
-function SakuraAvatar({ size = 44, className = "", interactive = false }) {
+function SakuraAvatar({ size = 44, className = "", interactive = false, src }) {
   return (
     <div
       className={`sakura-avatar-group relative flex-shrink-0 outline-none ${className}`}
@@ -64,7 +65,7 @@ function SakuraAvatar({ size = 44, className = "", interactive = false }) {
         />
       )}
       <img
-        src={profileLogo}
+        src={src || profileLogo}
         alt="SAKURA AI"
         className="sakura-avatar-img relative w-full h-full rounded-full object-cover border-2 border-white/80 shadow-md"
         style={{ transition: "transform 300ms ease" }}
@@ -217,6 +218,7 @@ export default function ChatBot() {
   const dragX = useMotionValue(0);
   const [avatarX, setAvatarX] = useState(0); // track final x position for anchoring
   const [anchor, setAnchor] = useState("right");
+  const [inputFocused, setInputFocused] = useState(false);
 
   // Auto-scroll ke bawah setiap ada pesan baru
   useEffect(() => {
@@ -363,7 +365,7 @@ export default function ChatBot() {
               />
               <div className="absolute inset-0 bg-gradient-to-r from-primary via-primary/95 to-primary/60" />
 
-              <SakuraAvatar size={40} className="relative z-10" interactive />
+              <SakuraAvatar size={40} className="relative z-10" interactive src={sakuraAlt} />
 
               <div className="flex-1 min-w-0 relative z-10">
                 <p className="font-semibold text-sm leading-none flex items-center gap-1">
@@ -468,7 +470,7 @@ export default function ChatBot() {
 
                 {/* Input */}
                 <div className="flex items-center gap-2 px-3 py-3 flex-shrink-0 bg-background">
-                  <div className="flex-1 flex items-center gap-2 rounded-full border border-input bg-card px-3.5 py-2 transition-shadow">
+                  <div className={`flex-1 flex items-center gap-2 rounded-full bg-card px-3.5 py-2 transition-shadow ${inputFocused ? 'border-transparent' : 'border border-input'}`}>
                       <span className="text-base leading-none flex-shrink-0" aria-hidden="true">🌸</span>
                       <textarea
                         ref={inputRef}
@@ -479,6 +481,8 @@ export default function ChatBot() {
                         disabled={loading}
                         rows={1}
                         className="flex-1 min-w-0 resize-none bg-transparent text-sm focus:outline-none disabled:opacity-50 max-h-36 overflow-auto"
+                        onFocus={() => setInputFocused(true)}
+                        onBlur={() => setInputFocused(false)}
                         onInput={(e) => {
                           // auto-resize
                           const ta = e.target;
@@ -512,7 +516,7 @@ export default function ChatBot() {
         dragMomentum={false}
         onDragEnd={handleDragEnd}
         style={{ x: dragX }}
-        onTap={openChat}
+        onTap={() => setIsOpen((v) => !v)}
         className={`sakura-avatar-group group fixed bottom-5 z-50 w-16 h-16 rounded-full shadow-xl ring-1 ring-black/5 flex items-center justify-center cursor-grab active:cursor-grabbing transition-[transform,box-shadow] duration-300 ease-out hover:scale-105 focus:outline-none ${
           anchor === "left" ? "left-5" : "right-5"
         } ${isOpen ? "opacity-80 pointer-events-auto scale-95" : ""}`}

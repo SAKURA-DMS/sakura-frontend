@@ -215,6 +215,8 @@ export default function ChatBot() {
   const inputRef = useRef(null);
   const dragConstraintsRef = useRef(null);
   const dragX = useMotionValue(0);
+  const [avatarX, setAvatarX] = useState(0); // track final x position for anchoring
+  const [anchor, setAnchor] = useState("right");
 
   // Auto-scroll ke bawah setiap ada pesan baru
   useEffect(() => {
@@ -225,6 +227,14 @@ export default function ChatBot() {
   useEffect(() => {
     if (isOpen && !isMinimized) inputRef.current?.focus();
   }, [isOpen, isMinimized]);
+
+  // When chat opens, keep avatar visible and anchor window based on last drag
+  useEffect(() => {
+    if (isOpen) {
+      // decide anchor based on avatarX (negative = left, positive = right)
+      setAnchor(avatarX < 0 ? "left" : "right");
+    }
+  }, [isOpen, avatarX]);
 
   // Hanya tampilkan jika user sudah login
   if (!isLoggedIn) return null;
@@ -316,17 +326,28 @@ export default function ChatBot() {
     setIsMinimized(false);
   }
 
+  function handleDragEnd(event, info) {
+    // decide which side to anchor to based on final screen position
+    const screenX = info.point.x;
+    setAvatarX(screenX);
+    setAnchor(screenX < window.innerWidth / 2 ? "left" : "right");
+    // reset translation so CSS left/right classes position the avatar
+    if (dragX && typeof dragX.set === "function") dragX.set(0);
+  }
+
   return (
     <>
       {/* ── Chat Window ─────────────────────────────────────────────────── */}
       <AnimatePresence>
         {isOpen && (
-          <motion.div
+            <motion.div
             initial={{ opacity: 0, y: 24, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 16, scale: 0.97 }}
             transition={{ duration: 0.22, ease: "easeOut" }}
-            className="fixed bottom-24 right-5 z-50 w-80 sm:w-96 flex flex-col rounded-2xl shadow-2xl ring-1 ring-black/5 border border-secondary bg-card overflow-hidden"
+              className={`fixed bottom-24 z-50 w-80 sm:w-96 flex flex-col rounded-2xl shadow-2xl ring-1 ring-black/5 border border-secondary bg-card overflow-hidden ${
+                anchor === "left" ? "left-5" : "right-5"
+              }`}
             style={{ height: isMinimized ? "auto" : "520px", maxHeight: "80vh" }}
           >
             {/* Header */}
@@ -447,19 +468,25 @@ export default function ChatBot() {
 
                 {/* Input */}
                 <div className="flex items-center gap-2 px-3 py-3 flex-shrink-0 bg-background">
-                  <div className="flex-1 flex items-center gap-2 rounded-full border border-input bg-card px-3.5 py-2 focus-within:ring-2 focus-within:ring-ring transition-shadow">
-                    <span className="text-base leading-none flex-shrink-0" aria-hidden="true">🌸</span>
-                    <input
-                      ref={inputRef}
-                      type="text"
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      placeholder="Tanyakan sesuatu tentang dokumen…"
-                      disabled={loading}
-                      className="flex-1 min-w-0 bg-transparent text-sm focus:outline-none disabled:opacity-50"
-                    />
-                  </div>
+                  <div className="flex-1 flex items-center gap-2 rounded-full border border-input bg-card px-3.5 py-2 transition-shadow">
+                      <span className="text-base leading-none flex-shrink-0" aria-hidden="true">🌸</span>
+                      <textarea
+                        ref={inputRef}
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        placeholder="Tanyakan sesuatu tentang dokumen…"
+                        disabled={loading}
+                        rows={1}
+                        className="flex-1 min-w-0 resize-none bg-transparent text-sm focus:outline-none disabled:opacity-50 max-h-36 overflow-auto"
+                        onInput={(e) => {
+                          // auto-resize
+                          const ta = e.target;
+                          ta.style.height = "auto";
+                          ta.style.height = Math.min(ta.scrollHeight, 144) + "px";
+                        }}
+                      />
+                    </div>
                   <button
                     onClick={handleSend}
                     disabled={loading || !input.trim()}
@@ -476,41 +503,43 @@ export default function ChatBot() {
       </AnimatePresence>
 
       {/* ── Floating Button (bisa digeser kiri-kanan, tetap di bawah) ─────── */}
-      <div ref={dragConstraintsRef} className="fixed inset-x-4 bottom-5 h-16 pointer-events-none z-40" aria-hidden="true" />
-      {!isOpen && (
-        <motion.button
-          drag="x"
-          dragConstraints={dragConstraintsRef}
-          dragElastic={0.06}
-          dragMomentum={false}
-          style={{ x: dragX }}
-          onTap={openChat}
-          className="sakura-avatar-group group fixed bottom-5 right-5 z-50 w-16 h-16 rounded-full shadow-xl ring-1 ring-black/5 flex items-center justify-center cursor-grab active:cursor-grabbing transition-[transform,box-shadow] duration-300 ease-out hover:scale-105 focus:outline-none focus:ring-4 focus:ring-primary/30"
-          aria-label="Buka SAKURA AI Assistant (bisa digeser ke kiri/kanan)"
-          title="SAKURA AI Search Assistant — geser untuk memindahkan"
-        >
-          <PetalRing scale={1.3} />
-          <div className="sakura-avatar-glow absolute inset-0 rounded-full" style={{ transition: "box-shadow 300ms ease" }} />
+      <div ref={dragConstraintsRef} className="fixed inset-0 bottom-5 h-16 pointer-events-none z-40" aria-hidden="true" />
 
-          {/* Poster statis (default) */}
-          <img
-            src={chatbotPoster}
-            alt=""
-            aria-hidden="true"
-            draggable={false}
-            className="sakura-avatar-img absolute inset-0 w-full h-full rounded-full object-cover border-2 border-white shadow-lg opacity-100 group-hover:opacity-0 transition-opacity duration-200"
-            style={{ transition: "opacity 200ms ease, transform 300ms ease" }}
-          />
-          {/* GIF animasi — terlihat & "bergerak" saat kursor diarahkan ke sini */}
-          <img
-            src={chatbotGif}
-            alt="SAKURA AI"
-            draggable={false}
-            className="sakura-avatar-img absolute inset-0 w-full h-full rounded-full object-cover border-2 border-white shadow-lg opacity-0 group-hover:opacity-100"
-            style={{ transition: "opacity 200ms ease, transform 300ms ease" }}
-          />
-        </motion.button>
-      )}
+      <motion.button
+        drag="x"
+        dragConstraints={dragConstraintsRef}
+        dragElastic={0.06}
+        dragMomentum={false}
+        onDragEnd={handleDragEnd}
+        style={{ x: dragX }}
+        onTap={openChat}
+        className={`sakura-avatar-group group fixed bottom-5 z-50 w-16 h-16 rounded-full shadow-xl ring-1 ring-black/5 flex items-center justify-center cursor-grab active:cursor-grabbing transition-[transform,box-shadow] duration-300 ease-out hover:scale-105 focus:outline-none ${
+          anchor === "left" ? "left-5" : "right-5"
+        } ${isOpen ? "opacity-80 pointer-events-auto scale-95" : ""}`}
+        aria-label="Buka SAKURA AI Assistant (bisa digeser ke kiri/kanan)"
+        title="SAKURA AI Search Assistant — geser untuk memindahkan"
+      >
+        <PetalRing scale={1.3} />
+        <div className="sakura-avatar-glow absolute inset-0 rounded-full" style={{ transition: "box-shadow 300ms ease" }} />
+
+        {/* Poster statis (default) */}
+        <img
+          src={chatbotPoster}
+          alt=""
+          aria-hidden="true"
+          draggable={false}
+          className="sakura-avatar-img absolute inset-0 w-full h-full rounded-full object-cover border-2 border-white shadow-lg opacity-100 group-hover:opacity-0 transition-opacity duration-200"
+          style={{ transition: "opacity 200ms ease, transform 300ms ease" }}
+        />
+        {/* GIF animasi — terlihat & "bergerak" saat kursor diarahkan ke sini */}
+        <img
+          src={chatbotGif}
+          alt="SAKURA AI"
+          draggable={false}
+          className="sakura-avatar-img absolute inset-0 w-full h-full rounded-full object-cover border-2 border-white shadow-lg opacity-0 group-hover:opacity-100"
+          style={{ transition: "opacity 200ms ease, transform 300ms ease" }}
+        />
+      </motion.button>
     </>
   );
 }

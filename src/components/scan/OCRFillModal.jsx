@@ -58,6 +58,7 @@ export default function OCRFillModal({
   onConfirm,
   scanImageUrl,      // dataUrl gambar yang sudah di-scan (untuk di-OCR)
   categoryId,        // untuk menentukan field mana yang relevan
+  autoConfirm = false,
 }) {
   const [mode, setMode] = useState(null); // null | "manual" | "ocr"
   const [ocrStep, setOcrStep] = useState("idle"); // idle | loading | done | error
@@ -111,6 +112,12 @@ export default function OCRFillModal({
   useEffect(() => {
     if (mode === "ocr") runOCR();
   }, [mode, runOCR]);
+
+  useEffect(() => {
+    if (autoConfirm && mode === "ocr" && ocrStep === "done") {
+      onConfirm({ mode: "ocr", fields });
+    }
+  }, [autoConfirm, mode, ocrStep, fields, onConfirm]);
 
   // Cleanup worker saat modal ditutup
   useEffect(() => {

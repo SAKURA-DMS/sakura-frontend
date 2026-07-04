@@ -326,10 +326,17 @@ function CornerHandle({ label, xPct, yPct, onChange, color = "#3b82f6" }) {
 }
 
 /** Gambar garis polygon dari 4 titik (dalam %) */
+function toPercent(value, base = 100) {
+  if (typeof value === "string" && value.endsWith("%")) {
+    return Number(value.replace("%", "")) || 0;
+  }
+  return (Number(value) / base) * 100;
+}
+
 function PerspectiveOverlay({ corners, containerW, containerH }) {
   if (!corners || corners.length !== 4) return null;
   const pts = corners
-    .map((c) => `${(c.x / containerW) * 100}%,${(c.y / containerH) * 100}%`)
+    .map((c) => `${toPercent(c.x, containerW)}%,${toPercent(c.y, containerH)}%`)
     .join(" ");
   return (
     <svg
@@ -641,7 +648,7 @@ export default function DocumentScanner({ onClose, onCapture }) {
               autoPlay
               playsInline
               muted
-              className="w-full h-full object-contain"
+              className="w-full h-full object-cover bg-black"
               style={{ display: cameraReady ? "block" : "none" }}
             />
             {!cameraReady && (

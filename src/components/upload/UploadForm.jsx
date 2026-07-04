@@ -269,6 +269,8 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
   const [showConfirm, setShowConfirm] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showCameraScan, setShowCameraScan] = useState(false);
+  const [scanForOCR, setScanForOCR] = useState(false);
+  const [shouldAutoConfirmOCR, setShouldAutoConfirmOCR] = useState(false);
   const [showOCRModal, setShowOCRModal] = useState(false);
   const [lastScanUrl, setLastScanUrl] = useState(null);
   const [showFullPreview, setShowFullPreview] = useState(false);
@@ -555,6 +557,30 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
       setLastScanUrl(pageImages[0]);
     }
     setShowCameraScan(false);
+
+    if (scanForOCR) {
+      setShowOCRModal(true);
+    }
+    setScanForOCR(false);
+  };
+
+  const handleOCRConfirm = ({ mode, fields }) => {
+    setShowOCRModal(false);
+    setShouldAutoConfirmOCR(false);
+    if (mode === "manual") return;
+    if (fields && Object.keys(fields).length > 0) {
+      setMetaData((prev) => ({ ...prev, ...fields }));
+      if (fields.judul && !form.judul) update("judul", fields.judul);
+      toast({
+        title: "✓ Form Diisi Otomatis",
+        description: `${Object.keys(fields).length} field berhasil diisi dari OCR. Periksa dan koreksi sebelum upload.`,
+      });
+    } else {
+      toast({
+        title: "OCR selesai",
+        description: "Tidak ada field yang terdeteksi. Silakan isi form secara manual.",
+      });
+    }
   };
 
   const handleOCRConfirm = ({ mode, fields }) => {
@@ -986,15 +1012,18 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
             </div>
             <input ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} />
 
-            <button type="button" onClick={() => setShowCameraScan(true)} className="w-full mt-4 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border border-input text-sm font-medium hover:bg-muted transition-colors">
-              <Camera size={18} /> Scan Dokumen
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                if (lastScanUrl || scanPageImages.length > 0) {
-                  setShowOCRModal(true);
-                } else {
+<button type="button" onClick={() => { setShouldAutoConfirmOCR(false); setScanForOCR(false); setShowCameraScan(true); }} className="w-full mt-4 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border border-input text-sm font-medium hover:bg-muted transition-colors">
+                <Camera size={18} /> Scan Dokumen
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (lastScanUrl || scanPageImages.length > 0) {
+                    setShouldAutoConfirmOCR(false);
+                    setShowOCRModal(true);
+                  } else {
+                    setShouldAutoConfirmOCR(true);
+                  setScanForOCR(true);
                   setShowCameraScan(true);
                 }
               }}
@@ -1379,13 +1408,14 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
           status: "Menunggu", versi: 1, fileUrl: "", auditTrail: [],
         }} />
       )}
-      {showCameraScan && <CameraScanModal onClose={() => setShowCameraScan(false)} onComplete={handleScanComplete} />}
+      {showCameraScan && <CameraScanModal onClose={() => { setShowCameraScan(false); setScanForOCR(false); setShouldAutoConfirmOCR(false); }} onComplete={handleScanComplete} onScanForOCR={scanForOCR ? (dataUrl) => { setLastScanUrl(dataUrl); setShowOCRModal(true); } : undefined} />}
       {showOCRModal && (
         <OCRFillModal
-          onClose={() => setShowOCRModal(false)}
+          onClose={() => { setShowOCRModal(false); setShouldAutoConfirmOCR(false); }}
           onConfirm={handleOCRConfirm}
           scanImageUrl={lastScanUrl || scanPageImages[0] || null}
           categoryId={selectedCategoryId}
+          autoConfirm={shouldAutoConfirmOCR}
         />
       )}
     </>

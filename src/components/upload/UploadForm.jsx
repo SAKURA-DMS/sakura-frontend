@@ -485,6 +485,11 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
     return CATEGORY_FORM_FIELDS[selectedCategoryId] || [];
   }, [selectedCategoryId, selectedTypeId]);
 
+  const supportedOcrTemplate = useMemo(
+    () => getOCRTemplateByType(selectedTypeId, form.jenisDokumen),
+    [selectedTypeId, form.jenisDokumen]
+  );
+
   const hasSelection = selectedCategoryId && selectedTypeId;
 
   const autoFolderDisplay = useMemo(() => {

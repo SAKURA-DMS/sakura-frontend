@@ -579,11 +579,19 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
     setShouldAutoConfirmOCR(false);
     if (mode === "manual") return;
     if (fields && Object.keys(fields).length > 0) {
-      setMetaData((prev) => ({ ...prev, ...fields }));
+      setMetaData((prev) => {
+        const merged = { ...prev };
+        Object.keys(fields).forEach((key) => {
+          if (!merged[key] || merged[key] === "") {
+            merged[key] = fields[key];
+          }
+        });
+        return merged;
+      });
       if (fields.judul && !form.judul) update("judul", fields.judul);
       toast({
         title: "✓ Form Diisi Otomatis",
-        description: `${Object.keys(fields).length} field berhasil diisi dari OCR. Periksa dan koreksi sebelum upload.`,
+        description: `${Object.keys(fields).length} field berhasil diisi dari OCR tanpa menimpa data yang sudah ada.`,
       });
     } else {
       toast({

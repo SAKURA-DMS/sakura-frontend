@@ -17,7 +17,7 @@ import {
   X, FileText, Scan, Loader2, CheckCircle, AlertTriangle,
   Edit3, RotateCcw, ChevronRight, Eye, EyeOff,
 } from "lucide-react";
-import { recognizeImage, parseDocumentFields, getOCRTemplateByType } from "@/services/ocrService";
+import { recognizeImage, parseDocumentFields } from "@/services/ocrService";
 
 // ── Label mapping field → bahasa Indonesia ──────────────────────────────────
 const FIELD_LABELS = {
@@ -65,15 +65,19 @@ const TEMPLATE_FIELDS = {
   transkrip: ["namaSiswa", "nisn", "kelas", "tahunAjaran"],
 };
 
+const OCR_TEMPLATES = [
+  { key: "ijazah", label: "Ijazah SMP", description: "Dokumen ijazah siswa SMP." },
+  { key: "skl", label: "Surat Keterangan Lulus / SKL / SKHU", description: "Surat kelulusan atau sertifikat akademik resmi." },
+  { key: "sertifikat", label: "Sertifikat", description: "Sertifikat pelatihan, penghargaan, atau kompetensi." },
+  { key: "transkrip", label: "Transkrip / Rekap Nilai", description: "Daftar nilai atau rekap nilai siswa." },
+];
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function OCRFillModal({
   onClose,
   onConfirm,
   scanImageUrl,      // dataUrl gambar yang sudah di-scan (untuk di-OCR)
-  categoryId,        // untuk menentukan field mana yang relevan
-  typeId,
-  typeName,
   autoConfirm = false,
 }) {
   const [mode, setMode] = useState(null); // null | "manual" | "ocr"
@@ -84,16 +88,12 @@ export default function OCRFillModal({
   const [fields, setFields] = useState({});
   const [showRaw, setShowRaw] = useState(false);
   const [ocrStatusMessage, setOcrStatusMessage] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState(categoryId || 1);
+  const [selectedTemplate, setSelectedTemplate] = useState("ijazah");
 
-  const templateKey = useMemo(() => getOCRTemplateByType(typeId, typeName), [typeId, typeName]);
+  const templateKey = selectedTemplate;
   const isSupportedOCR = Boolean(templateKey);
 
-  useEffect(() => {
-    if (categoryId) setSelectedCategory(categoryId);
-  }, [categoryId]);
-
-  // Tentukan field yang relevan berdasarkan kategori
+  // Tentukan field yang relevan berdasarkan template OCR
   const relevantFields = TEMPLATE_FIELDS[templateKey] || [];
 
   // Supported doc types for user guidance
@@ -202,8 +202,28 @@ export default function OCRFillModal({
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-3">
-        {/* OCR */}
+      <div className="space-y-3">
+        <div className="rounded-2xl border border-border bg-muted/50 p-4">
+          <p className="text-sm font-semibold text-foreground mb-3">Pilih Template OCR</p>
+          <div className="grid gap-2">
+            {OCR_TEMPLATES.map((template) => (
+              <button
+                key={template.key}
+                type="button"
+                onClick={() => setSelectedTemplate(template.key)}
+                className={`w-full text-left rounded-xl border p-4 transition-all ${
+                  selectedTemplate === template.key
+                    ? "border-primary bg-primary/[0.08]"
+                    : "border-border bg-card hover:border-primary/40"
+                }`}
+              >
+                <p className="font-semibold text-foreground">{template.label}</p>
+                <p className="text-xs text-muted-foreground mt-1">{template.description}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+
         <button
           onClick={() => { setMode("ocr"); setOcrStep("idle"); }}
           disabled={!scanImageUrl || !isSupportedOCR}
@@ -219,16 +239,13 @@ export default function OCRFillModal({
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-foreground">Isi Form Menggunakan OCR</p>
             <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-              Sistem membaca isi dokumen scan secara otomatis dan mengisi form. Anda tetap dapat mengedit hasilnya.
-            </p>
-            <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-              OCR hanya mendukung dokumen cetak terstruktur seperti Ijazah, SKL, Sertifikat, dan Transkrip/Rekap Nilai.
+              Pilih template yang sesuai, lalu jalankan OCR untuk mendeteksi metadata dokumen.
             </p>
             {(!scanImageUrl || !isSupportedOCR) && (
               <p className="text-xs text-amber-600 mt-1 font-medium">
                 {isSupportedOCR
                   ? "⚠ Scan dokumen terlebih dahulu untuk menggunakan OCR."
-                  : "⚠ Dokumen ini tidak didukung untuk OCR. Pilih isi manual atau gunakan scan dokumen lain."}
+                  : "⚠ Pilih template OCR terlebih dahulu atau scan dokumen terlebih dahulu."}
               </p>
             )}
           </div>
@@ -402,19 +419,10 @@ export default function OCRFillModal({
             <p className="mt-1">Tips:</p>
             <ul className="mt-1 list-disc list-inside text-xs">
               <li>Pastikan dokumen berupa cetakan (printed), bukan tulisan tangan.</li>
-              <li>Pilih tipe dokumen yang sesuai pada dropdown dan coba ulang OCR.</li>
+              <li>Pilih template OCR yang tepat, lalu coba ulang OCR.</li>
               <li>Perbaiki kualitas scan (kontras, crop, orientasi) jika perlu.</li>
             </ul>
             <div className="mt-2 flex gap-2">
-              <select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(Number(e.target.value))}
-                className="px-3 py-1 rounded-md border border-input bg-card text-sm"
-              >
-                {SUPPORTED_DOC_TYPES.map((t) => (
-                  <option key={t.id} value={t.id}>{t.label}</option>
-                ))}
-              </select>
               <button onClick={runOCR} className="px-3 py-1 rounded-md bg-primary text-white">Coba OCR Lagi</button>
             </div>
           </div>

@@ -583,24 +583,6 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
     }
   };
 
-  const handleOCRConfirm = ({ mode, fields }) => {
-    setShowOCRModal(false);
-    if (mode === "manual") return;
-    if (fields && Object.keys(fields).length > 0) {
-      setMetaData((prev) => ({ ...prev, ...fields }));
-      if (fields.judul && !form.judul) update("judul", fields.judul);
-      toast({
-        title: "✓ Form Diisi Otomatis",
-        description: `${Object.keys(fields).length} field berhasil diisi dari OCR. Periksa dan koreksi sebelum upload.`,
-      });
-    } else {
-      toast({
-        title: "OCR selesai",
-        description: "Tidak ada field yang terdeteksi. Silakan isi form secara manual.",
-      });
-    }
-  };
-
   // ── "Lainnya" save handlers ────────────────────────────────────────────
   const saveKategoriLainnya = async () => {
     const name = kategoriLainnyaText.trim();

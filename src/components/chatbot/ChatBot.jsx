@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion, AnimatePresence, useMotionValue } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
   Minus,
@@ -214,10 +214,6 @@ export default function ChatBot() {
 
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
-  const dragConstraintsRef = useRef(null);
-  const dragX = useMotionValue(0);
-  const [avatarX, setAvatarX] = useState(0); // track final x position for anchoring
-  const [anchor, setAnchor] = useState("right");
   const [inputFocused, setInputFocused] = useState(false);
 
   // Auto-scroll ke bawah setiap ada pesan baru
@@ -230,13 +226,7 @@ export default function ChatBot() {
     if (isOpen && !isMinimized) inputRef.current?.focus();
   }, [isOpen, isMinimized]);
 
-  // When chat opens, keep avatar visible and anchor window based on last drag
-  useEffect(() => {
-    if (isOpen) {
-      // decide anchor based on avatarX (negative = left, positive = right)
-      setAnchor(avatarX < 0 ? "left" : "right");
-    }
-  }, [isOpen, avatarX]);
+  // chat anchored to right by design
 
   // Hanya tampilkan jika user sudah login
   if (!isLoggedIn) return null;
@@ -250,8 +240,9 @@ export default function ChatBot() {
 
     try {
       const res = await sendChatMessage(text);
-      const answer = typeof res === "string" ? res : res.answer || res.reply || "";
-      const links = res.links || [];
+      // backend sometimes returns { text, links } or { answer } — prefer text
+      const answer = typeof res === "string" ? res : res.text || res.answer || res.reply || JSON.stringify(res);
+      const links = res.links || res.link || [];
       setMessages((prev) => [...prev, { role: "assistant", text: answer, links, time: new Date() }]);
     } catch (err) {
       const serverMsg =
@@ -328,14 +319,7 @@ export default function ChatBot() {
     setIsMinimized(false);
   }
 
-  function handleDragEnd(event, info) {
-    // decide which side to anchor to based on final screen position
-    const screenX = info.point.x;
-    setAvatarX(screenX);
-    setAnchor(screenX < window.innerWidth / 2 ? "left" : "right");
-    // reset translation so CSS left/right classes position the avatar
-    if (dragX && typeof dragX.set === "function") dragX.set(0);
-  }
+  // dragging removed: fixed-position avatar on the right
 
   return (
     <>
@@ -347,9 +331,7 @@ export default function ChatBot() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 16, scale: 0.97 }}
             transition={{ duration: 0.22, ease: "easeOut" }}
-              className={`fixed bottom-24 z-50 w-80 sm:w-96 flex flex-col rounded-2xl shadow-2xl ring-1 ring-black/5 border border-secondary bg-card overflow-hidden ${
-                anchor === "left" ? "left-5" : "right-5"
-              }`}
+              className={`fixed bottom-24 right-5 z-50 w-80 sm:w-96 flex flex-col rounded-2xl shadow-2xl ring-1 ring-black/5 border border-secondary bg-card overflow-hidden`}
             style={{ height: isMinimized ? "auto" : "520px", maxHeight: "80vh" }}
           >
             {/* Header */}
@@ -507,21 +489,11 @@ export default function ChatBot() {
       </AnimatePresence>
 
       {/* ── Floating Button (bisa digeser kiri-kanan, tetap di bawah) ─────── */}
-      <div ref={dragConstraintsRef} className="fixed inset-0 bottom-5 h-16 pointer-events-none z-40" aria-hidden="true" />
-
       <motion.button
-        drag="x"
-        dragConstraints={dragConstraintsRef}
-        dragElastic={0.06}
-        dragMomentum={false}
-        onDragEnd={handleDragEnd}
-        style={{ x: dragX }}
         onTap={() => setIsOpen((v) => !v)}
-        className={`sakura-avatar-group group fixed bottom-5 z-50 w-16 h-16 rounded-full shadow-xl ring-1 ring-black/5 flex items-center justify-center cursor-grab active:cursor-grabbing transition-[transform,box-shadow] duration-300 ease-out hover:scale-105 focus:outline-none ${
-          anchor === "left" ? "left-5" : "right-5"
-        } ${isOpen ? "opacity-80 pointer-events-auto scale-95" : ""}`}
+        className={`sakura-avatar-group group fixed bottom-5 right-5 z-50 w-16 h-16 rounded-full shadow-xl ring-1 ring-black/5 flex items-center justify-center transition-[transform,box-shadow] duration-300 ease-out hover:scale-105 focus:outline-none ${isOpen ? "opacity-80 scale-95" : ""}`}
         aria-label="Buka SAKURA AI Assistant (bisa digeser ke kiri/kanan)"
-        title="SAKURA AI Search Assistant — geser untuk memindahkan"
+        title="SAKURA AI Search Assistant"
       >
         <PetalRing scale={1.3} />
         <div className="sakura-avatar-glow absolute inset-0 rounded-full" style={{ transition: "box-shadow 300ms ease" }} />

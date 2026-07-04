@@ -66,9 +66,18 @@ export default function OCRFillModal({
   const [confidence, setConfidence] = useState(0);
   const [fields, setFields] = useState({});
   const [showRaw, setShowRaw] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState(categoryId || 1);
 
   // Tentukan field yang relevan berdasarkan kategori
-  const relevantFields = CATEGORY_FIELDS[categoryId] || Object.keys(FIELD_LABELS);
+  const relevantFields = CATEGORY_FIELDS[selectedCategory] || Object.keys(FIELD_LABELS);
+
+  // Supported doc types for user guidance
+  const SUPPORTED_DOC_TYPES = [
+    { id: 1, label: "Ijazah / Transkrip / Sertifikat" },
+    { id: 2, label: "Formulir / Data Siswa (NIS/NISN)" },
+    { id: 3, label: "Inventaris / Surat (nomor/agenda)" },
+    { id: 4, label: "Surat Keputusan / Surat Tugas / Surat Keterangan" },
+  ];
 
   // ── Jalankan OCR ──────────────────────────────────────────────────────────
   const runOCR = useCallback(async () => {
@@ -119,6 +128,20 @@ export default function OCRFillModal({
   // ── Render pilihan mode ───────────────────────────────────────────────────
   const renderModeSelect = () => (
     <div className="p-6 space-y-4">
+      {/* Supported doc type selector - helps user choose correct OCR profile */}
+      <div className="flex items-center justify-center gap-3">
+        <label className="text-xs text-muted-foreground">Tipe Dokumen yang didukung:</label>
+        <select
+          value={selectedCategory}
+          onChange={(e) => setSelectedCategory(Number(e.target.value))}
+          className="px-3 py-1 rounded-md border border-input bg-card text-sm"
+        >
+          {SUPPORTED_DOC_TYPES.map((t) => (
+            <option key={t.id} value={t.id}>{t.label}</option>
+          ))}
+        </select>
+      </div>
+
       <div className="text-center mb-6">
         <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-3">
           <FileText size={22} className="text-primary" />
@@ -134,7 +157,7 @@ export default function OCRFillModal({
       <div className="grid grid-cols-1 gap-3">
         {/* OCR */}
         <button
-          onClick={() => setMode("ocr")}
+          onClick={() => { setMode("ocr"); setOcrStep("idle"); }}
           disabled={!scanImageUrl}
           className={`relative flex items-start gap-4 p-4 rounded-xl border-2 text-left transition-all ${
             scanImageUrl
@@ -149,6 +172,9 @@ export default function OCRFillModal({
             <p className="font-semibold text-foreground">Isi Form Menggunakan OCR</p>
             <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
               Sistem membaca isi dokumen scan secara otomatis dan mengisi form. Anda tetap dapat mengedit hasilnya.
+            </p>
+            <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+              OCR hanya mendukung dokumen tercetak yang jelas seperti ijazah, transkrip, sertifikat, surat resmi, formulir.
             </p>
             {!scanImageUrl && (
               <p className="text-xs text-amber-600 mt-1 font-medium">
@@ -318,6 +344,31 @@ export default function OCRFillModal({
             </div>
           ))}
         </div>
+
+        {/* If no fields detected, show suggestions */}
+        {detectedCount === 0 && (
+          <div className="p-3 rounded-md bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+            <p className="font-medium">Tidak ditemukan field otomatis.</p>
+            <p className="mt-1">Tips:</p>
+            <ul className="mt-1 list-disc list-inside text-xs">
+              <li>Pastikan dokumen berupa cetakan (printed), bukan tulisan tangan.</li>
+              <li>Pilih tipe dokumen yang sesuai pada dropdown dan coba ulang OCR.</li>
+              <li>Perbaiki kualitas scan (kontras, crop, orientasi) jika perlu.</li>
+            </ul>
+            <div className="mt-2 flex gap-2">
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(Number(e.target.value))}
+                className="px-3 py-1 rounded-md border border-input bg-card text-sm"
+              >
+                {SUPPORTED_DOC_TYPES.map((t) => (
+                  <option key={t.id} value={t.id}>{t.label}</option>
+                ))}
+              </select>
+              <button onClick={runOCR} className="px-3 py-1 rounded-md bg-primary text-white">Coba OCR Lagi</button>
+            </div>
+          </div>
+        )}
 
         {/* Actions */}
         <div className="flex gap-3 pt-2 border-t border-border">

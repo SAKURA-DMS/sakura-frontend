@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import CameraScanModal from "@/components/scan/CameraScanModal";
 import OCRFillModal from "@/components/scan/OCRFillModal";
+import { getOCRTemplateByType } from "@/services/ocrService";
 import { useApp } from "@/contexts/AppContext";
 import PdfPreviewOverlay from "@/components/modals/PdfPreviewOverlay";
 import { format } from "date-fns";
@@ -536,10 +537,14 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
     setFile(f);
     if (f.type.startsWith("image/")) {
       const reader = new FileReader();
-      reader.onload = () => setFilePreview(reader.result);
+      reader.onload = () => {
+        setFilePreview(reader.result);
+        setLastScanUrl(reader.result);
+      };
       reader.readAsDataURL(f);
     } else {
       setFilePreview(null);
+      setLastScanUrl(null);
     }
   };
 
@@ -994,25 +999,43 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
             </div>
             <input ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} />
 
-<button type="button" onClick={() => { setShouldAutoConfirmOCR(false); setScanForOCR(false); setShowCameraScan(true); }} className="w-full mt-4 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border border-input text-sm font-medium hover:bg-muted transition-colors">
-                <Camera size={18} /> Scan Dokumen
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (lastScanUrl || scanPageImages.length > 0) {
-                    setShouldAutoConfirmOCR(false);
-                    setShowOCRModal(true);
-                  } else {
-                    setShouldAutoConfirmOCR(true);
-                    setScanForOCR(true);
-                    setShowCameraScan(true);
-                  }
-                }}
-                className="w-full mt-2 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border border-primary/40 bg-primary/[0.04] text-primary text-sm font-medium hover:bg-primary/10 transition-colors"
-              >
-              <Wand2 size={16} /> {lastScanUrl || scanPageImages.length > 0 ? "Isi Form dengan OCR" : "Scan + OCR Otomatis"}
+            <button
+              type="button"
+              onClick={() => { setShouldAutoConfirmOCR(false); setScanForOCR(false); setShowCameraScan(true); }}
+              className="w-full mt-4 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border border-input text-sm font-medium hover:bg-muted transition-colors"
+            >
+              <Camera size={18} /> Scan Dokumen
             </button>
+            {fillMode === MODE_LENGKAP && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (lastScanUrl || scanPageImages.length > 0) {
+                      setShouldAutoConfirmOCR(false);
+                      setShowOCRModal(true);
+                    } else {
+                      setShouldAutoConfirmOCR(true);
+                      setScanForOCR(true);
+                      setShowCameraScan(true);
+                    }
+                  }}
+                  disabled={!selectedTypeId || !supportedOcrTemplate}
+                  className={`w-full mt-2 flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                    selectedTypeId && supportedOcrTemplate
+                      ? "border border-primary/40 bg-primary/[0.04] text-primary hover:bg-primary/10"
+                      : "border border-input bg-muted/50 text-muted-foreground cursor-not-allowed"
+                  }`}
+                >
+                  <Wand2 size={16} /> {lastScanUrl || scanPageImages.length > 0 ? "Isi Form dengan OCR" : "Scan + OCR Otomatis"}
+                </button>
+                {!supportedOcrTemplate && selectedTypeId && (
+                  <p className="text-xs text-amber-600 mt-2">
+                    OCR hanya tersedia untuk jenis dokumen: Ijazah SMP, SKL/SKHU, Sertifikat, atau Transkrip/Rekap Nilai.
+                  </p>
+                )}
+              </>
+            )}
 
             {/* File info — from actual file or restored draft */}
             {(file || (draftRestored && !file && (filePreview || scanPageImages.length > 0))) && (

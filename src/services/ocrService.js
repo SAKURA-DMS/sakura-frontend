@@ -145,6 +145,9 @@ export function parseDocumentFields(rawText, templateKey) {
     fields.tanggalLahir =
       extract(/(?:tanggal\s*lahir|tgl\.?\s*lahir)[\s:]+(\d{1,2}[/\\-]\d{1,2}[/\\-]\d{4})/i) ||
       extract(/ttl[\s:]+[A-Za-z\s,]+,\s*(\d{1,2}[/\\-]\d{1,2}[/\\-]\d{4})/i);
+    fields.nomorPeserta = extract(/(?:nomor\s*peserta|no\.?\s*peserta)[\s:]+([A-Za-z0-9\-\/]{3,40})/i);
+    fields.namaSekolah = extract(/nama\s*sekolah[\s:]+([A-Za-z0-9\s.,&()\-]{3,80})/i) || extract(/di\s+sekolah\s+([A-Za-z0-9\s.,&()\-]{3,80})/i);
+    fields.tanggalKelulusan = extract(/tanggal\s*kelulusan[\s:]+(\d{1,2}[/\\-]\d{1,2}[/\\-]\d{4})/i) || extract(/kelulusan[\s:]+(\d{1,2}\s+\w+\s+\d{4})/i);
     if (/\b(laki-laki|laki laki|L\b)/i.test(text)) fields.jenisKelamin = "Laki-Laki";
     else if (/\b(perempuan|P\b)/i.test(text)) fields.jenisKelamin = "Perempuan";
   };
@@ -170,12 +173,13 @@ export function parseDocumentFields(rawText, templateKey) {
       fields.judul =
         extract(/(sertifikat[^\n]{3,80})/i) ||
         extract(/judul[\s:]+([^\n]{3,80})/i);
-      fields.namaSiswa =
+      fields.namaPeserta =
         extract(/(?:nama\s*(?:peserta|penerima)?|kepada)[\s:]+([A-Za-z\s]{3,80})/i) ||
-        extract(/nama[\s:]+([A-Za-z\s]{3,80})/i);
-      fields.tanggalSurat = extract(/(?:tanggal|tgl\.?)[\s:]+(\d{1,2}\s+\w+\s+\d{4})/i);
-      fields.pengirim = extract(/(?:diberikan oleh|oleh|instansi|sekolah|lembaga)[\s:]+([^\n]{3,80})/i);
-      fields.perihal = extract(/(?:perihal|atas nama|diberikan kepada)[\s:]+([^\n]{3,80})/i);
+        extract(/nama[\s:]+([A-Za-z\s]{3,80})/i) ||
+        fields.namaSiswa;
+      fields.nomorSertifikat = extract(/nomor\s*sertifikat[\s:]+([A-Za-z0-9\-\/]{3,40})/i);
+      fields.namaKegiatan = extract(/nama\s*kegiatan[\s:]+([A-Za-z0-9\s.,\/()\-]{3,80})/i) || extract(/kegiatan[\s:]+([A-Za-z0-9\s.,\/()\-]{3,80})/i);
+      fields.tanggalTerbit = extract(/tanggal\s*terbit[\s:]+(\d{1,2}\s+\w+\s+\d{4})/i) || extract(/diterbitkan\s*pada[\s:]+(\d{1,2}\s+\w+\s+\d{4})/i);
       setCommonDocumentTitle();
       break;
     case "skl":
@@ -183,6 +187,8 @@ export function parseDocumentFields(rawText, templateKey) {
       fields.judul =
         extract(/(surat\s+keterangan\s+lulus|surat\s+lulus|skl|skhu)[^\n]{0,80}/i) ||
         fields.judul;
+      fields.statusKelulusan = extract(/status\s*kelulusan[\s:]+([A-Za-z\s]{3,40})/i) ||
+        extract(/\b(lulus|tidak\s+lulus|belum\s+lulus)\b/i)?.[1] || "";
       fields.tanggalSurat = extract(/(?:tanggal|tgl\.?)[\s:]+(\d{1,2}\s+\w+\s+\d{4})/i);
       setCommonDocumentTitle();
       break;

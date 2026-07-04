@@ -26,29 +26,43 @@ const FIELD_LABELS = {
   nis: "NIS",
   nisn: "NISN",
   kelas: "Kelas",
-  tahunAjaran: "Tahun Ajaran",
+  tahunAjaran: "Tahun Pelajaran",
   tempatLahir: "Tempat Lahir",
   tanggalLahir: "Tanggal Lahir",
-  jenisKelamin: "Jenis Kelamin",
-  namaOrangTua: "Nama Orang Tua",
-  noHpOrangTua: "No. HP Orang Tua",
-  nip: "NIP",
+  namaOrangTua: "Nama Orang Tua/Wali",
+  nomorPeserta: "Nomor Peserta",
+  namaSekolah: "Nama Sekolah",
+  tanggalKelulusan: "Tanggal Kelulusan",
+  statusKelulusan: "Status Kelulusan",
+  namaPeserta: "Nama Peserta",
+  nomorSertifikat: "Nomor Sertifikat",
+  namaKegiatan: "Nama Kegiatan",
+  tanggalTerbit: "Tanggal Terbit",
+  namaGuru: "Nama Guru",
   nomorSurat: "Nomor Surat",
   perihal: "Perihal",
   tanggalSurat: "Tanggal Surat",
   pengirim: "Pengirim",
   tujuan: "Tujuan",
-  namaBarang: "Nama Barang",
-  nomorAgenda: "Nomor Agenda",
   penandatangan: "Penandatangan",
 };
 
-// ── Field untuk setiap kategori ─────────────────────────────────────────────
-const CATEGORY_FIELDS = {
-  1: ["namaSiswa", "nis", "nisn", "kelas", "tahunAjaran", "tempatLahir", "tanggalLahir", "jenisKelamin", "namaOrangTua", "noHpOrangTua"],
-  2: ["nip", "tahunAjaran"],
-  3: ["namaBarang"],
-  4: ["nomorSurat", "perihal", "tanggalSurat", "pengirim", "tujuan", "penandatangan", "nomorAgenda"],
+const TEMPLATE_FIELDS = {
+  ijazah: [
+    "namaSiswa",
+    "tempatLahir",
+    "tanggalLahir",
+    "namaOrangTua",
+    "nis",
+    "nisn",
+    "nomorPeserta",
+    "tahunAjaran",
+    "namaSekolah",
+    "tanggalKelulusan",
+  ],
+  skl: ["namaSiswa", "nisn", "tahunAjaran", "statusKelulusan"],
+  sertifikat: ["namaPeserta", "nomorSertifikat", "namaKegiatan", "tanggalTerbit"],
+  transkrip: ["namaSiswa", "nisn", "kelas", "tahunAjaran"],
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -80,7 +94,7 @@ export default function OCRFillModal({
   }, [categoryId]);
 
   // Tentukan field yang relevan berdasarkan kategori
-  const relevantFields = CATEGORY_FIELDS[selectedCategory] || Object.keys(FIELD_LABELS);
+  const relevantFields = TEMPLATE_FIELDS[templateKey] || [];
 
   // Supported doc types for user guidance
   const SUPPORTED_DOC_TYPES = [
@@ -164,17 +178,16 @@ export default function OCRFillModal({
   const renderModeSelect = () => (
     <div className="p-6 space-y-4">
       {/* Supported doc type selector - helps user choose correct OCR profile */}
-      <div className="flex items-center justify-center gap-3">
-        <label className="text-xs text-muted-foreground">Tipe Dokumen yang didukung:</label>
-        <select
-          value={selectedCategory}
-          onChange={(e) => setSelectedCategory(Number(e.target.value))}
-          className="px-3 py-1 rounded-md border border-input bg-card text-sm"
-        >
-          {SUPPORTED_DOC_TYPES.map((t) => (
-            <option key={t.id} value={t.id}>{t.label}</option>
-          ))}
-        </select>
+      <div className="px-6 pb-4">
+        <div className="rounded-2xl bg-muted/50 border border-border p-4">
+          <p className="text-sm font-semibold text-foreground mb-2">OCR hanya mendukung dokumen terstruktur berikut:</p>
+          <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
+            <li>Ijazah SMP</li>
+            <li>Surat Keterangan Lulus / SKL / SKHU</li>
+            <li>Sertifikat</li>
+            <li>Transkrip / Rekap Nilai</li>
+          </ul>
+        </div>
       </div>
 
       <div className="text-center mb-6">
@@ -321,7 +334,7 @@ export default function OCRFillModal({
           <div className="flex-1 min-w-0">
             <p className={`text-sm font-semibold ${detectedCount > 0 ? "text-green-800 dark:text-green-300" : "text-amber-800 dark:text-amber-300"}`}>
               {detectedCount > 0
-                ? `${detectedCount} field berhasil dideteksi (akurasi ${confidence}%)`
+                ? `${detectedCount} field berhasil dideteksi`
                 : "Tidak ada field yang dapat dideteksi otomatis"}
             </p>
             <p className={`text-xs mt-0.5 ${detectedCount > 0 ? "text-green-600 dark:text-green-400" : "text-amber-600 dark:text-amber-400"}`}>
@@ -447,7 +460,7 @@ export default function OCRFillModal({
             <h3 className="font-bold text-foreground">
               {mode === null && "Cara Pengisian Form"}
               {mode === "ocr" && ocrStep === "loading" && "Memproses OCR..."}
-              {mode === "ocr" && ocrStep === "done" && "Hasil OCR — Edit & Konfirmasi"}
+              {mode === "ocr" && ocrStep === "done" && "Hasil OCR Edit & Konfirmasi"}
               {mode === "ocr" && ocrStep === "error" && "OCR Gagal"}
             </h3>
           </div>

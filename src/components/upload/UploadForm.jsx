@@ -7,7 +7,6 @@ import {
 } from "lucide-react";
 import CameraScanModal from "@/components/scan/CameraScanModal";
 import OCRFillModal from "@/components/scan/OCRFillModal";
-import { getOCRTemplateByType } from "@/services/ocrService";
 import { useApp } from "@/contexts/AppContext";
 import PdfPreviewOverlay from "@/components/modals/PdfPreviewOverlay";
 import { format } from "date-fns";
@@ -484,11 +483,6 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
     if (selectedCategoryId === 4) return SURAT_TYPE_FORM_FIELDS[selectedTypeId] || [];
     return CATEGORY_FORM_FIELDS[selectedCategoryId] || [];
   }, [selectedCategoryId, selectedTypeId]);
-
-  const supportedOcrTemplate = useMemo(
-    () => getOCRTemplateByType(selectedTypeId, form.jenisDokumen),
-    [selectedTypeId, form.jenisDokumen]
-  );
 
   const hasSelection = selectedCategoryId && selectedTypeId;
 
@@ -1033,20 +1027,13 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
                       setShowCameraScan(true);
                     }
                   }}
-                  disabled={!selectedTypeId || !supportedOcrTemplate}
-                  className={`w-full mt-2 flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
-                    selectedTypeId && supportedOcrTemplate
-                      ? "border border-primary/40 bg-primary/[0.04] text-primary hover:bg-primary/10"
-                      : "border border-input bg-muted/50 text-muted-foreground cursor-not-allowed"
-                  }`}
+                  className="w-full mt-2 flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium border border-primary/40 bg-primary/[0.04] text-primary hover:bg-primary/10 transition-colors"
                 >
-                  <Wand2 size={16} /> {lastScanUrl || scanPageImages.length > 0 ? "Isi Form dengan OCR" : "Scan + OCR Otomatis"}
+                  <Wand2 size={16} /> {lastScanUrl || scanPageImages.length > 0 ? "Isi Form dengan OCR" : "Scan OCR"}
                 </button>
-                {!supportedOcrTemplate && selectedTypeId && (
-                  <p className="text-xs text-amber-600 mt-2">
-                    OCR hanya tersedia untuk jenis dokumen: Ijazah SMP, SKL/SKHU, Sertifikat, atau Transkrip/Rekap Nilai.
-                  </p>
-                )}
+                <p className="text-xs text-muted-foreground mt-2">
+                  OCR mendukung: Ijazah SMP, SKL/SKHU, Sertifikat, atau Transkrip/Rekap Nilai — tidak perlu memilih kategori/jenis dokumen dulu.
+                </p>
               </>
             )}
 
@@ -1426,16 +1413,18 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
           status: "Menunggu", versi: 1, fileUrl: "", auditTrail: [],
         }} />
       )}
-      {showCameraScan && <CameraScanModal onClose={() => { setShowCameraScan(false); setScanForOCR(false); setShouldAutoConfirmOCR(false); }} onComplete={handleScanComplete} onScanForOCR={scanForOCR ? (dataUrl) => { setLastScanUrl(dataUrl); setShowOCRModal(true); } : undefined} />}
+      {showCameraScan && <CameraScanModal onClose={() => { setShowCameraScan(false); setScanForOCR(false); setShouldAutoConfirmOCR(false); }} onComplete={handleScanComplete} onScanForOCR={scanForOCR ? (dataUrl) => { setLastScanUrl(dataUrl); setShowOCRModal(true); } : undefined} ocrMode={scanForOCR} />}
       {showOCRModal && (
         <OCRFillModal
           onClose={() => { setShowOCRModal(false); setShouldAutoConfirmOCR(false); }}
           onConfirm={handleOCRConfirm}
+          onRetake={() => {
+            setShowOCRModal(false);
+            setShouldAutoConfirmOCR(true);
+            setScanForOCR(true);
+            setShowCameraScan(true);
+          }}
           scanImageUrl={lastScanUrl || scanPageImages[0] || null}
-          categoryId={selectedCategoryId}
-          typeId={selectedTypeId}
-          typeName={form.jenisDokumen}
-          autoConfirm={shouldAutoConfirmOCR}
         />
       )}
     </>

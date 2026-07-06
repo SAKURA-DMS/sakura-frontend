@@ -348,7 +348,7 @@ function PerspectiveOverlay({ corners, containerW, containerH }) {
 }
 
 // ─── Main Component ──────────────────────────────────────────────────────────
-export default function DocumentScanner({ onClose, onCapture }) {
+export default function DocumentScanner({ onClose, onCapture, ocrMode = false }) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const [stream, setStream] = useState(null);
@@ -864,7 +864,7 @@ export default function DocumentScanner({ onClose, onCapture }) {
                 onClick={retake}
                 className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-white/10 text-white text-sm font-medium hover:bg-white/20 transition-colors"
               >
-                <RotateCw size={16} /> Foto Ulang
+                <RotateCw size={16} /> {ocrMode ? "Ambil Ulang" : "Foto Ulang"}
               </button>
               {!autoPerspective && (
                 <button
@@ -880,7 +880,7 @@ export default function DocumentScanner({ onClose, onCapture }) {
                 disabled={isProcessing}
                 className="flex-[2] flex items-center justify-center gap-2 py-3 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50"
               >
-                <Check size={16} /> Gunakan Hasil Ini
+                {ocrMode ? <><Scan size={16} /> Scan OCR</> : <><Check size={16} /> Gunakan Hasil Ini</>}
               </button>
             </div>
           </div>

@@ -18,7 +18,7 @@
 import { useState } from "react";
 import DocumentScanner from "@/components/scan/DocumentScanner";
 
-export default function CameraScanModal({ onClose, onComplete, onScanForOCR }) {
+export default function CameraScanModal({ onClose, onComplete, onScanForOCR, ocrMode = false }) {
   const handleCapture = (file, dataUrl) => {
     // Kirim ke parent sebagai satu halaman
     onComplete(file, [dataUrl]);
@@ -33,6 +33,7 @@ export default function CameraScanModal({ onClose, onComplete, onScanForOCR }) {
     <DocumentScanner
       onClose={onClose}
       onCapture={handleCapture}
+      ocrMode={ocrMode}
     />
   );
 }

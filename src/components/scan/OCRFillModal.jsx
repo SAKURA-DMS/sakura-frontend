@@ -1,326 +1,136 @@
 /**
  * OCRFillModal.jsx
- * Modal pemilihan cara pengisian form:
- *  - Isi Form Manual
- *  - Isi Form Menggunakan OCR
  *
- * Jika OCR dipilih:
- * 1. Tampilkan preview gambar scan
- * 2. Jalankan OCR (Tesseract.js)
- * 3. Tampilkan hasil field yang dideteksi
- * 4. User dapat edit setiap field
- * 5. Konfirmasi → kirim ke parent via onConfirm(fields)
+ * Modal hasil OCR dokumen. Dipanggil setelah user menekan tombol "Scan OCR"
+ * pada hasil scan (lihat DocumentScanner/CameraScanModal). Begitu modal ini
+ * terbuka, ia langsung mengirim gambar ke backend (/api/ocr/scan) yang
+ * memanggil Gemini Vision API — tidak perlu memilih kategori/jenis dokumen
+ * terlebih dahulu, karena jenis dokumen ditentukan langsung oleh Gemini.
+ *
+ * Alur:
+ * 1. Modal terbuka → tampilkan loading → panggil scanDocumentOCR(scanImageUrl).
+ * 2. Jika dokumen didukung → tampilkan document_type + field hasil OCR,
+ *    semua bisa diedit sebelum dikonfirmasi.
+ * 3. Jika dokumen tidak didukung / gagal dibaca → tampilkan pesan dan opsi
+ *    untuk mengisi manual atau mengambil ulang foto.
  */
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   X, FileText, Scan, Loader2, CheckCircle, AlertTriangle,
-  Edit3, RotateCcw, ChevronRight, Eye, EyeOff,
+  RotateCcw, Camera,
 } from "lucide-react";
-import { recognizeImage, parseDocumentFields } from "@/services/ocrService";
+import {
+  scanDocumentOCR,
+  DOCUMENT_TYPE_LABELS,
+  OCR_FIELD_LABELS,
+  OCR_FIELD_ORDER,
+} from "@/services/ocrService";
 
-// ── Label mapping field → bahasa Indonesia ──────────────────────────────────
-const FIELD_LABELS = {
-  judul: "Judul Dokumen",
-  namaSiswa: "Nama Siswa",
-  nis: "NIS",
-  nisn: "NISN",
-  kelas: "Kelas",
-  tahunAjaran: "Tahun Pelajaran",
-  tempatLahir: "Tempat Lahir",
-  tanggalLahir: "Tanggal Lahir",
-  namaOrangTua: "Nama Orang Tua/Wali",
-  nomorPeserta: "Nomor Peserta",
-  namaSekolah: "Nama Sekolah",
-  tanggalKelulusan: "Tanggal Kelulusan",
-  statusKelulusan: "Status Kelulusan",
-  namaPeserta: "Nama Peserta",
-  nomorSertifikat: "Nomor Sertifikat",
-  namaKegiatan: "Nama Kegiatan",
-  tanggalTerbit: "Tanggal Terbit",
-  namaGuru: "Nama Guru",
-  nomorSurat: "Nomor Surat",
-  perihal: "Perihal",
-  tanggalSurat: "Tanggal Surat",
-  pengirim: "Pengirim",
-  tujuan: "Tujuan",
-  penandatangan: "Penandatangan",
-};
-
-const TEMPLATE_FIELDS = {
-  ijazah: [
-    "namaSiswa",
-    "tempatLahir",
-    "tanggalLahir",
-    "namaOrangTua",
-    "nis",
-    "nisn",
-    "nomorPeserta",
-    "tahunAjaran",
-    "namaSekolah",
-    "tanggalKelulusan",
-  ],
-  skl: ["namaSiswa", "nisn", "tahunAjaran", "statusKelulusan"],
-  sertifikat: ["namaPeserta", "nomorSertifikat", "namaKegiatan", "tanggalTerbit"],
-  transkrip: ["namaSiswa", "nisn", "kelas", "tahunAjaran"],
-};
-
-const OCR_TEMPLATES = [
-  { key: "ijazah", label: "Ijazah SMP", description: "Dokumen ijazah siswa SMP." },
-  { key: "skl", label: "Surat Keterangan Lulus / SKL / SKHU", description: "Surat kelulusan atau sertifikat akademik resmi." },
-  { key: "sertifikat", label: "Sertifikat", description: "Sertifikat pelatihan, penghargaan, atau kompetensi." },
-  { key: "transkrip", label: "Transkrip / Rekap Nilai", description: "Daftar nilai atau rekap nilai siswa." },
+const SUPPORTED_DOC_LIST = [
+  "Ijazah SMP",
+  "Surat Keterangan Lulus (SKL/SKHU)",
+  "Sertifikat",
+  "Transkrip / Rekap Nilai",
 ];
 
-// ─────────────────────────────────────────────────────────────────────────────
-
-export default function OCRFillModal({
-  onClose,
-  onConfirm,
-  scanImageUrl,      // dataUrl gambar yang sudah di-scan (untuk di-OCR)
-  autoConfirm = false,
-}) {
-  const [mode, setMode] = useState(null); // null | "manual" | "ocr"
-  const [ocrStep, setOcrStep] = useState("idle"); // idle | loading | done | error
-  const [ocrProgress, setOcrProgress] = useState(0);
-  const [rawText, setRawText] = useState("");
-  const [confidence, setConfidence] = useState(0);
+export default function OCRFillModal({ onClose, onConfirm, onRetake, scanImageUrl }) {
+  // idle | loading | done | unsupported | error
+  const [step, setStep] = useState("idle");
+  const [documentType, setDocumentType] = useState(null);
+  const [confidence, setConfidence] = useState(null);
   const [fields, setFields] = useState({});
-  const [showRaw, setShowRaw] = useState(false);
-  const [ocrStatusMessage, setOcrStatusMessage] = useState("");
-  const [selectedTemplate, setSelectedTemplate] = useState("ijazah");
+  const [errorMessage, setErrorMessage] = useState("");
 
-  const templateKey = selectedTemplate;
-  const isSupportedOCR = Boolean(templateKey);
-
-  // Tentukan field yang relevan berdasarkan template OCR
-  const relevantFields = TEMPLATE_FIELDS[templateKey] || [];
-
-  // Supported doc types for user guidance
-  const SUPPORTED_DOC_TYPES = [
-    { id: 1, label: "Ijazah / Transkrip / Sertifikat" },
-    { id: 2, label: "Formulir / Data Siswa (NIS/NISN)" },
-    { id: 3, label: "Inventaris / Surat (nomor/agenda)" },
-    { id: 4, label: "Surat Keputusan / Surat Tugas / Surat Keterangan" },
-  ];
-
-  // ── Jalankan OCR ──────────────────────────────────────────────────────────
   const runOCR = useCallback(async () => {
     if (!scanImageUrl) {
-      setOcrStatusMessage("Scan dokumen terlebih dahulu untuk menggunakan OCR.");
-      setOcrStep("error");
-      return;
-    }
-    if (!isSupportedOCR) {
-      setOcrStatusMessage(
-        "OCR hanya mendukung dokumen terstruktur tertentu seperti Ijazah, SKL, Sertifikat, dan Transkrip/Rekap Nilai."
-      );
-      setOcrStep("error");
+      setErrorMessage("Scan dokumen terlebih dahulu untuk menggunakan OCR.");
+      setStep("error");
       return;
     }
 
-    setOcrStep("loading");
-    setOcrProgress(0);
-    setOcrStatusMessage("");
+    setStep("loading");
+    setErrorMessage("");
 
     try {
-      const result = await recognizeImage(scanImageUrl, (p) => setOcrProgress(Math.round(p * 100)));
-      setRawText(result.text);
-      setConfidence(Math.round(result.confidence));
-      const parsed = parseDocumentFields(result.text, templateKey);
+      const result = await scanDocumentOCR(scanImageUrl);
 
-      // Hanya ambil field yang relevan dengan kategori ini
-      const filteredFields = {};
-      relevantFields.forEach((key) => {
-        if (parsed[key]) filteredFields[key] = parsed[key];
-      });
+      if (result.unsupported) {
+        setDocumentType(null);
+        setStep("unsupported");
+        return;
+      }
 
-      setFields(filteredFields);
-      setOcrStep("done");
+      setDocumentType(result.documentType);
+      setConfidence(result.confidence);
+      setFields(result.fields || {});
+      setStep("done");
     } catch (err) {
       console.error("OCR error:", err);
-      setOcrStatusMessage("Terjadi kesalahan saat membaca dokumen. Coba lagi atau isi manual.");
-      setOcrStep("error");
+      setErrorMessage(
+        err?.message || "Terjadi kesalahan saat membaca dokumen. Coba lagi atau isi manual."
+      );
+      setStep("error");
     }
-  }, [scanImageUrl, relevantFields, templateKey, isSupportedOCR]);
+  }, [scanImageUrl]);
 
+  // Jalankan OCR otomatis begitu modal terbuka dengan gambar yang valid.
   useEffect(() => {
-    if (mode === "ocr") runOCR();
-  }, [mode, runOCR]);
+    runOCR();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scanImageUrl]);
 
-  useEffect(() => {
-    if (autoConfirm && scanImageUrl && mode === null) {
-      setMode("ocr");
-      setOcrStep("idle");
-    }
-  }, [autoConfirm, scanImageUrl, mode]);
-
-  useEffect(() => {
-    if (autoConfirm && mode === "ocr" && ocrStep === "done") {
-      onConfirm({ mode: "ocr", fields });
-    }
-  }, [autoConfirm, mode, ocrStep, fields, onConfirm]);
-
-  // Cleanup worker saat modal ditutup
-  useEffect(() => {
-    return () => { /* jangan terminate — bisa dipakai lagi nanti */ };
-  }, []);
-
-  const handleConfirmOCR = () => {
+  const handleConfirm = () => {
     onConfirm({ mode: "ocr", fields });
   };
 
-  const handleConfirmManual = () => {
+  const handleFillManual = () => {
     onConfirm({ mode: "manual", fields: {} });
   };
 
-  // ── Render pilihan mode ───────────────────────────────────────────────────
-  const renderModeSelect = () => (
-    <div className="p-6 space-y-4">
-      {/* Supported doc type selector - helps user choose correct OCR profile */}
-      <div className="px-6 pb-4">
-        <div className="rounded-2xl bg-muted/50 border border-border p-4">
-          <p className="text-sm font-semibold text-foreground mb-2">OCR hanya mendukung dokumen terstruktur berikut:</p>
-          <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
-            <li>Ijazah SMP</li>
-            <li>Surat Keterangan Lulus / SKL / SKHU</li>
-            <li>Sertifikat</li>
-            <li>Transkrip / Rekap Nilai</li>
-          </ul>
-        </div>
-      </div>
+  const fieldOrder = documentType ? OCR_FIELD_ORDER[documentType] || Object.keys(fields) : [];
+  const detectedCount = Object.keys(fields).filter((k) => fields[k]).length;
 
-      <div className="text-center mb-6">
-        <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-3">
-          <FileText size={22} className="text-primary" />
-        </div>
-        <h3 className="font-bold text-foreground text-lg">Pilih Cara Pengisian Form</h3>
-        <p className="text-sm text-muted-foreground mt-1">
-          {scanImageUrl
-            ? "Dokumen scan tersedia. Gunakan OCR untuk mengisi otomatis atau isi manual."
-            : "Pilih cara mengisi data detail dokumen."}
-        </p>
-      </div>
-
-      <div className="space-y-3">
-        <div className="rounded-2xl border border-border bg-muted/50 p-4">
-          <p className="text-sm font-semibold text-foreground mb-3">Pilih Template OCR</p>
-          <div className="grid gap-2">
-            {OCR_TEMPLATES.map((template) => (
-              <button
-                key={template.key}
-                type="button"
-                onClick={() => setSelectedTemplate(template.key)}
-                className={`w-full text-left rounded-xl border p-4 transition-all ${
-                  selectedTemplate === template.key
-                    ? "border-primary bg-primary/[0.08]"
-                    : "border-border bg-card hover:border-primary/40"
-                }`}
-              >
-                <p className="font-semibold text-foreground">{template.label}</p>
-                <p className="text-xs text-muted-foreground mt-1">{template.description}</p>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <button
-          onClick={() => { setMode("ocr"); setOcrStep("idle"); }}
-          disabled={!scanImageUrl || !isSupportedOCR}
-          className={`relative flex items-start gap-4 p-4 rounded-xl border-2 text-left transition-all ${
-            scanImageUrl && isSupportedOCR
-              ? "border-primary/40 bg-primary/[0.03] hover:border-primary hover:bg-primary/[0.06]"
-              : "border-border bg-muted/30 opacity-50 cursor-not-allowed"
-          }`}
-        >
-          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-            <Scan size={18} className="text-primary" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-semibold text-foreground">Isi Form Menggunakan OCR</p>
-            <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-              Pilih template yang sesuai, lalu jalankan OCR untuk mendeteksi metadata dokumen.
-            </p>
-            {(!scanImageUrl || !isSupportedOCR) && (
-              <p className="text-xs text-amber-600 mt-1 font-medium">
-                {isSupportedOCR
-                  ? "⚠ Scan dokumen terlebih dahulu untuk menggunakan OCR."
-                  : "⚠ Pilih template OCR terlebih dahulu atau scan dokumen terlebih dahulu."}
-              </p>
-            )}
-          </div>
-          {scanImageUrl && (
-            <ChevronRight size={16} className="text-primary shrink-0 mt-2" />
-          )}
-        </button>
-
-        {/* Manual */}
-        <button
-          onClick={handleConfirmManual}
-          className="flex items-start gap-4 p-4 rounded-xl border-2 border-border bg-card hover:border-primary/40 hover:bg-primary/[0.02] text-left transition-all"
-        >
-          <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center shrink-0">
-            <Edit3 size={18} className="text-muted-foreground" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-semibold text-foreground">Isi Form Manual</p>
-            <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-              Isi setiap field secara manual sesuai data yang ada di dokumen.
-            </p>
-          </div>
-          <ChevronRight size={16} className="text-muted-foreground shrink-0 mt-2" />
-        </button>
-      </div>
-    </div>
-  );
-
-  // ── Render OCR loading ────────────────────────────────────────────────────
-  const renderOCRLoading = () => (
-    <div className="p-8 flex flex-col items-center gap-5">
-      <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
-        <Loader2 size={28} className="text-primary animate-spin" />
+  // ── Loading ────────────────────────────────────────────────────────────────
+  const renderLoading = () => (
+    <div className="p-10 flex flex-col items-center gap-4">
+      <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center">
+        <Loader2 size={24} className="text-primary animate-spin" />
       </div>
       <div className="text-center">
-        <p className="font-semibold text-foreground">Membaca Dokumen...</p>
-        <p className="text-sm text-muted-foreground mt-1">Proses OCR sedang berjalan</p>
-      </div>
-      {/* Progress bar */}
-      <div className="w-full max-w-xs space-y-2">
-        <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
-          <div
-            className="h-full rounded-full bg-primary transition-all duration-300"
-            style={{ width: `${ocrProgress}%` }}
-          />
-        </div>
-        <p className="text-center text-xs text-muted-foreground">{ocrProgress}%</p>
-      </div>
-      {ocrProgress < 10 && (
-        <p className="text-xs text-muted-foreground text-center max-w-xs">
-          Pertama kali menggunakan OCR, model bahasa perlu diunduh (~10MB). Proses berikutnya akan lebih cepat.
+        <p className="font-semibold text-foreground">Membaca dokumen...</p>
+        <p className="text-sm text-muted-foreground mt-1">
+          Gambar sedang dianalisis menggunakan Gemini Vision. Mohon tunggu sebentar.
         </p>
-      )}
+      </div>
     </div>
   );
 
-  // ── Render OCR error ──────────────────────────────────────────────────────
-  const renderOCRError = () => (
+  // ── Error ──────────────────────────────────────────────────────────────────
+  const renderError = () => (
     <div className="p-8 flex flex-col items-center gap-4">
       <div className="w-14 h-14 rounded-2xl bg-destructive/10 flex items-center justify-center">
         <AlertTriangle size={24} className="text-destructive" />
       </div>
       <div className="text-center">
         <p className="font-semibold text-foreground">OCR Gagal</p>
-        <p className="text-sm text-muted-foreground mt-1">
-          {ocrStatusMessage || "Tidak dapat membaca dokumen. Pastikan koneksi internet tersedia untuk mengunduh model OCR."}
-        </p>
+        <p className="text-sm text-muted-foreground mt-1">{errorMessage}</p>
       </div>
-      <div className="flex gap-3">
+      <div className="flex flex-wrap justify-center gap-3">
         <button
-          onClick={() => { setOcrStep("idle"); setMode(null); }}
+          onClick={handleFillManual}
           className="px-4 py-2 rounded-lg border border-input text-sm hover:bg-muted transition-colors"
         >
-          Kembali
+          Isi Manual
         </button>
+        {onRetake && (
+          <button
+            onClick={onRetake}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-input text-sm hover:bg-muted transition-colors"
+          >
+            <Camera size={14} /> Ambil Ulang
+          </button>
+        )}
         <button
           onClick={runOCR}
           className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
@@ -331,123 +141,122 @@ export default function OCRFillModal({
     </div>
   );
 
-  // ── Render OCR result (editable) ──────────────────────────────────────────
-  const renderOCRResult = () => {
-    const detectedCount = Object.keys(fields).length;
-
-    return (
-      <div className="p-5 space-y-4">
-        {/* Status */}
-        <div className={`flex items-start gap-3 p-3 rounded-xl border ${
-          detectedCount > 0
-            ? "bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800"
-            : "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800"
-        }`}>
-          {detectedCount > 0 ? (
-            <CheckCircle size={16} className="text-green-600 shrink-0 mt-0.5" />
-          ) : (
-            <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
-          )}
-          <div className="flex-1 min-w-0">
-            <p className={`text-sm font-semibold ${detectedCount > 0 ? "text-green-800 dark:text-green-300" : "text-amber-800 dark:text-amber-300"}`}>
-              {detectedCount > 0
-                ? `${detectedCount} field berhasil dideteksi`
-                : "Tidak ada field yang dapat dideteksi otomatis"}
-            </p>
-            <p className={`text-xs mt-0.5 ${detectedCount > 0 ? "text-green-600 dark:text-green-400" : "text-amber-600 dark:text-amber-400"}`}>
-              {detectedCount > 0
-                ? "Periksa dan koreksi nilai yang dideteksi sebelum menyimpan."
-                : "Kualitas scan mungkin kurang baik. Isi field secara manual."}
-            </p>
-          </div>
-        </div>
-
-        {/* Preview gambar + raw text toggle */}
-        <div className="flex items-center justify-between">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-            Hasil Deteksi Field
-          </p>
-          {rawText && (
-            <button
-              onClick={() => setShowRaw((v) => !v)}
-              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              {showRaw ? <EyeOff size={12} /> : <Eye size={12} />}
-              {showRaw ? "Sembunyikan" : "Lihat"} Teks Mentah
-            </button>
-          )}
-        </div>
-
-        {showRaw && rawText && (
-          <div className="p-3 rounded-lg bg-muted/50 border border-border max-h-32 overflow-y-auto">
-            <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-mono leading-relaxed">
-              {rawText}
-            </pre>
-          </div>
-        )}
-
-        {/* Editable fields */}
-        <div className="space-y-3 max-h-[calc(92vh-280px)] overflow-y-auto pr-1">
-          {relevantFields.map((key) => (
-            <div key={key} className="space-y-2">
-              <label className="block text-xs font-medium text-foreground mb-1">
-                {FIELD_LABELS[key] || key}
-                {fields[key] && (
-                  <span className="ml-1.5 inline-flex items-center gap-0.5 text-[10px] text-green-600 dark:text-green-400 font-medium">
-                    <CheckCircle size={10} /> Terdeteksi
-                  </span>
-                )}
-              </label>
-              <input
-                value={fields[key] || ""}
-                onChange={(e) => setFields((prev) => ({ ...prev, [key]: e.target.value }))}
-                placeholder={`Masukkan ${FIELD_LABELS[key] || key}...`}
-                className={`w-full px-3 py-2 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-ring ${
-                  fields[key]
-                    ? "border-green-300 dark:border-green-700 bg-green-50/50 dark:bg-green-950/20"
-                    : "border-input bg-background"
-                }`}
-              />
-            </div>
+  // ── Unsupported document ─────────────────────────────────────────────────
+  const renderUnsupported = () => (
+    <div className="p-8 flex flex-col items-center gap-4">
+      <div className="w-14 h-14 rounded-2xl bg-amber-100 dark:bg-amber-950/30 flex items-center justify-center">
+        <AlertTriangle size={24} className="text-amber-600" />
+      </div>
+      <div className="text-center">
+        <p className="font-semibold text-foreground">Dokumen tidak didukung OCR</p>
+        <p className="text-sm text-muted-foreground mt-1">
+          OCR hanya dapat membaca dokumen berikut:
+        </p>
+        <ul className="text-sm text-muted-foreground mt-2 list-disc list-inside text-left inline-block">
+          {SUPPORTED_DOC_LIST.map((label) => (
+            <li key={label}>{label}</li>
           ))}
-        </div>
-
-        {/* If no fields detected, show suggestions */}
-        {detectedCount === 0 && (
-          <div className="p-3 rounded-md bg-amber-50 border border-amber-200 text-amber-800 text-sm">
-            <p className="font-medium">Tidak ditemukan field otomatis.</p>
-            <p className="mt-1">Tips:</p>
-            <ul className="mt-1 list-disc list-inside text-xs">
-              <li>Pastikan dokumen berupa cetakan (printed), bukan tulisan tangan.</li>
-              <li>Pilih template OCR yang tepat, lalu coba ulang OCR.</li>
-              <li>Perbaiki kualitas scan (kontras, crop, orientasi) jika perlu.</li>
-            </ul>
-            <div className="mt-2 flex gap-2">
-              <button onClick={runOCR} className="px-3 py-1 rounded-md bg-primary text-white">Coba OCR Lagi</button>
-            </div>
-          </div>
+        </ul>
+      </div>
+      <div className="flex flex-wrap justify-center gap-3">
+        <button
+          onClick={handleFillManual}
+          className="px-4 py-2 rounded-lg border border-input text-sm hover:bg-muted transition-colors"
+        >
+          Isi Manual
+        </button>
+        {onRetake && (
+          <button
+            onClick={onRetake}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+          >
+            <Camera size={14} /> Ambil Ulang
+          </button>
         )}
+      </div>
+    </div>
+  );
 
-        {/* Actions */}
-        <div className="flex gap-3 pt-2 border-t border-border">
-          <button
-            onClick={() => { setOcrStep("idle"); setMode(null); setFields({}); }}
-            className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-input text-sm font-medium hover:bg-muted transition-colors"
-          >
-            <RotateCcw size={14} /> Ulang
-          </button>
-          <button
-            onClick={handleConfirmOCR}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
-          >
-            <CheckCircle size={15} /> Gunakan Data Ini
-          </button>
+  // ── OCR result (editable) ─────────────────────────────────────────────────
+  const renderResult = () => (
+    <div className="p-5 space-y-4">
+      {/* Status */}
+      <div className={`flex items-start gap-3 p-3 rounded-xl border ${
+        detectedCount > 0
+          ? "bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800"
+          : "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800"
+      }`}>
+        {detectedCount > 0 ? (
+          <CheckCircle size={16} className="text-green-600 shrink-0 mt-0.5" />
+        ) : (
+          <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+        )}
+        <div className="flex-1 min-w-0">
+          <p className={`text-sm font-semibold ${detectedCount > 0 ? "text-green-800 dark:text-green-300" : "text-amber-800 dark:text-amber-300"}`}>
+            {DOCUMENT_TYPE_LABELS[documentType] || "Dokumen"} terdeteksi
+            {typeof confidence === "number" ? ` (keyakinan ${confidence}%)` : ""}
+          </p>
+          <p className={`text-xs mt-0.5 ${detectedCount > 0 ? "text-green-600 dark:text-green-400" : "text-amber-600 dark:text-amber-400"}`}>
+            {detectedCount > 0
+              ? "Periksa dan koreksi nilai yang dideteksi sebelum menyimpan."
+              : "Tidak ada field yang dapat dideteksi otomatis. Isi field secara manual."}
+          </p>
         </div>
       </div>
-    );
-  };
 
-  // ── Shell modal ───────────────────────────────────────────────────────────
+      {/* Editable fields */}
+      <div className="space-y-3 max-h-[calc(92vh-320px)] overflow-y-auto pr-1">
+        {fieldOrder.map((key) => (
+          <div key={key} className="space-y-2">
+            <label className="block text-xs font-medium text-foreground mb-1">
+              {OCR_FIELD_LABELS[key] || key}
+              {fields[key] && (
+                <span className="ml-1.5 inline-flex items-center gap-0.5 text-[10px] text-green-600 dark:text-green-400 font-medium">
+                  <CheckCircle size={10} /> Terdeteksi
+                </span>
+              )}
+            </label>
+            <input
+              value={fields[key] || ""}
+              onChange={(e) => setFields((prev) => ({ ...prev, [key]: e.target.value }))}
+              placeholder={`Masukkan ${OCR_FIELD_LABELS[key] || key}...`}
+              className={`w-full px-3 py-2 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-ring ${
+                fields[key]
+                  ? "border-green-300 dark:border-green-700 bg-green-50/50 dark:bg-green-950/20"
+                  : "border-input bg-background"
+              }`}
+            />
+          </div>
+        ))}
+      </div>
+
+      {/* Actions */}
+      <div className="flex gap-3 pt-2 border-t border-border">
+        {onRetake && (
+          <button
+            onClick={onRetake}
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-input text-sm font-medium hover:bg-muted transition-colors"
+          >
+            <Camera size={14} /> Ambil Ulang
+          </button>
+        )}
+        <button
+          onClick={runOCR}
+          className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-input text-sm font-medium hover:bg-muted transition-colors"
+          title="Scan ulang gambar yang sama"
+        >
+          <RotateCcw size={14} /> Scan Ulang
+        </button>
+        <button
+          onClick={handleConfirm}
+          className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
+        >
+          <CheckCircle size={15} /> Gunakan Data Ini
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div
       className="fixed inset-0 z-[150] flex items-center justify-center bg-foreground/40 backdrop-blur-sm p-4"
@@ -460,16 +269,17 @@ export default function OCRFillModal({
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
           <div className="flex items-center gap-2.5">
-            {mode === "ocr" ? (
+            {step === "done" ? (
               <Scan size={18} className="text-primary" />
             ) : (
               <FileText size={18} className="text-primary" />
             )}
             <h3 className="font-bold text-foreground">
-              {mode === null && "Cara Pengisian Form"}
-              {mode === "ocr" && ocrStep === "loading" && "Memproses OCR..."}
-              {mode === "ocr" && ocrStep === "done" && "Hasil OCR Edit & Konfirmasi"}
-              {mode === "ocr" && ocrStep === "error" && "OCR Gagal"}
+              {step === "loading" && "Memproses OCR..."}
+              {step === "done" && "Hasil OCR — Edit & Konfirmasi"}
+              {step === "error" && "OCR Gagal"}
+              {step === "unsupported" && "Dokumen Tidak Didukung"}
+              {step === "idle" && "OCR"}
             </h3>
           </div>
           <button
@@ -482,10 +292,10 @@ export default function OCRFillModal({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto">
-          {mode === null && renderModeSelect()}
-          {mode === "ocr" && ocrStep === "loading" && renderOCRLoading()}
-          {mode === "ocr" && ocrStep === "done" && renderOCRResult()}
-          {mode === "ocr" && ocrStep === "error" && renderOCRError()}
+          {step === "loading" && renderLoading()}
+          {step === "done" && renderResult()}
+          {step === "error" && renderError()}
+          {step === "unsupported" && renderUnsupported()}
         </div>
       </div>
     </div>

@@ -679,7 +679,7 @@ export default function LoginPage() {
               type="text"
               value={identifier}
               onChange={(e) => { setIdentifier(e.target.value); setError(""); }}
-              placeholder="nama@sakura.sch.id atau nama lengkap"
+              placeholder="Contoh: budi@email.com atau nama lengkap"
             />
 
             <AnimatedInput

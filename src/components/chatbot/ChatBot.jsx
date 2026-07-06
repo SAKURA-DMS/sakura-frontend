@@ -120,8 +120,12 @@ function MessageBubble({ msg, navigate, onLinkClick }) {
     return found;
   }
 
-  // prefer structured links from backend if provided on the message
-  const links = msg.links && msg.links.length ? msg.links : findLinksFromText(msg.text || "");
+  // Hormati keputusan backend: jika backend mengirim array `links` (termasuk
+  // array KOSONG — artinya backend sudah memutuskan "tidak perlu tombol
+  // navigasi"), pakai itu apa adanya. Fallback pemindaian teks jawaban AI
+  // (findLinksFromText) hanya dipakai kalau backend sama sekali tidak
+  // mengirim field `links` (mis. respons lama/format lain).
+  const links = Array.isArray(msg.links) ? msg.links : findLinksFromText(msg.text || "");
   const time = formatTime(msg.time || new Date());
 
   return (

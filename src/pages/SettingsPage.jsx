@@ -452,6 +452,27 @@ export default function SettingsPage() {
                   Kode verifikasi dikirim ke email Anda setiap kali login.
                 </p>
 
+                {/* Email tujuan OTP */}
+                {!verified && enabling2FA && (
+                  <div className="rounded-xl border border-primary/30 bg-primary/[0.04] p-3">
+                    <div className="text-xs text-muted-foreground mb-1">Kode OTP akan dikirim ke:</div>
+                    {currentUser?.email ? (
+                      <div className="flex items-center gap-1.5 text-sm font-semibold text-primary">
+                        <Mail size={14} />
+                        {currentUser.email}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5 text-sm font-semibold text-destructive">
+                        <AlertTriangle size={14} />
+                        Email belum terdaftar
+                      </div>
+                    )}
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Pastikan email di atas dapat diakses.
+                    </p>
+                  </div>
+                )}
+
                 {/* Tutorial steps */}
                 {!verified && enabling2FA && (
                   <ActivationTutorial currentStep={currentStep} email={currentUser.email} />
@@ -602,7 +623,7 @@ export default function SettingsPage() {
     <div className="h-screen overflow-hidden flex flex-col bg-background">
       <AppHeader title="Pengaturan Sistem" subtitle="Kelola preferensi dan keamanan akun Anda" />
 
-      <div className="flex flex-1 min-h-0">
+      <div className="flex flex-col sm:flex-row flex-1 min-h-0 min-w-0 overflow-x-hidden">
 
         {/* ── Frozen sidebar ── */}
         <aside className="hidden sm:flex flex-col w-64 shrink-0 border-r border-border bg-card overflow-y-auto">

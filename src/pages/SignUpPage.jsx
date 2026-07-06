@@ -25,7 +25,9 @@ export default function SignUpPage() {
 
   const update = (key, val) => setFormData((p) => ({ ...p, [key]: val }));
 
-  const handleSubmit = (e) => {
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
 
@@ -42,15 +44,22 @@ export default function SignUpPage() {
       setError("Konfirmasi kata sandi tidak cocok."); return;
     }
 
-    registerUser({
-      nama: formData.nama,
-      nip: formData.nip,
-      email: formData.email,
-      departemen: formData.departemen,
-      password: formData.password,
-      role: "Guru",
-    });
-    setSubmitted(true);
+    setSubmitting(true);
+    try {
+      await registerUser({
+        nama: formData.nama,
+        nip: formData.nip,
+        email: formData.email,
+        departemen: formData.departemen,
+        password: formData.password,
+        role: "Guru",
+      });
+      setSubmitted(true);
+    } catch (err) {
+      setError(err.message || "Pendaftaran gagal. Coba lagi.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (submitted) {
@@ -182,8 +191,8 @@ export default function SignUpPage() {
 
             {error && <p className="text-sm text-destructive font-medium">{error}</p>}
 
-            <button type="submit" className="w-full py-2.5 rounded-xl font-semibold hover:opacity-90 transition-opacity text-white mt-4" style={{ background: "hsl(347 55% 42%)" }}>
-              Daftar Akun
+            <button type="submit" disabled={submitting} className="w-full py-2.5 rounded-xl font-semibold hover:opacity-90 transition-opacity text-white mt-4 disabled:opacity-60" style={{ background: "hsl(347 55% 42%)" }}>
+              {submitting ? "Memproses..." : "Daftar Akun"}
             </button>
           </form>
           <p className="text-center text-sm text-muted-foreground mt-6">Sudah punya akun?{" "}<button onClick={() => navigate("/login")} className="font-semibold hover:underline" style={{ color: "hsl(347 45% 38%)" }}>Masuk di sini</button></p>

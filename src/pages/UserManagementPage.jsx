@@ -17,6 +17,8 @@ export default function UserManagementPage() {
     activeUsers,
     pendingUsers,
     usersLoading,
+    usersError,
+    pendingUsersError,
     loadUsers,
     loadPendingUsers,
     currentUser,
@@ -49,6 +51,20 @@ export default function UserManagementPage() {
       loadPendingUsers();
     }
   }, [loadUsers, loadPendingUsers, isAdmin]);
+
+  // Tampilkan error asli jika fetch users/pending users gagal, jangan biarkan
+  // tampil seolah-olah "kosong" padahal sebenarnya request-nya gagal.
+  useEffect(() => {
+    if (usersError) {
+      toast({ title: "Gagal memuat data pengguna", description: usersError, variant: "destructive" });
+    }
+  }, [usersError, toast]);
+
+  useEffect(() => {
+    if (pendingUsersError) {
+      toast({ title: "Gagal memuat daftar pendaftar baru", description: pendingUsersError, variant: "destructive" });
+    }
+  }, [pendingUsersError, toast]);
 
   // ── Create user → POST /api/users ─────────────────────────────────────────
   const handleCreate = async () => {

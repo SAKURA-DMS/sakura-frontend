@@ -65,6 +65,8 @@ export const AppProvider = ({ children }) => {
   const [users, setUsers] = useState([]);
   const [pendingUsersState, setPendingUsersState] = useState([]);
   const [usersLoading, setUsersLoading] = useState(false);
+  const [usersError, setUsersError] = useState(null);
+  const [pendingUsersError, setPendingUsersError] = useState(null);
 
   const isLoggedIn = !!currentUser;
 
@@ -216,22 +218,26 @@ export const AppProvider = ({ children }) => {
   // ── Load Users dari API ───────────────────────────────────────────────────
   const loadUsers = useCallback(async () => {
     setUsersLoading(true);
+    setUsersError(null);
     try {
       const { users: activeList } = await userService.listUsers();
       setUsers(activeList);
     } catch (err) {
       console.error("Gagal memuat user:", err);
+      setUsersError(err.message || "Gagal memuat daftar user");
     } finally {
       setUsersLoading(false);
     }
   }, []);
 
   const loadPendingUsers = useCallback(async () => {
+    setPendingUsersError(null);
     try {
       const { users: pendingList } = await userService.listPendingUsers();
       setPendingUsersState(pendingList);
     } catch (err) {
       console.error("Gagal memuat pending users:", err);
+      setPendingUsersError(err.message || "Gagal memuat daftar pendaftar baru");
     }
   }, []);
 
@@ -719,6 +725,8 @@ export const AppProvider = ({ children }) => {
         pendingUsers,
         activeUsers,
         usersLoading,
+        usersError,
+        pendingUsersError,
         loadUsers,
         loadPendingUsers,
         // Documents

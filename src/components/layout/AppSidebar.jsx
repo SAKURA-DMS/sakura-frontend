@@ -108,7 +108,7 @@ export default function AppSidebar() {
 
   const simpleItems = [
     hasPermission("documents.upload") && { label: "Upload",   icon: Upload,   path: "/upload" },
-    hasPermission("users.manage")     && { label: "Pengguna", icon: Users,    path: "/users"  },
+    (hasPermission("users.manage") || hasPermission("users.approve")) && { label: "Pengguna", icon: Users,    path: "/users"  },
     hasPermission("roles.manage")     && { label: "Role",     icon: Shield,   path: "/roles"  },
     hasPermission("audit.view")       && { label: "Log",      icon: FileText, path: "/logs"   },
   ].filter(Boolean);

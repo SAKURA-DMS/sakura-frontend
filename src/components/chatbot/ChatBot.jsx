@@ -74,6 +74,18 @@ function SakuraAvatar({ size = 44, className = "", interactive = false, src }) {
   );
 }
 
+function extractMessage(res) {
+  if (!res) return "Maaf, sistem sedang sibuk.";
+  if (typeof res === "string") return res;
+  return (
+    res.text ||
+    res.answer ||
+    res.reply ||
+    res.message ||
+    "Maaf, sistem sedang sibuk."
+  );
+}
+
 function formatTime(date) {
   return new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit" }).format(date);
 }
@@ -244,8 +256,7 @@ export default function ChatBot() {
 
     try {
       const res = await sendChatMessage(text);
-      // backend sometimes returns { text, links } or { answer } — prefer text
-      const answer = typeof res === "string" ? res : res.text || res.answer || res.reply || JSON.stringify(res);
+      const answer = extractMessage(res);
       const links = res.links || res.link || [];
       setMessages((prev) => [...prev, { role: "assistant", text: answer, links, time: new Date() }]);
     } catch (err) {

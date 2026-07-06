@@ -17,6 +17,7 @@ export const CATEGORIES = [
   { category_id: 2, category_name: "Data Guru" },
   { category_id: 3, category_name: "Sarana Prasarana" },
   { category_id: 4, category_name: "Surat Menyurat" },
+  { category_id: 5, category_name: "Administrasi" },
 ];
 
 // Mirror of `document_types` table
@@ -34,6 +35,27 @@ export const DOCUMENT_TYPES = [
   { type_id: 11, category_id: 4, type_name: "Buku Agenda Surat Keluar", code_prefix: "ASK" },
   { type_id: 12, category_id: 4, type_name: "Kumpulan Surat Keputusan (SK)", code_prefix: "KSK" },
   { type_id: 13, category_id: 4, type_name: "Lainnya", code_prefix: "LNR" },
+  // ── Dokumen milik Guru (category_id 5 = Administrasi) ──────────────────
+  // Lihat migration_guru_document_types.sql — harus disinkronkan manual
+  // di sini karena categoryList/typeList tidak di-fetch dari API /categories.
+  { type_id: 19, category_id: 5, type_name: "Modul Ajar", code_prefix: "MDA" },
+  { type_id: 20, category_id: 5, type_name: "RPP", code_prefix: "RPP" },
+  { type_id: 21, category_id: 5, type_name: "Silabus", code_prefix: "SIL" },
+  { type_id: 22, category_id: 5, type_name: "Program Tahunan (Prota)", code_prefix: "PTA" },
+  { type_id: 23, category_id: 5, type_name: "Program Semester (Promes)", code_prefix: "PSM" },
+  { type_id: 24, category_id: 5, type_name: "Bahan Ajar", code_prefix: "BJR" },
+  { type_id: 25, category_id: 5, type_name: "Bank Soal", code_prefix: "BSL" },
+  { type_id: 26, category_id: 5, type_name: "Kisi-kisi", code_prefix: "KSI" },
+  { type_id: 27, category_id: 5, type_name: "Rubrik Penilaian", code_prefix: "RBP" },
+  { type_id: 28, category_id: 5, type_name: "Rekap Nilai", code_prefix: "RKN" },
+  { type_id: 29, category_id: 5, type_name: "Jurnal Mengajar", code_prefix: "JRM" },
+  { type_id: 30, category_id: 5, type_name: "Absensi Siswa", code_prefix: "ABS" },
+  { type_id: 31, category_id: 5, type_name: "Laporan Hasil Belajar", code_prefix: "LHB" },
+  { type_id: 32, category_id: 5, type_name: "Portofolio Siswa", code_prefix: "PFS" },
+  { type_id: 33, category_id: 5, type_name: "SK Mengajar", code_prefix: "SKM" },
+  { type_id: 34, category_id: 5, type_name: "Sertifikat Diklat", code_prefix: "SRD" },
+  { type_id: 35, category_id: 5, type_name: "Sertifikat Seminar", code_prefix: "SRS" },
+  { type_id: 36, category_id: 5, type_name: "Portofolio Guru", code_prefix: "PFG" },
 ];
 
 // Mirror of `document_counters` table (mutable state managed in AppContext)
@@ -268,7 +290,7 @@ export const PERMISSIONS = [
 export const ROLE_PERMISSIONS = {
   "Operator/TU": ["dashboard.view", "documents.upload", "documents.archive", "documents.edit", "users.view", "users.manage", "users.approve", "users.manageRole", "roles.manage", "audit.view", "audit.addNote", "profile.edit"],
   "Kepala Sekolah": ["dashboard.view", "documents.approve", "documents.reject", "documents.archive", "audit.view", "profile.edit"],
-  "Guru": ["dashboard.view", "documents.archive", "profile.edit"],
+  "Guru": ["dashboard.view", "documents.upload", "documents.archive", "profile.edit"],
 };
 
 // Module definitions for upload permissions
@@ -342,6 +364,45 @@ export const SIDEBAR_FOLDERS = [
       { label: "Surat Masuk", folder: "surat-masuk", path: "cat:4/type:10" },
       { label: "Surat Keluar", folder: "surat-keluar", path: "cat:4/type:11" },
       { label: "SK & Edaran", folder: "sk", path: "cat:4/type:12" },
+    ],
+  },
+  // ── Arsip khusus Guru ────────────────────────────────────────────────────
+  // guruOnly: true → hanya tampil untuk role Guru (lihat filter di
+  // AppSidebar.jsx), tidak pernah muncul untuk Operator/TU atau Kepala
+  // Sekolah. Semua menumpang di category_id 5 ("Administrasi") yang sudah
+  // ada; type_id 19-36 ditambahkan lewat migration_guru_document_types.sql.
+  {
+    module: "Administrasi Pembelajaran", guruOnly: true, children: [
+      { label: "Modul Ajar",                folder: "modul-ajar",  path: "cat:5/type:19" },
+      { label: "RPP",                       folder: "rpp",         path: "cat:5/type:20" },
+      { label: "Silabus",                   folder: "silabus",     path: "cat:5/type:21" },
+      { label: "Program Tahunan (Prota)",   folder: "prota",       path: "cat:5/type:22" },
+      { label: "Program Semester (Promes)", folder: "promes",      path: "cat:5/type:23" },
+      { label: "Bahan Ajar",                folder: "bahan-ajar",  path: "cat:5/type:24" },
+    ],
+  },
+  {
+    module: "Penilaian", guruOnly: true, children: [
+      { label: "Bank Soal",         folder: "bank-soal",        path: "cat:5/type:25" },
+      { label: "Kisi-kisi",         folder: "kisi-kisi",        path: "cat:5/type:26" },
+      { label: "Rubrik Penilaian",  folder: "rubrik-penilaian", path: "cat:5/type:27" },
+      { label: "Rekap Nilai",       folder: "rekap-nilai",      path: "cat:5/type:28" },
+    ],
+  },
+  {
+    module: "Administrasi Kelas", guruOnly: true, children: [
+      { label: "Jurnal Mengajar",         folder: "jurnal-mengajar",        path: "cat:5/type:29" },
+      { label: "Absensi Siswa",           folder: "absensi-siswa",          path: "cat:5/type:30" },
+      { label: "Laporan Hasil Belajar",   folder: "laporan-hasil-belajar",  path: "cat:5/type:31" },
+      { label: "Portofolio Siswa",        folder: "portofolio-siswa",       path: "cat:5/type:32" },
+    ],
+  },
+  {
+    module: "Kepegawaian", guruOnly: true, children: [
+      { label: "SK Mengajar",         folder: "sk-mengajar-guru",       path: "cat:5/type:33" },
+      { label: "Sertifikat Diklat",   folder: "sertifikat-diklat-guru", path: "cat:5/type:34" },
+      { label: "Sertifikat Seminar",  folder: "sertifikat-seminar-guru",path: "cat:5/type:35" },
+      { label: "Portofolio Guru",     folder: "portofolio-guru",        path: "cat:5/type:36" },
     ],
   },
 ];

@@ -71,23 +71,11 @@ export default function AppSidebar() {
 
   const visibleFolders = useMemo(() => {
     return SIDEBAR_FOLDERS.filter((item) => {
-      if (!item.module) return true;
-      if (isOperator || isKepsek) return true;
-      if (isGuru && item.module === "Kepegawaian") return true;
-      return false;
-    }).map((item) => {
-      if (!item.children || !isGuru) return item;
-      if (item.module === "Kepegawaian" && isGuru) {
-        return {
-          ...item,
-          children: item.children.filter(
-            (c) => c.folder === "sertifikat" || c.folder === "catatan-diklat"
-          ),
-        };
-      }
-      return item;
+      if (!item.module) return true; // "Semua Dokumen" — tampil untuk semua role
+      if (isGuru) return !!item.guruOnly;   // Guru hanya lihat modul arsip miliknya
+      return !item.guruOnly;                 // Operator/TU & Kepala Sekolah: tidak berubah
     });
-  }, [isGuru, isOperator, isKepsek]);
+  }, [isGuru]);
 
   const currentFolder  = searchParams.get("folder");
   const approvalActive = location.pathname.startsWith("/approval");

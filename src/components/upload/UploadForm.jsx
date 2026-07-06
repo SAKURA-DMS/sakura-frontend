@@ -475,14 +475,16 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
   };
 
   // ── Auto-fill category for Guru ────────────────────────────────────────
+  // Guru hanya boleh upload ke kategori "Administrasi" (category_id 5) —
+  // lihat migration_guru_document_types.sql untuk daftar jenis dokumennya.
   useEffect(() => {
-    if (currentUser?.role === "Guru" && !selectedCategoryId) {
-      const cat = categoryList.find((c) => c.category_id === 1);
-      setSelectedCategoryId(1);
-      setKategoriValue("1");
-      setForm((p) => ({ ...p, kategori: cat?.category_name || "" }));
+    if (guruUploadOwn && !selectedCategoryId) {
+      const cat = categoryList.find((c) => c.category_id === 5);
+      setSelectedCategoryId(5);
+      setKategoriValue("5");
+      setForm((p) => ({ ...p, kategori: cat?.category_name || "Administrasi" }));
     }
-  }, [currentUser, selectedCategoryId, categoryList]);
+  }, [guruUploadOwn, selectedCategoryId, categoryList]);
 
   // ── Derived lists ──────────────────────────────────────────────────────
   const jenisOptions = useMemo(() => {
@@ -1202,6 +1204,7 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
                 <select
                   required
                   value={kategoriValue}
+                  disabled={guruUploadOwn}
                   onChange={(e) => {
                     const val = e.target.value;
                     if (val === "lainnya") {
@@ -1222,11 +1225,13 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
                     update("jenisDokumen", "");
                     setShowKategoriLainnya(false);
                   }}
-                  className="w-full px-3 py-2.5 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="w-full px-3 py-2.5 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:bg-muted disabled:cursor-not-allowed"
                 >
                   <option value="">Pilih kategori</option>
-                  {categoryList.map((c) => <option key={c.category_id} value={c.category_id}>{c.category_name}</option>)}
-                  <option value="lainnya">+ Lainnya (tambah baru)</option>
+                  {(guruUploadOwn ? categoryList.filter((c) => c.category_id === 5) : categoryList)
+                    .map((c) => <option key={c.category_id} value={c.category_id}>{c.category_name}</option>)}
+                  {/* Guru tidak boleh membuat kategori baru di luar Administrasi */}
+                  {!guruUploadOwn && <option value="lainnya">+ Lainnya (tambah baru)</option>}
                 </select>
                 {showKategoriLainnya && (
                   <LainnyaInput

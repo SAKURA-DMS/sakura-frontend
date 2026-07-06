@@ -81,7 +81,9 @@ export default function OCRFillModal({ onClose, onConfirm, onRetake, scanImageUr
   }, [scanImageUrl]);
 
   const handleConfirm = () => {
-    onConfirm({ mode: "ocr", fields });
+    // documentType disertakan agar parent (UploadForm) tahu template field
+    // OCR mana yang harus ditampilkan di form (mis. "ijazah", "skl", dst).
+    onConfirm({ mode: "ocr", documentType, fields });
   };
 
   const handleFillManual = () => {

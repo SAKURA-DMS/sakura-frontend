@@ -21,6 +21,7 @@ import { Calendar } from "@/components/ui/calendar";
 import api from "@/lib/apiClient";
 import { saveDraft, loadDraft, clearDraft, hasDraft } from "@/services/uploadDraftService";
 import { previewDocumentNumber } from "@/services/documentService";
+import { OCR_FIELD_ORDER, OCR_FIELD_LABELS, DOCUMENT_TYPE_LABELS } from "@/services/ocrService";
 
 // ─── Mode constants ────────────────────────────────────────────────────────
 const MODE_JUDUL = "hanya_judul";
@@ -310,6 +311,15 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
   });
   const [metaData, setMetaData] = useState({});
 
+  // ── Mode OCR ────────────────────────────────────────────────────────────
+  // Aktif setelah user menekan "Gunakan Data Ini" di OCRFillModal. Saat aktif,
+  // section "Data Detail" reguler disembunyikan dan digantikan section
+  // "Data Hasil OCR" (lihat render di bawah). Metadata reguler & flow upload
+  // TIDAK diubah — ini hanya menambah jalur tampilan/isi baru di atasnya.
+  const [ocrDataMode, setOcrDataMode] = useState(false);
+  const [ocrDocType, setOcrDocType] = useState(null);
+  const ocrFieldOrder = ocrDocType ? (OCR_FIELD_ORDER[ocrDocType] || []) : [];
+
   // ── Nomor Dokumen (generated, readonly) ───────────────────────────────
   // Nilai ini hanya preview sisi klien — nomor final (berurutan, unik)
   // di-generate ulang di server saat submit. Ditampilkan di form agar user
@@ -437,6 +447,8 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
     setFilePreview(null);
     setScanPageImages([]);
     setMetaData({});
+    setOcrDataMode(false);
+    setOcrDocType(null);
     setForm({
       nomorDokumen: "",
       judul: "",
@@ -568,31 +580,38 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
     setScanForOCR(false);
   };
 
-  const handleOCRConfirm = ({ mode, fields }) => {
+  const handleOCRConfirm = ({ mode, documentType, fields }) => {
     setShowOCRModal(false);
     setShouldAutoConfirmOCR(false);
     if (mode === "manual") return;
+
+    // Masuk Mode OCR: metadata reguler (Data Detail) disembunyikan, digantikan
+    // section "Data Hasil OCR" yang otomatis terisi dari hasil scan namun
+    // tetap bisa diedit sebelum submit.
+    setOcrDataMode(true);
+    setOcrDocType(documentType || null);
+
     if (fields && Object.keys(fields).length > 0) {
-      setMetaData((prev) => {
-        const merged = { ...prev };
-        Object.keys(fields).forEach((key) => {
-          if (!merged[key] || merged[key] === "") {
-            merged[key] = fields[key];
-          }
-        });
-        return merged;
-      });
+      setMetaData((prev) => ({ ...prev, ...fields }));
       if (fields.judul && !form.judul) update("judul", fields.judul);
       toast({
         title: "✓ Form Diisi Otomatis",
-        description: `${Object.keys(fields).length} field berhasil diisi dari OCR tanpa menimpa data yang sudah ada.`,
+        description: `${Object.keys(fields).length} field berhasil diisi dari OCR${
+          DOCUMENT_TYPE_LABELS[documentType] ? ` (${DOCUMENT_TYPE_LABELS[documentType]})` : ""
+        }. Anda tetap bisa mengedit sebelum menyimpan.`,
       });
     } else {
       toast({
         title: "OCR selesai",
-        description: "Tidak ada field yang terdeteksi. Silakan isi form secara manual.",
+        description: "Tidak ada field yang terdeteksi. Silakan isi field OCR secara manual.",
       });
     }
+  };
+
+  // ── Keluar dari Mode OCR (kembali ke metadata reguler) ─────────────────
+  const exitOcrDataMode = () => {
+    setOcrDataMode(false);
+    setOcrDocType(null);
   };
 
   // ── "Lainnya" save handlers ────────────────────────────────────────────
@@ -610,7 +629,7 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
       update("jenisDokumen", "");
       setSelectedTypeId(null);
       setJenisValue("");
-      setMetaData({});
+      if (!ocrDataMode) setMetaData({});
       setShowKategoriLainnya(false);
       setKategoriLainnyaText("");
       toast({ title: "Kategori baru ditambahkan", description: `"${name}" berhasil disimpan ke database.` });
@@ -623,7 +642,7 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
       update("jenisDokumen", "");
       setSelectedTypeId(null);
       setJenisValue("");
-      setMetaData({});
+      if (!ocrDataMode) setMetaData({});
       setShowKategoriLainnya(false);
       setKategoriLainnyaText("");
       toast({ title: "Kategori ditambahkan (lokal)", description: `"${name}" ditambahkan. Sinkronisasi ke server akan dilakukan saat upload.` });
@@ -640,7 +659,7 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
       setSelectedTypeId(newType.type_id);
       setJenisValue(String(newType.type_id));
       update("jenisDokumen", name);
-      setMetaData({});
+      if (!ocrDataMode) setMetaData({});
       setShowJenisLainnya(false);
       setJenisLainnyaText("");
       toast({ title: "Jenis dokumen baru ditambahkan", description: `"${name}" berhasil disimpan ke database.` });
@@ -650,7 +669,7 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
       setSelectedTypeId(newType.type_id);
       setJenisValue(String(newType.type_id));
       update("jenisDokumen", name);
-      setMetaData({});
+      if (!ocrDataMode) setMetaData({});
       setShowJenisLainnya(false);
       setJenisLainnyaText("");
       toast({ title: "Jenis dokumen ditambahkan (lokal)", description: `"${name}" ditambahkan.` });
@@ -703,6 +722,17 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
           Object.assign(metadata, { nomorSK: metaData.nomorSK || "", tanggalSK: metaData.tanggalSK || "", tentang: metaData.tentang || "", penandatangan: metaData.penandatangan || "" });
         }
       }
+
+      // Mode OCR: sertakan seluruh field hasil OCR (termasuk yang tidak ada
+      // di template kategori reguler, mis. nomorPeserta/namaSekolah untuk
+      // ijazah) ke payload metadata. Tidak menghapus/menimpa metadata reguler
+      // di atas — hanya menambahkan.
+      if (ocrDataMode && ocrFieldOrder.length > 0) {
+        ocrFieldOrder.forEach((key) => {
+          if (metaData[key]) metadata[key] = metaData[key];
+        });
+        metadata.ocrDocumentType = ocrDocType;
+      }
     }
 
     const formData = new FormData();
@@ -740,6 +770,7 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
 
     setTimeout(() => {
       setFile(null); setFilePreview(null); setScanPageImages([]); setMetaData({});
+      setOcrDataMode(false); setOcrDocType(null);
       setForm({ nomorDokumen: "", judul: "", jenisDokumen: "", kategori: "", versi: "v1", tanggalUpload: new Date() });
       setSelectedCategoryId(null); setSelectedTypeId(null);
       setKategoriValue(""); setJenisValue("");
@@ -1184,7 +1215,9 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
                     setSelectedCategoryId(catId || null);
                     setSelectedTypeId(null);
                     setJenisValue("");
-                    setMetaData({});
+                    // Saat Mode OCR aktif, metadata hasil OCR tidak dihapus
+                    // hanya karena kategori/jenis dokumen diganti.
+                    if (!ocrDataMode) setMetaData({});
                     update("kategori", cat?.category_name || "");
                     update("jenisDokumen", "");
                     setShowKategoriLainnya(false);
@@ -1229,7 +1262,9 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
                     const docType = typeList.find((t) => t.type_id === typeId);
                     setJenisValue(val);
                     setSelectedTypeId(typeId || null);
-                    setMetaData({});
+                    // Saat Mode OCR aktif, metadata hasil OCR tidak dihapus
+                    // hanya karena kategori/jenis dokumen diganti.
+                    if (!ocrDataMode) setMetaData({});
                     update("jenisDokumen", docType?.type_name || "");
                     setShowJenisLainnya(false);
                   }}
@@ -1266,8 +1301,8 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
             )}
           </div>
 
-          {/* Data Detail — only in MODE_LENGKAP */}
-          {fillMode === MODE_LENGKAP && hasSelection && dynamicFields.length > 0 && (
+          {/* Data Detail — reguler, disembunyikan saat Mode OCR aktif */}
+          {fillMode === MODE_LENGKAP && !ocrDataMode && hasSelection && dynamicFields.length > 0 && (
             <div className="bg-card border border-border rounded-xl p-4 sm:p-6 animate-fade-in">
               <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
                 <Users size={18} className="text-primary" />
@@ -1280,6 +1315,45 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
               <div className="mt-4 flex items-start gap-2 p-3 rounded-lg bg-muted/50 border border-border">
                 <Info size={13} className="text-muted-foreground shrink-0 mt-0.5" />
                 <p className="text-xs text-muted-foreground">Data detail akan disimpan sebagai metadata dokumen dan dapat dilihat saat preview.</p>
+              </div>
+            </div>
+          )}
+
+          {/* Data Hasil OCR — muncul menggantikan Data Detail saat Mode OCR aktif */}
+          {fillMode === MODE_LENGKAP && ocrDataMode && (
+            <div className="bg-card border border-primary/30 rounded-xl p-4 sm:p-6 animate-fade-in">
+              <div className="flex items-center justify-between mb-1">
+                <h3 className="font-bold text-foreground flex items-center gap-2">
+                  <Wand2 size={18} className="text-primary" />
+                  Data Hasil OCR{DOCUMENT_TYPE_LABELS[ocrDocType] ? ` — ${DOCUMENT_TYPE_LABELS[ocrDocType]}` : ""}
+                </h3>
+                <button
+                  type="button"
+                  onClick={exitOcrDataMode}
+                  className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+                >
+                  Kembali ke Mode Reguler
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground mb-4">
+                Field di bawah otomatis terisi dari hasil scan OCR. Periksa dan koreksi bila perlu sebelum menyimpan.
+              </p>
+              {ocrFieldOrder.length > 0 ? (
+                <div className="space-y-4">
+                  {ocrFieldOrder.map((key) =>
+                    renderField({
+                      key,
+                      label: OCR_FIELD_LABELS[key] || key,
+                      placeholder: `Masukkan ${OCR_FIELD_LABELS[key] || key}...`,
+                    })
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Tidak ada field OCR untuk jenis dokumen ini.</p>
+              )}
+              <div className="mt-4 flex items-start gap-2 p-3 rounded-lg bg-muted/50 border border-border">
+                <Info size={13} className="text-muted-foreground shrink-0 mt-0.5" />
+                <p className="text-xs text-muted-foreground">Data hasil OCR akan disimpan sebagai metadata dokumen, terpisah dari metadata reguler.</p>
               </div>
             </div>
           )}

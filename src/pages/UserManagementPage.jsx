@@ -11,6 +11,56 @@ import { id as localeId } from "date-fns/locale";
 const ALL_ROLES = ["Operator/TU", "Kepala Sekolah", "Guru"];
 const EMPTY_FORM = { nama: "", email: "", role: "Guru", departemen: "" };
 
+// ── Form Modal (shared create & edit) ───────────────────────────────────────
+// PENTING: komponen ini didefinisikan di LEVEL MODULE (bukan di dalam
+// UserManagementPage) supaya identitasnya stabil antar-render. Kalau
+// didefinisikan di dalam komponen induk, setiap kali formData berubah (mis.
+// user mengetik satu huruf), React akan menganggap ini komponen baru dan
+// meng-unmount lalu me-remount modal — inputnya kehilangan fokus setiap
+// ketikan, sehingga terasa "macet" setelah satu huruf.
+function UserFormModal({ title, formData, setFormData, submitting, onSubmit, submitLabel, onClose }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-card rounded-xl shadow-2xl w-full max-w-md p-6 mx-4" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-bold text-foreground text-lg">{title}</h3>
+          <button onClick={onClose} className="p-1 rounded hover:bg-muted"><X size={18} /></button>
+        </div>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">Nama Lengkap *</label>
+            <input value={formData.nama} onChange={(e) => setFormData((p) => ({ ...p, nama: e.target.value }))} placeholder="Nama lengkap" className="w-full px-3 py-2.5 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">Email *</label>
+            <input value={formData.email} onChange={(e) => setFormData((p) => ({ ...p, email: e.target.value }))} placeholder="email@sakura.sch.id" className="w-full px-3 py-2.5 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">Role</label>
+            <select value={formData.role} onChange={(e) => setFormData((p) => ({ ...p, role: e.target.value }))} className="w-full px-3 py-2.5 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+              {ALL_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">Departemen</label>
+            <input value={formData.departemen} onChange={(e) => setFormData((p) => ({ ...p, departemen: e.target.value }))} placeholder="Contoh: Tata Usaha" className="w-full px-3 py-2.5 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+          </div>
+          {title.includes("Tambah") && (
+            <p className="text-xs text-muted-foreground">Password default: <span className="font-mono font-medium">Sakura@123</span></p>
+          )}
+          <div className="flex gap-2 justify-end pt-2">
+            <button onClick={onClose} className="px-4 py-2 rounded-lg border border-input text-sm hover:bg-muted">Batal</button>
+            <button onClick={onSubmit} disabled={submitting} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 disabled:opacity-50 flex items-center gap-2">
+              {submitting && <Loader2 size={14} className="animate-spin" />}
+              {submitLabel}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function UserManagementPage() {
   const {
     users,
@@ -186,48 +236,6 @@ export default function UserManagementPage() {
     await doUpdateUser(pendingRoleChange.id, pendingRoleChange.data);
   };
 
-  // ── Form Modal (shared create & edit) ─────────────────────────────────────
-  const UserFormModal = ({ title, onSubmit, submitLabel, onClose }) => (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-card rounded-xl shadow-2xl w-full max-w-md p-6 mx-4" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-bold text-foreground text-lg">{title}</h3>
-          <button onClick={onClose} className="p-1 rounded hover:bg-muted"><X size={18} /></button>
-        </div>
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1">Nama Lengkap *</label>
-            <input value={formData.nama} onChange={(e) => setFormData((p) => ({ ...p, nama: e.target.value }))} placeholder="Nama lengkap" className="w-full px-3 py-2.5 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1">Email *</label>
-            <input value={formData.email} onChange={(e) => setFormData((p) => ({ ...p, email: e.target.value }))} placeholder="email@sakura.sch.id" className="w-full px-3 py-2.5 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1">Role</label>
-            <select value={formData.role} onChange={(e) => setFormData((p) => ({ ...p, role: e.target.value }))} className="w-full px-3 py-2.5 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-              {ALL_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1">Departemen</label>
-            <input value={formData.departemen} onChange={(e) => setFormData((p) => ({ ...p, departemen: e.target.value }))} placeholder="Contoh: Tata Usaha" className="w-full px-3 py-2.5 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-          </div>
-          {title.includes("Tambah") && (
-            <p className="text-xs text-muted-foreground">Password default: <span className="font-mono font-medium">Sakura@123</span></p>
-          )}
-          <div className="flex gap-2 justify-end pt-2">
-            <button onClick={onClose} className="px-4 py-2 rounded-lg border border-input text-sm hover:bg-muted">Batal</button>
-            <button onClick={onSubmit} disabled={submitting} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 disabled:opacity-50 flex items-center gap-2">
-              {submitting && <Loader2 size={14} className="animate-spin" />}
-              {submitLabel}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
   return (
     <>
       <AppHeader title="Manajemen User" subtitle="SMP Negeri 4 Cikarang Barat" />
@@ -394,6 +402,9 @@ export default function UserManagementPage() {
       {showCreateModal && (
         <UserFormModal
           title="Tambah User Baru"
+          formData={formData}
+          setFormData={setFormData}
+          submitting={submitting}
           onSubmit={handleCreate}
           submitLabel="Tambah"
           onClose={() => { setShowCreateModal(false); setFormData(EMPTY_FORM); }}
@@ -404,6 +415,9 @@ export default function UserManagementPage() {
       {editUserId && (
         <UserFormModal
           title="Edit User"
+          formData={formData}
+          setFormData={setFormData}
+          submitting={submitting}
           onSubmit={handleEdit}
           submitLabel="Simpan"
           onClose={() => { setEditUserId(null); setFormData(EMPTY_FORM); setOriginalRole(null); }}

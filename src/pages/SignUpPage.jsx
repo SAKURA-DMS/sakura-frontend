@@ -9,7 +9,7 @@ import sakuraBg from "@/assets/sakura_branch.png";
 const DEPARTEMEN_OPTIONS = [
   "Matematika", "Bahasa Indonesia", "Bahasa Inggris", "IPA", "IPS",
   "Pendidikan Agama", "PKN", "Seni Budaya", "PJOK", "Informatika",
-  "BK (Bimbingan Konseling)", "Tata Usaha", "Lainnya",
+  "BK (Bimbingan Konseling)", "Lainnya",
 ];
 
 export default function SignUpPage() {
@@ -20,10 +20,21 @@ export default function SignUpPage() {
   const [error, setError] = useState("");
 
   const [formData, setFormData] = useState({
-    nama: "", nip: "", email: "", departemen: "", password: "", confirmPassword: "",
+    nama: "", nip: "", email: "", password: "", confirmPassword: "",
   });
+  const [departemenSelect, setDepartemenSelect] = useState("");
+  const [departemenCustom, setDepartemenCustom] = useState("");
 
   const update = (key, val) => setFormData((p) => ({ ...p, [key]: val }));
+
+  // Saat pilihan dropdown berubah keluar dari "Lainnya", reset textbox custom
+  // supaya tidak ada sisa nilai lama yang ikut ke-submit.
+  const handleDepartemenSelectChange = (value) => {
+    setDepartemenSelect(value);
+    if (value !== "Lainnya") {
+      setDepartemenCustom("");
+    }
+  };
 
   const [submitting, setSubmitting] = useState(false);
 
@@ -31,8 +42,11 @@ export default function SignUpPage() {
     e.preventDefault();
     setError("");
 
-    if (!formData.nama || !formData.nip || !formData.email || !formData.departemen || !formData.password || !formData.confirmPassword) {
+    if (!formData.nama || !formData.nip || !formData.email || !departemenSelect || !formData.password || !formData.confirmPassword) {
       setError("Semua field wajib diisi."); return;
+    }
+    if (departemenSelect === "Lainnya" && !departemenCustom.trim()) {
+      setError("Silakan isi nama departemen."); return;
     }
     if (!/^\d{18}$/.test(formData.nip)) {
       setError("NIP harus 18 digit angka."); return;
@@ -44,13 +58,15 @@ export default function SignUpPage() {
       setError("Konfirmasi kata sandi tidak cocok."); return;
     }
 
+    const finalDepartemen = departemenSelect === "Lainnya" ? departemenCustom.trim() : departemenSelect;
+
     setSubmitting(true);
     try {
       await registerUser({
         nama: formData.nama,
         nip: formData.nip,
         email: formData.email,
-        departemen: formData.departemen,
+        departemen: finalDepartemen,
         password: formData.password,
         role: "Guru",
       });
@@ -165,11 +181,24 @@ export default function SignUpPage() {
               <label className="block text-sm font-medium text-foreground mb-1.5">Departemen / Mata Pelajaran *</label>
               <div className="relative group">
                 <Building size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                <select required value={formData.departemen} onChange={(e) => update("departemen", e.target.value)} className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary transition-all appearance-none">
+                <select required value={departemenSelect} onChange={(e) => handleDepartemenSelectChange(e.target.value)} className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary transition-all appearance-none">
                   <option value="">Pilih departemen</option>
                   {DEPARTEMEN_OPTIONS.map((d) => <option key={d} value={d}>{d}</option>)}
                 </select>
               </div>
+              {departemenSelect === "Lainnya" && (
+                <div className="relative group mt-2">
+                  <Building size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                  <input
+                    required
+                    value={departemenCustom}
+                    onChange={(e) => setDepartemenCustom(e.target.value)}
+                    type="text"
+                    placeholder="Masukkan nama mata pelajaran atau departemen"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-primary transition-all"
+                  />
+                </div>
+              )}
             </div>
 
             <div>

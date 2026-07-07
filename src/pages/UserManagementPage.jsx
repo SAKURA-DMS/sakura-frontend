@@ -67,13 +67,28 @@ export default function UserManagementPage() {
   }, [pendingUsersError, toast]);
 
   // ── Create user → POST /api/users ─────────────────────────────────────────
+  const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  const validateUserForm = () => {
+    if (!formData.nama.trim()) return "Nama lengkap wajib diisi.";
+    if (!formData.email.trim()) return "Email wajib diisi.";
+    if (!EMAIL_REGEX.test(formData.email.trim())) return "Format email tidak valid.";
+    if (!formData.role) return "Role wajib dipilih.";
+    if (!formData.departemen.trim()) return "Departemen wajib diisi.";
+    return null;
+  };
+
   const handleCreate = async () => {
-    if (!formData.nama.trim() || !formData.email.trim()) return;
+    const validationError = validateUserForm();
+    if (validationError) {
+      toast({ title: "Data belum lengkap", description: validationError, variant: "destructive" });
+      return;
+    }
     setSubmitting(true);
     try {
       const result = await addUser({ ...formData });
       if (result.ok) {
-        toast({ title: "Berhasil", description: `User ${formData.nama} berhasil dibuat` });
+        toast({ title: "Berhasil", description: "User berhasil ditambahkan." });
         setShowCreateModal(false);
         setFormData(EMPTY_FORM);
       } else {

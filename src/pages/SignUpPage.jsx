@@ -5,12 +5,7 @@ import logoSakura from "@/assets/logo_sakura.png";
 import SakuraPetals from "@/components/sakura/SakuraPetals";
 import { useApp } from "@/contexts/AppContext";
 import sakuraBg from "@/assets/sakura_branch.png";
-
-const DEPARTEMEN_OPTIONS = [
-  "Matematika", "Bahasa Indonesia", "Bahasa Inggris", "IPA", "IPS",
-  "Pendidikan Agama", "PKN", "Seni Budaya", "PJOK", "Informatika",
-  "BK (Bimbingan Konseling)", "Lainnya",
-];
+import { DEPARTEMEN_OPTIONS } from "@/data/departemenOptions";
 
 export default function SignUpPage() {
   const navigate = useNavigate();

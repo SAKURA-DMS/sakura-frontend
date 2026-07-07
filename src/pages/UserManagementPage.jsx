@@ -7,9 +7,27 @@ import { Plus, Pencil, Trash2, X, Clock, UserCheck, UserX, Loader2 } from "lucid
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { id as localeId } from "date-fns/locale";
+import { DEPARTEMEN_OPTIONS } from "@/data/departemenOptions";
 
 const ALL_ROLES = ["Operator/TU", "Kepala Sekolah", "Guru"];
 const EMPTY_FORM = { nama: "", email: "", role: "Guru", departemen: "" };
+const LAINNYA = "Lainnya";
+// Departemen "Lainnya" adalah pilihan khusus di dropdown (menampilkan textbox
+// tambahan), bukan nilai yang pernah disimpan ke database — sisanya sama
+// persis dengan daftar di halaman Signup Guru.
+const DEPARTEMEN_SELECT_OPTIONS = DEPARTEMEN_OPTIONS;
+
+// Tentukan nilai awal dropdown + textbox custom dari string departemen yang
+// tersimpan di formData (dipakai saat modal Edit dibuka dengan data existing).
+function splitDepartemen(value) {
+  const trimmed = (value || "").trim();
+  if (!trimmed) return { select: "", custom: "" };
+  if (DEPARTEMEN_SELECT_OPTIONS.includes(trimmed) && trimmed !== LAINNYA) {
+    return { select: trimmed, custom: "" };
+  }
+  // Nilai tersimpan tidak cocok dengan daftar baku → anggap hasil "Lainnya"
+  return { select: LAINNYA, custom: trimmed };
+}
 
 // ── Form Modal (shared create & edit) ───────────────────────────────────────
 // PENTING: komponen ini didefinisikan di LEVEL MODULE (bukan di dalam
@@ -19,6 +37,30 @@ const EMPTY_FORM = { nama: "", email: "", role: "Guru", departemen: "" };
 // meng-unmount lalu me-remount modal — inputnya kehilangan fokus setiap
 // ketikan, sehingga terasa "macet" setelah satu huruf.
 function UserFormModal({ title, formData, setFormData, submitting, onSubmit, submitLabel, onClose }) {
+  // State dropdown + textbox custom departemen. Diinisialisasi SEKALI saat
+  // modal ini di-mount (create & edit masing-masing mount instance baru),
+  // diturunkan dari nilai formData.departemen yang sedang berjalan.
+  const [deptSelect, setDeptSelect] = useState(() => splitDepartemen(formData.departemen).select);
+  const [deptCustom, setDeptCustom] = useState(() => splitDepartemen(formData.departemen).custom);
+
+  // Saat pilihan dropdown berubah keluar dari "Lainnya", textbox custom
+  // otomatis hilang dan nilainya di-reset supaya tidak ada sisa nilai lama
+  // yang ikut tersimpan ke database.
+  const handleDeptSelectChange = (value) => {
+    setDeptSelect(value);
+    if (value === LAINNYA) {
+      setDeptCustom("");
+      setFormData((p) => ({ ...p, departemen: "" }));
+    } else {
+      setFormData((p) => ({ ...p, departemen: value }));
+    }
+  };
+
+  const handleDeptCustomChange = (value) => {
+    setDeptCustom(value);
+    setFormData((p) => ({ ...p, departemen: value }));
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 backdrop-blur-sm" onClick={onClose}>
       <div className="bg-card rounded-xl shadow-2xl w-full max-w-md p-6 mx-4" onClick={(e) => e.stopPropagation()}>
@@ -43,10 +85,27 @@ function UserFormModal({ title, formData, setFormData, submitting, onSubmit, sub
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1">Departemen</label>
-            <input value={formData.departemen} onChange={(e) => setFormData((p) => ({ ...p, departemen: e.target.value }))} placeholder="Contoh: Tata Usaha" className="w-full px-3 py-2.5 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+            <select
+              value={deptSelect}
+              onChange={(e) => handleDeptSelectChange(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              <option value="">Pilih departemen</option>
+              {DEPARTEMEN_SELECT_OPTIONS.map((d) => <option key={d} value={d}>{d}</option>)}
+            </select>
+            {deptSelect === LAINNYA && (
+              <input
+                value={deptCustom}
+                onChange={(e) => handleDeptCustomChange(e.target.value)}
+                placeholder="Masukkan nama departemen"
+                className="w-full px-3 py-2.5 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring mt-2"
+              />
+            )}
           </div>
           {title.includes("Tambah") && (
-            <p className="text-xs text-muted-foreground">Password default: <span className="font-mono font-medium">Sakura@123</span></p>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Password awal pengguna adalah <span className="font-mono font-medium">Sakura@123</span>. Pengguna disarankan segera mengganti password setelah login pertama melalui menu Pengaturan Akun.
+            </p>
           )}
           <div className="flex gap-2 justify-end pt-2">
             <button onClick={onClose} className="px-4 py-2 rounded-lg border border-input text-sm hover:bg-muted">Batal</button>

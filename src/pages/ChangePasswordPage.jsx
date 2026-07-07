@@ -1,12 +1,20 @@
 import { useState } from "react";
-import { KeyRound, Eye, EyeOff, Save } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { KeyRound, Eye, EyeOff, Save, ShieldAlert } from "lucide-react";
 import AppHeader from "@/components/layout/AppHeader";
 import { useApp } from "@/contexts/AppContext";
 import { useToast } from "@/hooks/use-toast";
 
 export default function ChangePasswordPage() {
-  const { changePassword } = useApp();
+  const { changePassword, currentUser } = useApp();
   const { toast } = useToast();
+  const navigate = useNavigate();
+  // Halaman ini bisa diakses lewat 2 jalur: (1) dipaksa oleh ProtectedRoute
+  // karena akun masih memakai password default/awal, atau (2) dibuka manual
+  // dari menu Pengaturan Akun. Simpan status "forced" di awal render supaya
+  // tetap konsisten selama proses submit, walau flag di context sudah
+  // di-reset ke false segera setelah password berhasil diganti.
+  const [forcedFlow] = useState(!!currentUser?.mustChangePassword);
   const [currentPw, setCurrentPw] = useState("");
   const [newPw, setNewPw] = useState("");
   const [confirmPw, setConfirmPw] = useState("");
@@ -36,6 +44,12 @@ export default function ChangePasswordPage() {
       setCurrentPw("");
       setNewPw("");
       setConfirmPw("");
+      // Alur wajib-ganti-password pertama kali: setelah berhasil, langsung
+      // masuk ke Dashboard. Alur ganti password biasa (dari menu Pengaturan
+      // Akun) tetap di halaman ini seperti sebelumnya.
+      if (forcedFlow) {
+        navigate("/dashboard", { replace: true });
+      }
     } catch (err) {
       const msg = err.message || "Gagal mengubah password";
       if (
@@ -85,6 +99,14 @@ export default function ChangePasswordPage() {
       <AppHeader title="Ubah Password" subtitle="Perbarui password akun Anda" />
       <div className="flex-1 p-6 sm:p-8 overflow-y-auto animate-fade-in">
         <div className="max-w-xl mx-auto">
+          {forcedFlow && (
+            <div className="mb-5 flex items-start gap-3 rounded-xl border border-sakura-warning/30 bg-sakura-warning/[0.08] p-4">
+              <ShieldAlert size={18} className="text-sakura-warning shrink-0 mt-0.5" />
+              <p className="text-sm text-foreground leading-relaxed">
+                Akun Anda masih menggunakan password awal. Untuk keamanan, silakan ganti password terlebih dahulu sebelum melanjutkan ke Dashboard.
+              </p>
+            </div>
+          )}
           <div className="bg-card border border-border rounded-xl p-6 space-y-5">
             <h3 className="font-bold text-foreground flex items-center gap-2">
               <KeyRound size={18} className="text-primary" /> Ubah Password

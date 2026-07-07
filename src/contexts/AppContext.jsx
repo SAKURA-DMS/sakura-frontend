@@ -616,7 +616,15 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  const changePassword = async (currentPw, newPw) => authService.changePassword(currentPw, newPw);
+  // Setelah password berhasil diganti, hapus penanda "masih pakai password
+  // awal" di state lokal juga — supaya ProtectedRoute berhenti memaksa user
+  // kembali ke halaman Ganti Password pada navigasi berikutnya, tanpa perlu
+  // refresh/refetch /auth/me.
+  const changePassword = async (currentPw, newPw) => {
+    const data = await authService.changePassword(currentPw, newPw);
+    setCurrentUser((prev) => (prev ? { ...prev, mustChangePassword: false } : prev));
+    return data;
+  };
 
   const deleteUser = async (userId) => {
     if (currentUser?.role !== "Operator/TU") return { ok: false, error: "Akses ditolak" };

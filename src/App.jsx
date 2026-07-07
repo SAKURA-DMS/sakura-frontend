@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster.jsx";
 import { Toaster as Sonner } from "@/components/ui/sonner.jsx";
 import { TooltipProvider } from "@/components/ui/tooltip.jsx";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AppProvider, useApp } from "@/contexts/AppContext.jsx";
 import { SettingsProvider } from "@/contexts/SettingsContext.jsx";
 import AppLayout from "@/components/layout/Layout.jsx";
@@ -30,7 +30,8 @@ const queryClient = new QueryClient({
 });
 
 function ProtectedRoute({ children }) {
-  const { isLoggedIn, authLoading } = useApp();
+  const { isLoggedIn, authLoading, currentUser } = useApp();
+  const location = useLocation();
 
   if (authLoading) {
     return (
@@ -44,6 +45,15 @@ function ProtectedRoute({ children }) {
   }
 
   if (!isLoggedIn) return <Navigate to="/login" replace />;
+
+  // Wajib ganti password (password masih default / pertama kali login):
+  // paksa ke halaman Ganti Password dulu sebelum bisa mengakses halaman lain.
+  // Cek path supaya tidak terjadi redirect loop saat sudah berada di halaman
+  // itu sendiri.
+  if (currentUser?.mustChangePassword && location.pathname !== "/change-password") {
+    return <Navigate to="/change-password" replace />;
+  }
+
   return <>{children}</>;
 }
 

@@ -21,7 +21,7 @@ import {
 
 import logoSakura from "@/assets/logo_sakura.png";
 import { useApp } from "@/contexts/AppContext";
-import { SIDEBAR_FOLDERS } from "@/data/mockData";
+import { SIDEBAR_FOLDERS, MODULE_DEFINITIONS, canViewModule } from "@/data/mockData";
 
 export default function AppSidebar() {
   const navigate = useNavigate();
@@ -72,10 +72,10 @@ export default function AppSidebar() {
   const visibleFolders = useMemo(() => {
     return SIDEBAR_FOLDERS.filter((item) => {
       if (!item.module) return true; // "Semua Dokumen" — tampil untuk semua role
-      if (isGuru) return !!item.guruOnly;   // Guru hanya lihat modul arsip miliknya
-      return !item.guruOnly;                 // Operator/TU & Kepala Sekolah: tidak berubah
+      const mod = MODULE_DEFINITIONS.find((m) => m.id === item.moduleId);
+      return canViewModule(currentUser.role, mod); // permission per-modul, bukan pemisahan per-role
     });
-  }, [isGuru]);
+  }, [currentUser.role]);
 
   const currentFolder  = searchParams.get("folder");
   const approvalActive = location.pathname.startsWith("/approval");

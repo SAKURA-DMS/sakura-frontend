@@ -293,53 +293,123 @@ export const ROLE_PERMISSIONS = {
   "Guru": ["dashboard.view", "documents.upload", "documents.archive", "profile.edit"],
 };
 
-// Module definitions for upload permissions
+// ── Role-Based Folder Access ────────────────────────────────────────────────
+// Satu sumber kebenaran untuk permission per-modul (mirip Google Drive Shared
+// Folder): viewRoles = role yang boleh MELIHAT modul ini, manageRoles = role
+// yang boleh upload/edit/delete dokumen di dalamnya. Tidak mengubah skema DB
+// atau struktur folder yang ada — hanya lapisan permission di frontend,
+// dipetakan dari category_id/type_id yang sudah ada.
 export const MODULE_DEFINITIONS = [
   {
     id: "kesiswaan",
-    label: "Kesiswaan",
+    label: "Data Siswa",
     category_id: 1,
     type_ids: [1, 2, 3, 4],
-    uploadRoles: ["Operator/TU"],
     viewRoles: ["Operator/TU", "Kepala Sekolah", "Guru"],
+    manageRoles: ["Operator/TU"],
   },
   {
     id: "kepegawaian",
-    label: "Kepegawaian",
+    label: "Data Guru",
     category_id: 2,
     type_ids: [5, 6, 7],
-    uploadRoles: ["Operator/TU"],
-    viewRoles: ["Operator/TU", "Kepala Sekolah"],
-    subPermissions: {
-      // Sertifikat & Diklat: Guru can upload own docs
-      6: { guruCanUploadOwn: true },
-      7: { guruCanUploadOwn: true },
-    },
+    viewRoles: ["Operator/TU", "Kepala Sekolah", "Guru"],
+    manageRoles: ["Operator/TU"],
+    // Guru tetap "view" tapi dibatasi ke dokumen relevan/miliknya sendiri —
+    // filtering per-dokumen sudah ditangani accessibleDocuments di ArchivePage.jsx.
     guruViewOwnOnly: true,
   },
   {
     id: "inventaris",
-    label: "Inventaris",
+    label: "Sarana Prasarana",
     category_id: 3,
     type_ids: [8, 9],
-    uploadRoles: ["Operator/TU"],
-    viewRoles: ["Operator/TU", "Kepala Sekolah"],
+    viewRoles: ["Operator/TU", "Kepala Sekolah", "Guru"],
+    manageRoles: ["Operator/TU"],
   },
   {
     id: "korespondensi",
-    label: "Korespondensi",
+    label: "Surat Menyurat",
     category_id: 4,
-    type_ids: [10, 11, 12],
-    uploadRoles: ["Operator/TU"],
+    type_ids: [10, 11, 12, 13],
     viewRoles: ["Operator/TU", "Kepala Sekolah", "Guru"],
+    manageRoles: ["Operator/TU"],
+  },
+  {
+    id: "administrasi-pembelajaran",
+    label: "Administrasi Pembelajaran",
+    category_id: 5,
+    type_ids: [19, 20, 21, 22, 23, 24],
+    viewRoles: ["Guru", "Kepala Sekolah", "Operator/TU"],
+    manageRoles: ["Guru"],
+  },
+  {
+    id: "penilaian",
+    label: "Penilaian",
+    category_id: 5,
+    type_ids: [25, 26, 27, 28],
+    viewRoles: ["Guru", "Kepala Sekolah", "Operator/TU"],
+    manageRoles: ["Guru"],
+  },
+  {
+    id: "administrasi-kelas",
+    label: "Administrasi Kelas",
+    category_id: 5,
+    type_ids: [29, 30, 31, 32],
+    viewRoles: ["Guru", "Kepala Sekolah", "Operator/TU"],
+    manageRoles: ["Guru"],
+  },
+  {
+    id: "pengembangan-profesi",
+    label: "Pengembangan Profesi",
+    category_id: 5,
+    type_ids: [33, 34, 35, 36],
+    viewRoles: ["Guru", "Kepala Sekolah", "Operator/TU"],
+    manageRoles: ["Guru"],
   },
 ];
+
+// Cari definisi modul dari path folder terstruktur ("cat:X/type:Y" atau "cat:X")
+export function getModuleByPath(folderPath) {
+  if (!folderPath) return null;
+  const catMatch  = folderPath.match(/cat:(\d+)/);
+  const typeMatch = folderPath.match(/type:(\d+)/);
+  const catId  = catMatch  ? Number(catMatch[1])  : null;
+  const typeId = typeMatch ? Number(typeMatch[1]) : null;
+  return (
+    MODULE_DEFINITIONS.find(
+      (m) => m.category_id === catId && (typeId == null || m.type_ids.includes(typeId))
+    ) || null
+  );
+}
+
+// Cari definisi modul dari sebuah dokumen (category_id/type_id)
+export function getModuleByDoc(doc) {
+  if (!doc) return null;
+  return (
+    MODULE_DEFINITIONS.find(
+      (m) => m.category_id === doc.category_id && m.type_ids.includes(doc.type_id)
+    ) || null
+  );
+}
+
+// Tidak ada definisi modul (mis. "Semua Dokumen") → default terlihat.
+export function canViewModule(role, mod) {
+  if (!mod) return true;
+  return mod.viewRoles.includes(role);
+}
+
+// Tidak ada definisi modul → default tidak boleh kelola (aman/fail-closed).
+export function canManageModule(role, mod) {
+  if (!mod) return false;
+  return mod.manageRoles.includes(role);
+}
 
 // Sidebar folder structure for archive navigation
 export const SIDEBAR_FOLDERS = [
   { label: "Semua Dokumen", path: null, icon: "all" },
   {
-    module: "Kesiswaan", children: [
+    module: "Data Siswa", moduleId: "kesiswaan", children: [
       { label: "Buku Klapper", folder: "klapper", path: "cat:1/type:1" },
       { label: "Buku Induk Siswa", folder: "induk-siswa", path: "cat:1/type:2" },
       { label: "Ijazah SMP", folder: "ijazah", path: "cat:1/type:4" },
@@ -347,32 +417,34 @@ export const SIDEBAR_FOLDERS = [
     ],
   },
   {
-    module: "Kepegawaian", children: [
+    module: "Data Guru", moduleId: "kepegawaian", children: [
       { label: "Sertifikat/Diklat", folder: "sertifikat", path: "cat:2/type:6" },
       { label: "Buku Induk Pegawai", folder: "induk-pegawai", path: "cat:2/type:5" },
       { label: "Catatan Diklat", folder: "catatan-diklat", path: "cat:2/type:7" },
     ],
   },
   {
-    module: "Inventaris", children: [
+    module: "Sarana Prasarana", moduleId: "inventaris", children: [
       { label: "Buku Barang", folder: "barang", path: "cat:3/type:8" },
       { label: "Kartu Perbaikan", folder: "perbaikan", path: "cat:3/type:9" },
     ],
   },
   {
-    module: "Korespondensi", children: [
+    module: "Surat Menyurat", moduleId: "korespondensi", children: [
       { label: "Surat Masuk", folder: "surat-masuk", path: "cat:4/type:10" },
       { label: "Surat Keluar", folder: "surat-keluar", path: "cat:4/type:11" },
       { label: "SK & Edaran", folder: "sk", path: "cat:4/type:12" },
     ],
   },
-  // ── Arsip khusus Guru ────────────────────────────────────────────────────
-  // guruOnly: true → hanya tampil untuk role Guru (lihat filter di
-  // AppSidebar.jsx), tidak pernah muncul untuk Operator/TU atau Kepala
-  // Sekolah. Semua menumpang di category_id 5 ("Administrasi") yang sudah
-  // ada; type_id 19-36 ditambahkan lewat migration_guru_document_types.sql.
+  // ── Arsip Administrasi Guru ──────────────────────────────────────────────
+  // Sebelumnya diberi flag `guruOnly: true` sehingga HANYA tampil untuk role
+  // Guru dan disembunyikan total dari Operator/TU & Kepala Sekolah — ini yang
+  // membuat sistem terasa "per-role" alih-alih "per-permission". Sekarang
+  // visibilitas folder ditentukan oleh `canViewModule()` (lihat AppSidebar.jsx)
+  // berdasarkan `moduleId` di MODULE_DEFINITIONS, bukan flag biner lagi. Semua
+  // menumpang di category_id 5 yang sudah ada; struktur folder tidak berubah.
   {
-    module: "Administrasi Pembelajaran", guruOnly: true, children: [
+    module: "Administrasi Pembelajaran", moduleId: "administrasi-pembelajaran", children: [
       { label: "Modul Ajar",                folder: "modul-ajar",  path: "cat:5/type:19" },
       { label: "RPP",                       folder: "rpp",         path: "cat:5/type:20" },
       { label: "Silabus",                   folder: "silabus",     path: "cat:5/type:21" },
@@ -382,7 +454,7 @@ export const SIDEBAR_FOLDERS = [
     ],
   },
   {
-    module: "Penilaian", guruOnly: true, children: [
+    module: "Penilaian", moduleId: "penilaian", children: [
       { label: "Bank Soal",         folder: "bank-soal",        path: "cat:5/type:25" },
       { label: "Kisi-kisi",         folder: "kisi-kisi",        path: "cat:5/type:26" },
       { label: "Rubrik Penilaian",  folder: "rubrik-penilaian", path: "cat:5/type:27" },
@@ -390,7 +462,7 @@ export const SIDEBAR_FOLDERS = [
     ],
   },
   {
-    module: "Administrasi Kelas", guruOnly: true, children: [
+    module: "Administrasi Kelas", moduleId: "administrasi-kelas", children: [
       { label: "Jurnal Mengajar",         folder: "jurnal-mengajar",        path: "cat:5/type:29" },
       { label: "Absensi Siswa",           folder: "absensi-siswa",          path: "cat:5/type:30" },
       { label: "Laporan Hasil Belajar",   folder: "laporan-hasil-belajar",  path: "cat:5/type:31" },
@@ -398,7 +470,11 @@ export const SIDEBAR_FOLDERS = [
     ],
   },
   {
-    module: "Kepegawaian", guruOnly: true, children: [
+    // NOTE: sebelumnya modul ini keliru diberi label "Kepegawaian" (bentrok
+    // nama dengan modul "Data Guru" di atas). Diperbaiki menjadi
+    // "Pengembangan Profesi" sesuai isi foldernya (SK Mengajar, Sertifikat
+    // Diklat/Seminar Guru, Portofolio Guru).
+    module: "Pengembangan Profesi", moduleId: "pengembangan-profesi", children: [
       { label: "SK Mengajar",         folder: "sk-mengajar-guru",       path: "cat:5/type:33" },
       { label: "Sertifikat Diklat",   folder: "sertifikat-diklat-guru", path: "cat:5/type:34" },
       { label: "Sertifikat Seminar",  folder: "sertifikat-seminar-guru",path: "cat:5/type:35" },

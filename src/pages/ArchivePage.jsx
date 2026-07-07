@@ -54,6 +54,9 @@ import {
   CATEGORIES,
   DOCUMENT_TYPES,
   TAHUN_AJARAN_OPTIONS,
+  getModuleByPath,
+  getModuleByDoc,
+  canManageModule,
 } from "@/data/mockData";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -217,6 +220,13 @@ export default function ArchivePage() {
 
   const isAdmin = currentUser?.role === "Operator/TU";
 
+  // Role-Based Folder Access: upload/edit/delete dokumen ditentukan per-modul
+  // (lihat MODULE_DEFINITIONS di data/mockData.js), bukan lagi "isAdmin" saja.
+  // Manajemen struktur folder (buat/ubah nama/hapus folder) tetap khusus
+  // Operator/TU — tidak berubah dari sebelumnya.
+  const canManageDoc = (doc) => canManageModule(currentUser?.role, getModuleByDoc(doc));
+  const canUploadInSelectedFolder = canManageModule(currentUser?.role, getModuleByPath(selectedFolder));
+
   const accessibleDocuments = useMemo(() => {
     return documents.filter((doc) => {
       if (currentUser?.role === "Operator/TU") return true;
@@ -340,11 +350,24 @@ export default function ArchivePage() {
       return null;
     };
 
-    return (
-      findPath(folderTree, selectedFolder) || [
-        { label: selectedFolder, path: selectedFolder },
-      ]
-    );
+    const fromTree = findPath(folderTree, selectedFolder);
+    if (fromTree) return fromTree;
+
+    // Fallback untuk folder yang tidak ada di folderTree (mis. modul milik
+    // Guru di category_id 5) — ambil label asli dari SIDEBAR_FOLDERS supaya
+    // breadcrumb tidak pernah menampilkan path mentah seperti "cat:5/type:19".
+    for (const item of SIDEBAR_FOLDERS) {
+      if (!item.children) continue;
+      const match = item.children.find((c) => c.path === selectedFolder);
+      if (match) {
+        return [
+          { label: item.module, path: null },
+          { label: match.label, path: match.path },
+        ];
+      }
+    }
+
+    return [{ label: "Folder", path: selectedFolder }];
   }, [selectedFolder, folderTree]);
 
   const countDocsInFolder = (folderPath) => {
@@ -693,7 +716,7 @@ export default function ArchivePage() {
             </button>
           </div>
 
-          {isAdmin && (
+          {(isAdmin || canManageDoc(doc)) && (
             <div className="flex flex-wrap sm:flex-nowrap gap-2 pt-1">
               <Button
                 variant="outline"
@@ -934,7 +957,7 @@ export default function ArchivePage() {
           <Maximize2 size={16} />
         </button>
 
-        {isAdmin && (
+        {(isAdmin || canManageDoc(doc)) && (
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -1238,23 +1261,23 @@ export default function ArchivePage() {
                   </div>
 
                   {isAdmin && selectedFolder && (
-                    <>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setCreateFolderParent(selectedFolder);
-                          setNewFolderName("");
-                          setNewFolderDesc("");
-                          setShowCreateFolderModal(true);
-                        }}
-                      >
-                        <FolderPlus size={14} className="mr-1.5" /> Sub-folder
-                      </Button>
-                      <Button size="sm" onClick={() => setShowUploadModal(true)}>
-                        <FilePlus size={14} className="mr-1.5" /> Upload File
-                      </Button>
-                    </>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setCreateFolderParent(selectedFolder);
+                        setNewFolderName("");
+                        setNewFolderDesc("");
+                        setShowCreateFolderModal(true);
+                      }}
+                    >
+                      <FolderPlus size={14} className="mr-1.5" /> Sub-folder
+                    </Button>
+                  )}
+                  {selectedFolder && (isAdmin || canUploadInSelectedFolder) && (
+                    <Button size="sm" onClick={() => setShowUploadModal(true)}>
+                      <FilePlus size={14} className="mr-1.5" /> Upload File
+                    </Button>
                   )}
                 </div>
               </div>

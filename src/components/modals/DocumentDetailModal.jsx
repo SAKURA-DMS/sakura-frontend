@@ -2,7 +2,7 @@ import { X, Eye, Clock, FileText, CheckCircle, XCircle, Archive, Folder, Upload,
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { useState } from "react";
-import PdfPreviewOverlay from "./PdfPreviewOverlay";
+import PdfPreviewOverlay from "@/components/document/PdfPreview";
 import { useApp } from "@/contexts/AppContext";
 import { useToast } from "@/hooks/use-toast";
 import UserAvatar from "@/components/shared/UserAvatar";

@@ -29,7 +29,7 @@ const TECH_CARDS = [
   {
     title: "Cloud Storage",
     icon: <Cloud size={20} className="text-blue-500" />,
-    tags: ["Azure Blob Storage", "Azure Cloud"],
+    tags: ["Firebase Storage", "Google Cloud"],
   },
   {
     title: "Keamanan",

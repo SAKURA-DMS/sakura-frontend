@@ -3,12 +3,11 @@ import {
   Upload, Camera, X, Eye, FileText, CalendarIcon, Maximize,
   ZoomIn, ZoomOut, ChevronLeft, ChevronRight, RotateCw,
   AlertTriangle, Lock, Search, Info, CheckCircle, ChevronDown, Plus, Save, Users,
-  RotateCcw, Clock, FileCheck, Wand2,
+  RotateCcw, Clock, FileCheck, Wand2, Download,
 } from "lucide-react";
 import CameraScanModal from "@/components/scan/CameraScanModal";
 import OCRFillModal from "@/components/scan/OCRFillModal";
 import { useApp } from "@/contexts/AppContext";
-import PdfPreviewOverlay from "@/components/modals/PdfPreviewOverlay";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
@@ -266,6 +265,17 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
   const [filePreview, setFilePreview] = useState(null);
   const [scanPageImages, setScanPageImages] = useState([]);
   const [showPdfPreview, setShowPdfPreview] = useState(false);
+  const [localFileUrl, setLocalFileUrl] = useState(null);
+  const [localPreviewZoom, setLocalPreviewZoom] = useState(100);
+
+  // Buat object URL dari file asli yang dipilih (belum diupload ke server),
+  // agar preview menampilkan isi file sesungguhnya, bukan template dummy.
+  useEffect(() => {
+    if (!file) { setLocalFileUrl(null); return; }
+    const objectUrl = URL.createObjectURL(file);
+    setLocalFileUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [file]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -1482,15 +1492,62 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
         </div>
       )}
 
-      {showPdfPreview && (
-        <PdfPreviewOverlay onClose={() => setShowPdfPreview(false)} document={{
-          id: 0, nomorDokumen: nomorPreview || "—", judul: form.judul || "Dokumen Baru",
-          kategori: form.kategori || "Umum", kelas: metaData.kelas || "-", jenisDokumen: form.jenisDokumen,
-          namaSiswa: metaData.namaSiswa || "", nisn: metaData.nisn || "", tahunAjaran: metaData.tahunAjaran || "",
-          pengunggah: { id: currentUser.id, nama: currentUser.nama, role: currentUser.role, avatar: currentUser.avatar },
-          tanggalUpload: new Date().toISOString(), tanggalEdit: new Date().toISOString(),
-          status: "Menunggu", versi: 1, fileUrl: "", auditTrail: [],
-        }} />
+      {showPdfPreview && localFileUrl && (
+        <div className="fixed inset-0 z-[100] bg-foreground/90 flex flex-col animate-fade-in">
+          {/* Toolbar */}
+          <div className="flex items-center justify-between px-4 py-3 bg-card border-b border-border">
+            <div className="flex items-center gap-2 min-w-0">
+              <FileText size={18} className="text-primary shrink-0" />
+              <span className="font-semibold text-sm text-foreground truncate max-w-xs">
+                {file?.name || "Dokumen"}
+              </span>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-sakura-warning/20 text-sakura-warning border border-sakura-warning/30 font-medium shrink-0">
+                Pratinjau sebelum diupload
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => setLocalPreviewZoom((z) => Math.max(50, z - 25))} className="p-2 rounded hover:bg-muted">
+                <ZoomOut size={18} />
+              </button>
+              <span className="text-sm text-muted-foreground w-12 text-center">{localPreviewZoom}%</span>
+              <button type="button" onClick={() => setLocalPreviewZoom((z) => Math.min(200, z + 25))} className="p-2 rounded hover:bg-muted">
+                <ZoomIn size={18} />
+              </button>
+              <button type="button" onClick={() => setLocalPreviewZoom(100)} className="p-2 rounded hover:bg-muted">
+                <Maximize size={18} />
+              </button>
+              <div className="w-px h-6 bg-border mx-1" />
+              <a href={localFileUrl} download={file?.name} className="p-2 rounded hover:bg-muted" title="Download">
+                <Download size={18} />
+              </a>
+              <div className="w-px h-6 bg-border mx-1" />
+              <button type="button" onClick={() => setShowPdfPreview(false)} className="p-2 rounded hover:bg-destructive/10 text-destructive">
+                <X size={20} />
+              </button>
+            </div>
+          </div>
+
+          {/* Konten: file asli yang dipilih, bukan template dummy */}
+          <div className="flex-1 overflow-auto flex items-start justify-center p-8 bg-muted/30">
+            <div className="transition-transform origin-top" style={{ transform: `scale(${localPreviewZoom / 100})` }}>
+              {file?.type === "application/pdf" ? (
+                <iframe
+                  src={localFileUrl}
+                  title={`Preview ${file?.name}`}
+                  className="rounded-lg shadow-2xl border-0 bg-white"
+                  style={{ width: "794px", height: "1123px" }}
+                />
+              ) : (
+                <img
+                  src={localFileUrl}
+                  alt={`Preview ${file?.name}`}
+                  className="rounded-lg shadow-2xl block"
+                  style={{ maxWidth: "794px", minHeight: "300px", objectFit: "contain" }}
+                />
+              )}
+            </div>
+          </div>
+        </div>
       )}
       {showCameraScan && <CameraScanModal onClose={() => { setShowCameraScan(false); setScanForOCR(false); setShouldAutoConfirmOCR(false); }} onComplete={handleScanComplete} onScanForOCR={scanForOCR ? (dataUrl) => { setLastScanUrl(dataUrl); setShowOCRModal(true); } : undefined} ocrMode={scanForOCR} />}
       {showOCRModal && (

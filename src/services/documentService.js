@@ -98,7 +98,7 @@ export async function getDocument(id) {
 }
 
 /**
- * Dapatkan URL Firebase Storage (bertoken, sementara) untuk mengunduh/membuka file.
+ * Dapatkan URL Supabase Storage (bertoken, sementara) untuk mengunduh/membuka file.
  * @param {number|string} id         
  * @param {number}        expiryMin  
  * @returns {Promise<{ url, expiresInSec, filename, mimeType }>}

@@ -21,6 +21,10 @@ import api from "@/lib/apiClient";
 import { saveDraft, loadDraft, clearDraft, hasDraft } from "@/services/uploadDraftService";
 import { previewDocumentNumber } from "@/services/documentService";
 import { OCR_FIELD_ORDER, OCR_FIELD_LABELS, DOCUMENT_TYPE_LABELS } from "@/services/ocrService";
+import * as pdfjsLib from "pdfjs-dist";
+import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 // ─── Mode constants ────────────────────────────────────────────────────────
 const MODE_JUDUL = "hanya_judul";
@@ -275,6 +279,32 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
     const objectUrl = URL.createObjectURL(file);
     setLocalFileUrl(objectUrl);
     return () => URL.revokeObjectURL(objectUrl);
+  }, [file]);
+
+  const [pdfThumbnail, setPdfThumbnail] = useState(null);
+
+  // Generate thumbnail halaman pertama PDF pakai PDF.js, untuk ditampilkan
+  // di kotak "Preview Dokumen" (sebelumnya hanya ikon generik untuk PDF).
+  useEffect(() => {
+    if (!file || file.type !== "application/pdf") { setPdfThumbnail(null); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const page = await pdf.getPage(1);
+        const viewport = page.getViewport({ scale: 1.2 });
+        const canvas = window.document.createElement("canvas");
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        const ctx = canvas.getContext("2d");
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        if (!cancelled) setPdfThumbnail(canvas.toDataURL("image/png"));
+      } catch (err) {
+        if (!cancelled) setPdfThumbnail(null);
+      }
+    })();
+    return () => { cancelled = true; };
   }, [file]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -1141,6 +1171,15 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
                     </span>
                   </button>
                 </div>
+              ) : pdfThumbnail ? (
+                <div className="relative group">
+                  <img src={pdfThumbnail} alt={`Preview ${file?.name}`} className="w-full rounded-lg max-h-64 object-contain bg-muted/30 border border-border" />
+                  <button type="button" onClick={() => setShowPdfPreview(true)} className="absolute inset-0 flex items-center justify-center bg-foreground/0 group-hover:bg-foreground/40 transition-colors rounded-lg">
+                    <span className="opacity-0 group-hover:opacity-100 flex items-center gap-2 px-4 py-2 rounded-lg bg-card/90 text-foreground text-sm font-medium shadow-lg">
+                      <Maximize size={16} /> Pratinjau PDF
+                    </span>
+                  </button>
+                </div>
               ) : (
                 <div className="flex flex-col items-center gap-3 py-8">
                   <FileText size={48} className="text-muted-foreground" />
@@ -1472,6 +1511,16 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
               <span className="text-sm text-muted-foreground w-12 text-center">{fullPreviewZoom}%</span>
               <button type="button" onClick={() => setFullPreviewZoom((z) => Math.min(300, z + 25))} className="p-2 rounded hover:bg-muted"><ZoomIn size={18} /></button>
               <button type="button" onClick={() => setFullPreviewZoom(100)} className="p-2 rounded hover:bg-muted text-xs font-medium">Reset</button>
+              <div className="w-px h-6 bg-border mx-1" />
+              <a
+                href={scanPageImages.length > 0 ? scanPageImages[fullPreviewPage] : filePreview}
+                download={file?.name || `halaman-${fullPreviewPage + 1}.png`}
+                onClick={(e) => e.stopPropagation()}
+                className="p-2 rounded hover:bg-muted"
+                title="Download"
+              >
+                <Download size={18} />
+              </a>
               <div className="w-px h-6 bg-border mx-1" />
               <button type="button" onClick={() => { setShowFullPreview(false); setFullPreviewZoom(100); }} className="p-2 rounded hover:bg-destructive/10 text-destructive"><X size={20} /></button>
             </div>

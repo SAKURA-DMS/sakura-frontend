@@ -38,11 +38,25 @@ function attachInterceptors(instance) {
     (response) => response,
     (error) => {
       const status  = error.response?.status;
-      const message =
+      let message =
         error.response?.data?.error ||
         error.response?.data?.message ||
         error.message ||
         "Terjadi kesalahan. Coba lagi.";
+
+      // Safety net: `error`/`message` dari backend seharusnya selalu string,
+      // tapi jika suatu saat backend mengirim array/object (mis. detail
+      // validasi), jangan biarkan itu lolos ke state React sebagai objek —
+      // itu memicu "Minified React error #31" saat dirender di JSX.
+      if (typeof message !== "string") {
+        try {
+          message = Array.isArray(message)
+            ? message.map((m) => (typeof m === "string" ? m : m?.message || JSON.stringify(m))).join(", ")
+            : JSON.stringify(message);
+        } catch {
+          message = "Terjadi kesalahan. Coba lagi.";
+        }
+      }
 
       if (status === 401 && !error.config?.url?.includes("/auth/login")) {
         clearToken();

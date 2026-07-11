@@ -232,6 +232,107 @@ export default function ChatBot() {
   const inputRef = useRef(null);
   const [inputFocused, setInputFocused] = useState(false);
 
+  // ── Draggable floating button (posisi disimpan selama halaman belum di-refresh) ──
+  // buttonPos === null artinya tombol masih di posisi default (CSS: bottom-5 right-5).
+  // Setelah pertama kali digeser, posisi dikontrol lewat inline style (left/top, fixed).
+  const buttonRef = useRef(null);
+  const [buttonPos, setButtonPos] = useState(null);
+  const dragStateRef = useRef({ dragging: false, moved: false, offsetX: 0, offsetY: 0 });
+  const DRAG_THRESHOLD_PX = 4;
+
+  function clampToViewport(left, top, width, height) {
+    const maxLeft = Math.max(0, window.innerWidth - width);
+    const maxTop = Math.max(0, window.innerHeight - height);
+    return {
+      left: Math.min(Math.max(0, left), maxLeft),
+      top: Math.min(Math.max(0, top), maxTop),
+    };
+  }
+
+  function handleButtonPointerDown(e) {
+    const btn = buttonRef.current;
+    if (!btn) return;
+    // Hanya tombol utama mouse / sentuhan tunggal yang memicu drag
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+
+    btn.setPointerCapture?.(e.pointerId);
+    const rect = btn.getBoundingClientRect();
+    dragStateRef.current = {
+      dragging: true,
+      moved: false,
+      offsetX: e.clientX - rect.left,
+      offsetY: e.clientY - rect.top,
+    };
+  }
+
+  function handleButtonPointerMove(e) {
+    const state = dragStateRef.current;
+    if (!state.dragging) return;
+    const btn = buttonRef.current;
+    if (!btn) return;
+
+    const rect = btn.getBoundingClientRect();
+    const rawLeft = e.clientX - state.offsetX;
+    const rawTop = e.clientY - state.offsetY;
+
+    if (!state.moved) {
+      const dx = rawLeft - rect.left;
+      const dy = rawTop - rect.top;
+      if (Math.abs(dx) < DRAG_THRESHOLD_PX && Math.abs(dy) < DRAG_THRESHOLD_PX) return;
+      state.moved = true;
+    }
+
+    const { left, top } = clampToViewport(rawLeft, rawTop, rect.width, rect.height);
+
+    // Update langsung ke DOM (tanpa setState) supaya drag terasa halus/smooth
+    btn.style.left = `${left}px`;
+    btn.style.top = `${top}px`;
+    btn.style.right = "auto";
+    btn.style.bottom = "auto";
+  }
+
+  function finishDrag(e) {
+    const state = dragStateRef.current;
+    if (!state.dragging) return;
+    const btn = buttonRef.current;
+    btn?.releasePointerCapture?.(e.pointerId);
+
+    const wasMoved = state.moved;
+    dragStateRef.current = { dragging: false, moved: false, offsetX: 0, offsetY: 0 };
+
+    if (wasMoved && btn) {
+      // Simpan posisi akhir ke state supaya tetap tersimpan selama halaman belum di-refresh
+      const rect = btn.getBoundingClientRect();
+      const { left, top } = clampToViewport(rect.left, rect.top, rect.width, rect.height);
+      setButtonPos({ left, top });
+    } else if (!wasMoved) {
+      // Tidak ada pergeseran berarti = klik biasa -> buka/tutup chatbot seperti semula
+      setIsOpen((v) => !v);
+    }
+  }
+
+  function handleButtonPointerUp(e) {
+    finishDrag(e);
+  }
+
+  function handleButtonPointerCancel(e) {
+    // Interupsi (mis. sistem mengambil alih gesture): batalkan drag tanpa memicu klik
+    dragStateRef.current = { dragging: false, moved: false, offsetX: 0, offsetY: 0 };
+  }
+
+  // Jaga tombol tetap berada di dalam viewport saat browser di-resize
+  useEffect(() => {
+    function handleResize() {
+      const btn = buttonRef.current;
+      if (!btn || buttonPos === null) return;
+      const rect = btn.getBoundingClientRect();
+      const { left, top } = clampToViewport(rect.left, rect.top, rect.width, rect.height);
+      setButtonPos({ left, top });
+    }
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [buttonPos]);
+
   // Auto-scroll ke bawah setiap ada pesan baru
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -503,11 +604,22 @@ export default function ChatBot() {
         )}
       </AnimatePresence>
 
-      {/* ── Floating Button (bisa digeser kiri-kanan, tetap di bawah) ─────── */}
+      {/* ── Floating Button (bisa di-drag bebas, posisi tersimpan sampai refresh) ─── */}
       <motion.button
-        onTap={() => setIsOpen((v) => !v)}
-        className={`sakura-avatar-group group fixed bottom-5 right-5 z-50 w-16 h-16 rounded-full shadow-xl ring-1 ring-black/5 flex items-center justify-center transition-[transform,box-shadow] duration-300 ease-out hover:scale-105 focus:outline-none ${isOpen ? "opacity-80 scale-95" : ""}`}
-        aria-label="Buka SAKURA AI Assistant (bisa digeser ke kiri/kanan)"
+        ref={buttonRef}
+        onPointerDown={handleButtonPointerDown}
+        onPointerMove={handleButtonPointerMove}
+        onPointerUp={handleButtonPointerUp}
+        onPointerCancel={handleButtonPointerCancel}
+        className={`sakura-avatar-group group fixed ${buttonPos === null ? "bottom-5 right-5" : ""} z-50 w-16 h-16 rounded-full shadow-xl ring-1 ring-black/5 flex items-center justify-center transition-[transform,box-shadow] duration-300 ease-out hover:scale-105 focus:outline-none ${isOpen ? "opacity-80 scale-95" : ""}`}
+        style={{
+          touchAction: "none",
+          cursor: "grab",
+          ...(buttonPos !== null
+            ? { left: buttonPos.left, top: buttonPos.top, right: "auto", bottom: "auto" }
+            : {}),
+        }}
+        aria-label="Buka SAKURA AI Assistant (bisa digeser bebas dengan mouse atau sentuhan)"
         title="SAKURA AI Search Assistant"
       >
         <PetalRing scale={1.3} />

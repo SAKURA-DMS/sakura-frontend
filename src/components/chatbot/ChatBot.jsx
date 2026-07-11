@@ -234,11 +234,16 @@ export default function ChatBot() {
 
   // ── Draggable floating button (posisi disimpan selama halaman belum di-refresh) ──
   // buttonPos === null artinya tombol masih di posisi default (CSS: bottom-5 right-5).
-  // Setelah pertama kali digeser, posisi dikontrol lewat inline style (left/top, fixed).
+  // Setelah pertama kali digeser, posisi dikontrol lewat inline style (left/top, fixed),
+  // dan SELALU di-snap ke sisi kiri/kanan viewport terdekat begitu drag selesai
+  // (mirip Messenger Chat Head / Edge Panel / Assistive Touch) supaya icon tidak
+  // pernah berhenti di tengah layar.
   const buttonRef = useRef(null);
   const [buttonPos, setButtonPos] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
   const dragStateRef = useRef({ dragging: false, moved: false, offsetX: 0, offsetY: 0 });
   const DRAG_THRESHOLD_PX = 4;
+  const EDGE_MARGIN_PX = 16; // jarak minimal icon dari tepi layar setelah snap
 
   function clampToViewport(left, top, width, height) {
     const maxLeft = Math.max(0, window.innerWidth - width);
@@ -247,6 +252,27 @@ export default function ChatBot() {
       left: Math.min(Math.max(0, left), maxLeft),
       top: Math.min(Math.max(0, top), maxTop),
     };
+  }
+
+  // Tentukan posisi akhir setelah snap: pilih sisi kiri atau kanan viewport
+  // berdasarkan mana yang lebih dekat, posisi Y (top) tetap seperti saat dilepas.
+  function computeSnapPosition(left, top, width, height) {
+    const { top: clampedTop } = clampToViewport(left, top, width, height);
+    const viewportWidth = window.innerWidth;
+
+    const distanceLeft = left;
+    const distanceRight = viewportWidth - (left + width);
+
+    let snappedLeft =
+      distanceLeft <= distanceRight
+        ? EDGE_MARGIN_PX
+        : viewportWidth - width - EDGE_MARGIN_PX;
+
+    // Pengaman ekstra: pastikan tetap berada di dalam viewport walau
+    // viewport sangat sempit (mis. lebih sempit dari lebar tombol + margin).
+    snappedLeft = Math.min(Math.max(0, snappedLeft), Math.max(0, viewportWidth - width));
+
+    return { left: snappedLeft, top: clampedTop };
   }
 
   function handleButtonPointerDown(e) {
@@ -280,6 +306,7 @@ export default function ChatBot() {
       const dy = rawTop - rect.top;
       if (Math.abs(dx) < DRAG_THRESHOLD_PX && Math.abs(dy) < DRAG_THRESHOLD_PX) return;
       state.moved = true;
+      setIsDragging(true); // matikan transisi CSS selama drag aktif supaya mengikuti pointer tanpa lag
     }
 
     const { left, top } = clampToViewport(rawLeft, rawTop, rect.width, rect.height);
@@ -299,12 +326,16 @@ export default function ChatBot() {
 
     const wasMoved = state.moved;
     dragStateRef.current = { dragging: false, moved: false, offsetX: 0, offsetY: 0 };
+    setIsDragging(false);
 
     if (wasMoved && btn) {
-      // Simpan posisi akhir ke state supaya tetap tersimpan selama halaman belum di-refresh
+      // Snap to Edge: setelah drag selesai, icon otomatis "menempel" ke sisi
+      // kiri atau kanan viewport terdekat (bukan berhenti di posisi bebas/tengah).
+      // Posisi Y (vertikal) tetap sesuai saat dilepas. Transisi CSS (lihat style
+      // di JSX tombol) yang membuat perpindahan ke tepi terasa smooth (~260ms).
       const rect = btn.getBoundingClientRect();
-      const { left, top } = clampToViewport(rect.left, rect.top, rect.width, rect.height);
-      setButtonPos({ left, top });
+      const snapped = computeSnapPosition(rect.left, rect.top, rect.width, rect.height);
+      setButtonPos(snapped);
     } else if (!wasMoved) {
       // Tidak ada pergeseran berarti = klik biasa -> buka/tutup chatbot seperti semula
       setIsOpen((v) => !v);
@@ -318,16 +349,17 @@ export default function ChatBot() {
   function handleButtonPointerCancel(e) {
     // Interupsi (mis. sistem mengambil alih gesture): batalkan drag tanpa memicu klik
     dragStateRef.current = { dragging: false, moved: false, offsetX: 0, offsetY: 0 };
+    setIsDragging(false);
   }
 
-  // Jaga tombol tetap berada di dalam viewport saat browser di-resize
+  // Jaga tombol tetap ter-snap di tepi & di dalam viewport saat browser di-resize
   useEffect(() => {
     function handleResize() {
       const btn = buttonRef.current;
       if (!btn || buttonPos === null) return;
       const rect = btn.getBoundingClientRect();
-      const { left, top } = clampToViewport(rect.left, rect.top, rect.width, rect.height);
-      setButtonPos({ left, top });
+      const snapped = computeSnapPosition(rect.left, rect.top, rect.width, rect.height);
+      setButtonPos(snapped);
     }
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
@@ -614,7 +646,15 @@ export default function ChatBot() {
         className={`sakura-avatar-group group fixed ${buttonPos === null ? "bottom-5 right-5" : ""} z-50 w-16 h-16 rounded-full shadow-xl ring-1 ring-black/5 flex items-center justify-center transition-[transform,box-shadow] duration-300 ease-out hover:scale-105 focus:outline-none ${isOpen ? "opacity-80 scale-95" : ""}`}
         style={{
           touchAction: "none",
-          cursor: "grab",
+          cursor: isDragging ? "grabbing" : "grab",
+          // Transisi hanya aktif saat TIDAK sedang drag, supaya perpindahan ke
+          // sisi tepi (snap) terasa smooth (~260ms), sementara saat drag aktif
+          // posisi mengikuti pointer secara langsung tanpa lag/delay.
+          // Durasi & easing untuk transform/box-shadow sengaja disamakan
+          // dengan className asli (300ms ease-out) supaya animasi hover tidak berubah.
+          transition: isDragging
+            ? "none"
+            : "left 260ms cubic-bezier(0.22, 1, 0.36, 1), top 260ms cubic-bezier(0.22, 1, 0.36, 1), transform 300ms ease-out, box-shadow 300ms ease-out",
           ...(buttonPos !== null
             ? { left: buttonPos.left, top: buttonPos.top, right: "auto", bottom: "auto" }
             : {}),

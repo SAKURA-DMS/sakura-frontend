@@ -44,10 +44,6 @@ function attachInterceptors(instance) {
         error.message ||
         "Terjadi kesalahan. Coba lagi.";
 
-      // Safety net: `error`/`message` dari backend seharusnya selalu string,
-      // tapi jika suatu saat backend mengirim array/object (mis. detail
-      // validasi), jangan biarkan itu lolos ke state React sebagai objek —
-      // itu memicu "Minified React error #31" saat dirender di JSX.
       if (typeof message !== "string") {
         try {
           message = Array.isArray(message)

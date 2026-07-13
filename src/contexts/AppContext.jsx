@@ -9,6 +9,7 @@ import * as documentService from "@/services/documentService";
 import * as notificationService from "@/services/notificationService";
 import * as presenceService from "@/services/presenceService";
 import { getToken } from "@/lib/apiClient";
+import { useIdleSession } from "@/hooks/useIdleSession";
 
 const AppContext = createContext(null);
 
@@ -272,6 +273,13 @@ export const AppProvider = ({ children }) => {
     setNotifications([]);
     setOnlineStatuses({});
   };
+
+  // ── Idle Session (Task 2): logout otomatis setelah 12 jam tanpa aktivitas.
+  // Aktivitas = click, mousemove, keyboard, scroll, atau request API apa pun.
+  // Selama user aktif, sesi diperpanjang otomatis (lihat useIdleSession.js).
+  // Hook ini sengaja diletakkan setelah `logout` didefinisikan supaya bisa
+  // dipakai langsung sebagai callback saat idle tercapai.
+  useIdleSession(!!currentUser, logout);
 
   // ── Folder CRUD (custom folders, tetap local) ─────────────────────────────
   const createFolder = (folderName, parentPath = null, description = "") => {

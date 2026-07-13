@@ -63,6 +63,18 @@ export async function getMe() {
   return data;
 }
 
+/**
+ * Perpanjang sesi (dipanggil berkala oleh useIdleSession selama user aktif).
+ * Backend menerbitkan token baru dengan masa berlaku penuh lagi.
+ */
+export async function refreshSession() {
+  const { data } = await api.post("/auth/refresh-session");
+  if (data.token) {
+    setToken(data.token);
+  }
+  return data;
+}
+
 export async function changePassword(oldPassword, newPassword) {
   const { data } = await api.post("/auth/change-password", { oldPassword, newPassword });
   return data;

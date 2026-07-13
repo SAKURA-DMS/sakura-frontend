@@ -10,6 +10,22 @@ export const clearToken = ()       => {
   localStorage.removeItem(USER_KEY);
 };
 
+// ── Activity pub/sub (dipakai untuk idle-session tracking, Task 2) ──────────
+// Setiap request API yang berhasil dianggap sebagai "aktivitas" user, selain
+// event DOM (click, mousemove, keyboard, scroll) yang didengarkan langsung
+// oleh hook useIdleSession. Dipisah jadi modul kecil di sini supaya
+// apiClient.js tidak perlu tahu apa-apa soal React/hooks.
+const activityListeners = new Set();
+export function onApiActivity(listener) {
+  activityListeners.add(listener);
+  return () => activityListeners.delete(listener);
+}
+function notifyApiActivity() {
+  activityListeners.forEach((fn) => {
+    try { fn(); } catch { /* jangan biarkan listener rusak mengganggu request */ }
+  });
+}
+
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 
 const api = axios.create({
@@ -35,7 +51,11 @@ function attachInterceptors(instance) {
   );
 
   instance.interceptors.response.use(
-    (response) => response,
+    (response) => {
+      // Request berhasil = user sedang aktif menggunakan aplikasi.
+      notifyApiActivity();
+      return response;
+    },
     (error) => {
       const status  = error.response?.status;
       let message =

@@ -333,9 +333,12 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
   const [showJenisLainnya, setShowJenisLainnya] = useState(false);
   const [jenisLainnyaText, setJenisLainnyaText] = useState("");
 
-  // ── Sensitive / Urgent / NIP ───────────────────────────────────────────
+  // ── Sensitive / Urgent / Approval Kepsek / NIP ─────────────────────────
   const [isUrgent, setIsUrgent] = useState(false);
   const [isSensitif, setIsSensitif] = useState(false);
+  // Default ON — mengikuti perilaku lama (semua dokumen otomatis masuk
+  // antrian persetujuan Kepala Sekolah sebelum diarsipkan).
+  const [needsApproval, setNeedsApproval] = useState(true);
   const [ownerNIPs, setOwnerNIPs] = useState(lockedNip ? [lockedNip] : []);
   const [nipSearch, setNipSearch] = useState("");
   const [nipDropdownOpen, setNipDropdownOpen] = useState(false);
@@ -398,6 +401,7 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
     fillMode,
     isUrgent,
     isSensitif,
+    needsApproval,
     ownerNIPs,
     form,
     metaData,
@@ -411,7 +415,7 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
     fileType: file?.type ?? null,
     scanPageImages,
   }), [
-    fillMode, isUrgent, isSensitif, ownerNIPs, form, metaData,
+    fillMode, isUrgent, isSensitif, needsApproval, ownerNIPs, form, metaData,
     selectedCategoryId, selectedTypeId, kategoriValue, jenisValue,
     filePreview, file, scanPageImages,
   ]);
@@ -453,6 +457,7 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
     if (d.fillMode) setFillMode(d.fillMode);
     if (d.isUrgent !== undefined) setIsUrgent(d.isUrgent);
     if (d.isSensitif !== undefined) setIsSensitif(d.isSensitif);
+    if (d.needsApproval !== undefined) setNeedsApproval(d.needsApproval);
     if (d.ownerNIPs?.length) setOwnerNIPs(d.ownerNIPs);
     if (d.form) setForm({ ...form, ...d.form });
     if (d.metaData) setMetaData(d.metaData);
@@ -504,6 +509,7 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
     setFillMode(MODE_JUDUL);
     setIsUrgent(false);
     setIsSensitif(false);
+    setNeedsApproval(true);
     setOwnerNIPs(lockedNip ? [lockedNip] : []);
     setShowKategoriLainnya(false);
     setShowJenisLainnya(false);
@@ -725,11 +731,21 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
     if (!selectedCategoryId) { toast({ variant: "destructive", title: "Pilih kategori dokumen terlebih dahulu" }); return; }
     if (!selectedTypeId) { toast({ variant: "destructive", title: "Pilih jenis dokumen terlebih dahulu" }); return; }
     if (!file) { toast({ variant: "destructive", title: "File wajib dipilih", description: "Pilih file dokumen sebelum melanjutkan." }); return; }
+    // Sensitive aktif -> NIP pemilik wajib dipilih, tidak boleh upload jika kosong.
+    if (isSensitif && ownerNIPs.length === 0) {
+      toast({ variant: "destructive", title: "NIP Pemilik Dokumen wajib dipilih", description: "Dokumen sensitif harus memiliki minimal satu pemilik (NIP)." });
+      return;
+    }
     setShowConfirm(true);
   };
 
   const confirmUpload = async () => {
     if (!file) { toast({ variant: "destructive", title: "File wajib dipilih" }); setShowConfirm(false); return; }
+    if (isSensitif && ownerNIPs.length === 0) {
+      toast({ variant: "destructive", title: "NIP Pemilik Dokumen wajib dipilih" });
+      setShowConfirm(false);
+      return;
+    }
 
     const folderId = getFolderIdForDocument(selectedCategoryId, selectedTypeId);
     const metadata = {};
@@ -786,6 +802,11 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
     if (folderId) formData.append("folder_id", folderId);
     if (metaData.tahunAjaran) formData.append("tahun_ajaran", metaData.tahunAjaran);
     formData.append("metadata", JSON.stringify(metadata));
+    // Toggle "Butuh Approval Kepsek" (Task 1)
+    formData.append("approval_required", needsApproval ? "true" : "false");
+    // Toggle "Dokumen Sensitive" (Task 2)
+    formData.append("is_sensitive", isSensitif ? "true" : "false");
+    if (isSensitif) formData.append("owner_nips", JSON.stringify(ownerNIPs));
 
     setShowConfirm(false);
     setUploadProgress(0);
@@ -804,7 +825,7 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
       title: "✓ Dokumen Berhasil Diunggah",
       description: (
         <div className="flex flex-col gap-2">
-          <span>Dokumen masuk antrian persetujuan.</span>
+          <span>{needsApproval ? "Dokumen masuk antrian persetujuan." : "Dokumen langsung diarsipkan."}</span>
           <button onClick={() => navigate("/archive")} className="text-xs text-primary font-semibold hover:underline text-left">→ Lihat di Arsip Dokumen</button>
         </div>
       ),
@@ -999,6 +1020,24 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
             )}
           </div>
 
+          {/* Butuh Approval Kepsek */}
+          <div className="bg-card border border-border rounded-xl p-4 sm:p-6">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-foreground">Butuh Approval Kepsek</span>
+              <button type="button" onClick={() => setNeedsApproval(!needsApproval)} className={`relative w-11 h-6 rounded-full transition-colors ${needsApproval ? "bg-primary" : "bg-input"}`}>
+                <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-background shadow transition-transform ${needsApproval ? "translate-x-5" : ""}`} />
+              </button>
+            </div>
+            <div className="flex items-start gap-2.5 mt-3 p-3 rounded-lg bg-primary/[0.06] border border-primary/20">
+              <Info size={16} className="text-primary shrink-0 mt-0.5" />
+              <p className="text-[13px] text-primary">
+                {needsApproval
+                  ? "Dokumen akan menunggu persetujuan Kepala Sekolah sebelum diarsipkan."
+                  : "Dokumen akan langsung diarsipkan tanpa melalui proses persetujuan."}
+              </p>
+            </div>
+          </div>
+
           {/* Sensitif */}
           <div className="bg-card border border-border rounded-xl p-4 sm:p-6">
             <div className="flex items-center justify-between">
@@ -1045,6 +1084,12 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
                     </div>
                   )}
                 </div>
+              </div>
+            )}
+            {isSensitif && needsApproval && (
+              <div className="flex items-start gap-2.5 mt-3 p-3 rounded-lg bg-muted/50 border border-border">
+                <Info size={14} className="text-muted-foreground shrink-0 mt-0.5" />
+                <p className="text-[12px] text-muted-foreground">Dokumen yang membutuhkan persetujuan Kepala Sekolah akan masuk ke alur approval.</p>
               </div>
             )}
           </div>

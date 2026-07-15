@@ -44,6 +44,16 @@ export function normalizeDocument(d) {
     updated_at:        d.updated_at,
     deleted_at:        d.deleted_at,
 
+    // Approval Kepsek (Task 1) & Dokumen Sensitive (Task 2) — field baru,
+    // aman diabaikan oleh komponen lama yang belum memakainya.
+    approvalRequired: d.approval_required !== undefined ? !!d.approval_required : true,
+    approvalStatus:   d.approval_status || null,
+    approvedBy:       d.approved_by ?? null,
+    approvedAt:       d.approved_at || null,
+    isSensitive:      !!d.is_sensitive,
+    ownerNip:         d.owner_nip || null,
+    ownerUserId:      d.owner_user_id ?? null,
+
     auditTrail: d.auditTrail || [],
     metadata:   d.metadata   || null,
     favorite:   d.favorite   || false,

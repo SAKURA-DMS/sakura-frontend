@@ -807,6 +807,8 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
     // Toggle "Dokumen Sensitive" (Task 2)
     formData.append("is_sensitive", isSensitif ? "true" : "false");
     if (isSensitif) formData.append("owner_nips", JSON.stringify(ownerNIPs));
+    // Toggle "Urgent"
+    formData.append("is_urgent", isUrgent ? "true" : "false");
 
     setShowConfirm(false);
     setUploadProgress(0);

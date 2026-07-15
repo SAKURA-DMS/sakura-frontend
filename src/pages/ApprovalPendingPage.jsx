@@ -36,6 +36,10 @@ export default function ApprovalPendingPage() {
       const { data } = await api.get("/approvals", { params: { status: "pending", limit: 100 } });
       const raw = data.requests || [];
       const sorted = [...raw].sort((a, b) => {
+        const urgentFlagA = !!a.is_urgent;
+        const urgentFlagB = !!b.is_urgent;
+        if (urgentFlagA !== urgentFlagB) return urgentFlagA ? -1 : 1; // ditandai Urgent saat upload -> paling atas
+
         const hoursA = differenceInHours(new Date(), new Date(a.requested_at));
         const hoursB = differenceInHours(new Date(), new Date(b.requested_at));
         const urgentA = hoursA >= 72;
@@ -165,7 +169,7 @@ export default function ApprovalPendingPage() {
           <div className="space-y-3">
             {requests.map((req) => {
               const hours = differenceInHours(new Date(), new Date(req.requested_at));
-              const isUrgent = hours > 72;
+              const isUrgent = !!req.is_urgent || hours > 72;
               return (
                 <div key={req.id} className={`bg-card rounded-2xl border p-5 shadow-sm hover:shadow-md transition-shadow ${isUrgent ? "border-l-4 border-l-destructive border-border" : "border-primary/[0.12]"}`}>
                   {/* Top row */}

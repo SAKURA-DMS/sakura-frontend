@@ -355,6 +355,10 @@ function PersetujuanTab({ currentUser, canApprove, approveDocument, rejectDocume
       const { data } = await api.get("/approvals", { params: { status: "pending", limit: 100 } });
       const raw = data.requests || [];
       const sorted = [...raw].sort((a, b) => {
+        const urgentFlagA = !!a.is_urgent;
+        const urgentFlagB = !!b.is_urgent;
+        if (urgentFlagA !== urgentFlagB) return urgentFlagA ? -1 : 1; // ditandai Urgent saat upload -> paling kiri/atas
+
         const hoursA = differenceInHours(new Date(), new Date(a.requested_at));
         const hoursB = differenceInHours(new Date(), new Date(b.requested_at));
         const urgentA = hoursA >= 72;
@@ -373,9 +377,9 @@ function PersetujuanTab({ currentUser, canApprove, approveDocument, rejectDocume
 
   useEffect(() => { fetchPending(); }, [fetchPending]);
 
-  const getUrgency = (requestedAt) => {
+  const getUrgency = (requestedAt, isUrgentFlag) => {
     const hours = differenceInHours(new Date(), new Date(requestedAt));
-    if (hours > 72) return { label: "Urgent",  color: "bg-destructive/15 text-destructive" };
+    if (isUrgentFlag || hours > 72) return { label: "Urgent",  color: "bg-destructive/15 text-destructive" };
     if (hours > 24) return { label: "Pending", color: "bg-sakura-warning/15 text-sakura-warning" };
     return              { label: "Baru",    color: "bg-sakura-success/15 text-sakura-success" };
   };
@@ -444,7 +448,7 @@ function PersetujuanTab({ currentUser, canApprove, approveDocument, rejectDocume
     <>
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {requests.map((req) => {
-          const urgency = getUrgency(req.requested_at);
+          const urgency = getUrgency(req.requested_at, req.is_urgent);
           return (
             <div key={req.id} className={`bg-card rounded-2xl border overflow-hidden hover:shadow-card-hover ${urgency.label === "Urgent" ? "border-l-4 border-l-destructive border-border" : "border-border"}`}>
               {/* Header: requester */}

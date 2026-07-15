@@ -36,10 +36,6 @@ function getActivityColor(action = "") {
   return match || DEFAULT_ACTIVITY_COLOR;
 }
 
-// Gap antar aktivitas (menit) dalam tanggal yang sama sebelum dianggap
-// sesi baru dan diberi label "(Lanjutan)" — sesuai referensi desain.
-const CONTINUATION_GAP_MINUTES = 30;
-
 export default function LogPage() {
   const { currentUser } = useApp();
 
@@ -158,38 +154,24 @@ export default function LogPage() {
         return ta - tb; // jam ASC
       });
 
-      // Kelompokkan jadi section per tanggal. Jika ada jeda waktu panjang
-      // (> CONTINUATION_GAP_MINUTES) dalam tanggal yang sama, pecah jadi
-      // section baru berlabel "(Lanjutan)" — seperti pada referensi desain.
+      // Kelompokkan jadi 1 section per tanggal. Selama masih tanggal yang
+      // sama, semua aktivitas tetap dalam satu section — tidak dipecah lagi
+      // berdasarkan jeda waktu (fix: sebelumnya jeda > 30 menit di tanggal
+      // yang sama malah dipecah jadi "(Lanjutan)" berkali-kali, padahal
+      // seharusnya hanya dipecah kalau memang beda tanggal).
       const sections = [];
       let current = null;
-      let prevTime = null;
 
       u.activities.forEach((log) => {
         const t = log.time ? new Date(log.time) : null;
         const dateKey = t ? format(t, "yyyy-MM-dd") : "unknown";
         const dateLabel = t ? format(t, "d MMM yyyy", { locale: idLocale }) : "Tanggal tidak diketahui";
-        const gapMinutes =
-          prevTime && current?.dateKey === dateKey
-            ? (t - prevTime) / 60000
-            : null;
 
-        const isNewSection =
-          !current ||
-          current.dateKey !== dateKey ||
-          (gapMinutes !== null && gapMinutes > CONTINUATION_GAP_MINUTES);
-
-        if (isNewSection) {
-          const isContinuation = current && current.dateKey === dateKey;
-          current = {
-            dateKey,
-            label: isContinuation ? `${dateLabel} (Lanjutan)` : dateLabel,
-            items: [],
-          };
+        if (!current || current.dateKey !== dateKey) {
+          current = { dateKey, label: dateLabel, items: [] };
           sections.push(current);
         }
         current.items.push(log);
-        prevTime = t;
       });
 
       u.sections = sections;

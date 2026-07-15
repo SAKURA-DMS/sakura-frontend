@@ -14,6 +14,7 @@ import {
   Clock,
   CheckCircle,
   GitBranch,
+  Folder,
   FolderOpen,
   Trash2,
   X,
@@ -347,9 +348,12 @@ export default function AppSidebar() {
             }
 
             return (
-              <div key={item.module} className="mt-2">
-                <div className="px-2 pt-1 pb-0.5 text-[10px] font-semibold text-sidebar-foreground/45 uppercase tracking-wide">
-                  {item.module}
+              <div key={item.module} className="mt-3 first:mt-1">
+                <div className="flex items-center gap-1.5 px-2 pb-1 mb-0.5 border-b border-sidebar-border/40">
+                  <Folder size={11} className="text-sidebar-foreground/80 shrink-0" />
+                  <span className="text-[11px] font-bold text-sidebar-foreground/85 uppercase tracking-wider">
+                    {item.module}
+                  </span>
                 </div>
                 {item.children.map((child) => (
                   <button
@@ -357,15 +361,15 @@ export default function AppSidebar() {
                     tabIndex={-1}
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={(e) => handleNavigate(e, `/archive?folder=${child.folder}`)}
-                    className={`w-full flex items-center justify-between px-2 py-1.5 text-xs rounded-md ${
+                    className={`w-full flex items-center justify-between pl-4 pr-2 py-1.5 text-[12px] font-normal rounded-md ${
                       currentFolder === child.folder
                         ? "bg-sidebar-accent text-sidebar-accent-foreground font-semibold"
-                        : "text-sidebar-foreground/60 hover:text-sidebar-accent-foreground"
+                        : "text-sidebar-foreground/75 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent/30"
                     }`}
                   >
                     <span className="truncate pr-2">{child.label}</span>
                     {folderCounts[child.folder] > 0 && (
-                      <span className="text-[9px] font-bold bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full min-w-[16px] text-center shrink-0">
+                      <span className="text-[10px] font-extrabold bg-white text-primary px-1.5 py-0.5 rounded-full min-w-[18px] text-center shrink-0 shadow-sm">
                         {folderCounts[child.folder]}
                       </span>
                     )}

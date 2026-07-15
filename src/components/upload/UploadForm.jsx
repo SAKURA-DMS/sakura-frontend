@@ -3,7 +3,7 @@ import {
   Upload, Camera, X, Eye, FileText, CalendarIcon, Maximize,
   ZoomIn, ZoomOut, ChevronLeft, ChevronRight, RotateCw,
   AlertTriangle, Lock, Search, Info, CheckCircle, ChevronDown, Plus, Save, Users,
-  RotateCcw, Clock, FileCheck, Wand2, Download,
+  RotateCcw, Clock, FileCheck, Wand2, Download, ShieldCheck,
 } from "lucide-react";
 import CameraScanModal from "@/components/scan/CameraScanModal";
 import OCRFillModal from "@/components/scan/OCRFillModal";
@@ -1000,100 +1000,117 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
         )}
       </div>
 
+      {/* ── Toggle Row: Urgent / Sensitif / Approval Kepsek ────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+        {/* Urgent */}
+        <div className="bg-card border border-border rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+          <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+            <AlertTriangle size={16} className="text-sakura-warning shrink-0" /> Urgent
+          </span>
+          <button type="button" onClick={() => setIsUrgent(!isUrgent)} className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${isUrgent ? "bg-sakura-warning" : "bg-input"}`}>
+            <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-background shadow transition-transform ${isUrgent ? "translate-x-5" : ""}`} />
+          </button>
+        </div>
+
+        {/* Sensitif */}
+        <div className="bg-card border border-border rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+          <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+            <Lock size={16} className="text-primary shrink-0" /> Sensitif
+          </span>
+          <button type="button" onClick={() => setIsSensitif(!isSensitif)} className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${isSensitif ? "bg-primary" : "bg-input"}`}>
+            <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-background shadow transition-transform ${isSensitif ? "translate-x-5" : ""}`} />
+          </button>
+        </div>
+
+        {/* Butuh Approval Kepsek */}
+        <div className="bg-card border border-border rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+          <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+            <ShieldCheck size={16} className="text-primary shrink-0" /> Approval Kepsek
+          </span>
+          <button type="button" onClick={() => setNeedsApproval(!needsApproval)} className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${needsApproval ? "bg-primary" : "bg-input"}`}>
+            <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-background shadow transition-transform ${needsApproval ? "translate-x-5" : ""}`} />
+          </button>
+        </div>
+      </div>
+
+      {/* Info notice: Urgent */}
+      {isUrgent && (
+        <div className="flex items-start gap-2.5 mb-3 p-3 rounded-lg bg-sakura-warning/10 border border-sakura-warning/30">
+          <AlertTriangle size={16} className="text-sakura-warning shrink-0 mt-0.5" />
+          <p className="text-[13px] text-sakura-warning">Dokumen ini akan ditandai URGENT dan mendapat prioritas review lebih cepat.</p>
+        </div>
+      )}
+
+      {/* Info notice: Approval Kepsek */}
+      <div className="flex items-start gap-2.5 mb-3 p-3 rounded-lg bg-primary/[0.06] border border-primary/20">
+        <Info size={16} className="text-primary shrink-0 mt-0.5" />
+        <p className="text-[13px] text-primary">
+          {needsApproval
+            ? "Dokumen akan menunggu persetujuan Kepala Sekolah sebelum diarsipkan."
+            : "Dokumen akan langsung diarsipkan tanpa melalui proses persetujuan."}
+        </p>
+      </div>
+
+      {/* Dokumen Sensitif — detail card (full width, hanya bisa dilihat pemilik) */}
+      {isSensitif && (
+        <div className="bg-card border border-primary/30 rounded-xl p-4 sm:p-6 mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <Lock size={16} className="text-primary shrink-0" /> Dokumen Sensitif (hanya bisa dilihat pemilik)
+            </span>
+            <button type="button" onClick={() => setIsSensitif(!isSensitif)} className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${isSensitif ? "bg-primary" : "bg-input"}`}>
+              <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-background shadow transition-transform ${isSensitif ? "translate-x-5" : ""}`} />
+            </button>
+          </div>
+          <div className="flex items-start gap-2.5 p-3 rounded-lg bg-primary/[0.06] border border-primary/20 mb-3">
+            <Lock size={16} className="text-primary shrink-0 mt-0.5" />
+            <p className="text-[13px] text-primary">Dokumen ini hanya dapat diakses oleh pemilik berdasarkan NIP.</p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">NIP Pemilik Dokumen *</label>
+            {ownerNIPs.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {ownerNIPs.map((nip) => {
+                  const user = nipUsers.find((u) => u.nip === nip);
+                  return (
+                    <span key={nip} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">
+                      {user ? `${user.nama} — ${nip}` : nip}
+                      {!guruUploadOwn && <button type="button" onClick={() => removeNip(nip)} className="hover:text-destructive"><X size={12} /></button>}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+            {!guruUploadOwn && (
+              <div className="relative">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <input value={nipSearch} onChange={(e) => { setNipSearch(e.target.value); setNipDropdownOpen(true); }} onFocus={() => setNipDropdownOpen(true)} placeholder="Cari nama atau NIP..." className="w-full pl-8 pr-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                {nipDropdownOpen && filteredNipUsers.length > 0 && (
+                  <div className="absolute z-30 top-full mt-1 w-full bg-card border border-border rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                    {filteredNipUsers.map((u) => (
+                      <button key={u.nip} type="button" onClick={() => addNip(u.nip)} className="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors">
+                        <span className="font-medium text-foreground">{u.nama}</span>
+                        <span className="text-muted-foreground"> — {u.nip}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          {needsApproval && (
+            <div className="flex items-start gap-2.5 mt-3 p-3 rounded-lg bg-muted/50 border border-border">
+              <Info size={14} className="text-muted-foreground shrink-0 mt-0.5" />
+              <p className="text-[12px] text-muted-foreground">Dokumen yang membutuhkan persetujuan Kepala Sekolah akan masuk ke alur approval.</p>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ── Main Form ──────────────────────────────────────────────────── */}
       <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* LEFT COLUMN */}
         <div className="space-y-6">
-          {/* Urgent */}
-          <div className="bg-card border border-border rounded-xl p-4 sm:p-6">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-foreground">Tandai sebagai Urgent</span>
-              <button type="button" onClick={() => setIsUrgent(!isUrgent)} className={`relative w-11 h-6 rounded-full transition-colors ${isUrgent ? "bg-sakura-warning" : "bg-input"}`}>
-                <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-background shadow transition-transform ${isUrgent ? "translate-x-5" : ""}`} />
-              </button>
-            </div>
-            {isUrgent && (
-              <div className="flex items-start gap-2.5 mt-3 p-3 rounded-lg bg-sakura-warning/10 border border-sakura-warning/30">
-                <AlertTriangle size={16} className="text-sakura-warning shrink-0 mt-0.5" />
-                <p className="text-[13px] text-sakura-warning">Dokumen ini akan ditandai URGENT dan mendapat prioritas review lebih cepat.</p>
-              </div>
-            )}
-          </div>
-
-          {/* Butuh Approval Kepsek */}
-          <div className="bg-card border border-border rounded-xl p-4 sm:p-6">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-foreground">Butuh Approval Kepsek</span>
-              <button type="button" onClick={() => setNeedsApproval(!needsApproval)} className={`relative w-11 h-6 rounded-full transition-colors ${needsApproval ? "bg-primary" : "bg-input"}`}>
-                <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-background shadow transition-transform ${needsApproval ? "translate-x-5" : ""}`} />
-              </button>
-            </div>
-            <div className="flex items-start gap-2.5 mt-3 p-3 rounded-lg bg-primary/[0.06] border border-primary/20">
-              <Info size={16} className="text-primary shrink-0 mt-0.5" />
-              <p className="text-[13px] text-primary">
-                {needsApproval
-                  ? "Dokumen akan menunggu persetujuan Kepala Sekolah sebelum diarsipkan."
-                  : "Dokumen akan langsung diarsipkan tanpa melalui proses persetujuan."}
-              </p>
-            </div>
-          </div>
-
-          {/* Sensitif */}
-          <div className="bg-card border border-border rounded-xl p-4 sm:p-6">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-foreground">Dokumen Sensitif (hanya bisa dilihat pemilik)</span>
-              <button type="button" onClick={() => setIsSensitif(!isSensitif)} className={`relative w-11 h-6 rounded-full transition-colors ${isSensitif ? "bg-primary" : "bg-input"}`}>
-                <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-background shadow transition-transform ${isSensitif ? "translate-x-5" : ""}`} />
-              </button>
-            </div>
-            {isSensitif && (
-              <div className="mt-3 space-y-3">
-                <div className="flex items-start gap-2.5 p-3 rounded-lg bg-primary/[0.06] border border-primary/20">
-                  <Lock size={16} className="text-primary shrink-0 mt-0.5" />
-                  <p className="text-[13px] text-primary">Dokumen ini hanya dapat diakses oleh pemilik berdasarkan NIP.</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">NIP Pemilik Dokumen *</label>
-                  {ownerNIPs.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mb-2">
-                      {ownerNIPs.map((nip) => {
-                        const user = nipUsers.find((u) => u.nip === nip);
-                        return (
-                          <span key={nip} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">
-                            {user ? `${user.nama} — ${nip}` : nip}
-                            {!guruUploadOwn && <button type="button" onClick={() => removeNip(nip)} className="hover:text-destructive"><X size={12} /></button>}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  )}
-                  {!guruUploadOwn && (
-                    <div className="relative">
-                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                      <input value={nipSearch} onChange={(e) => { setNipSearch(e.target.value); setNipDropdownOpen(true); }} onFocus={() => setNipDropdownOpen(true)} placeholder="Cari nama atau NIP..." className="w-full pl-8 pr-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-                      {nipDropdownOpen && filteredNipUsers.length > 0 && (
-                        <div className="absolute z-30 top-full mt-1 w-full bg-card border border-border rounded-lg shadow-lg max-h-40 overflow-y-auto">
-                          {filteredNipUsers.map((u) => (
-                            <button key={u.nip} type="button" onClick={() => addNip(u.nip)} className="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors">
-                              <span className="font-medium text-foreground">{u.nama}</span>
-                              <span className="text-muted-foreground"> — {u.nip}</span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-            {isSensitif && needsApproval && (
-              <div className="flex items-start gap-2.5 mt-3 p-3 rounded-lg bg-muted/50 border border-border">
-                <Info size={14} className="text-muted-foreground shrink-0 mt-0.5" />
-                <p className="text-[12px] text-muted-foreground">Dokumen yang membutuhkan persetujuan Kepala Sekolah akan masuk ke alur approval.</p>
-              </div>
-            )}
-          </div>
-
           {/* Upload File */}
           <div className="bg-card border border-border rounded-xl p-4 sm:p-6">
             {/* Header dengan tombol Reset */}

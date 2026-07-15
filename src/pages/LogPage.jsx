@@ -9,10 +9,37 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { format } from "date-fns";
+import { id as idLocale } from "date-fns/locale";
 import AppHeader from "@/components/layout/AppHeader";
 import { useApp } from "@/contexts/AppContext";
 import UserAvatar from "@/components/shared/UserAvatar";
 import api from "@/lib/apiClient";
+
+// ── Kategori aktivitas → warna bullet timeline ───────────────────────────────
+// Konsisten dengan palet yang sudah dipakai di halaman lain (Tailwind color
+// scale, sama seperti badge status/role di DocumentDetail & OCRFillModal).
+// Deteksi kategori berdasarkan kata kunci pada teks `action` yang sudah ada
+// di database (tidak menambah field/kolom baru).
+const ACTIVITY_COLORS = [
+  { test: (a) => a.includes("unggah"), dot: "bg-green-500", ring: "ring-green-500/20" },              // Upload
+  { test: (a) => a.includes("tolak"), dot: "bg-red-500", ring: "ring-red-500/20" },                    // Reject
+  { test: (a) => a.includes("setuju"), dot: "bg-blue-500", ring: "ring-blue-500/20" },                 // Approval (ajukan/setujui)
+  { test: (a) => a.includes("lihat"), dot: "bg-gray-400", ring: "ring-gray-400/20" },                  // View
+  { test: (a) => a.includes("unduh"), dot: "bg-purple-500", ring: "ring-purple-500/20" },              // Download
+  { test: (a) => a.includes("perbarui") || a.includes("metadata") || a.includes("mengubah") || a.includes("edit"), dot: "bg-orange-500", ring: "ring-orange-500/20" }, // Edit
+  { test: (a) => a.includes("arsip"), dot: "bg-teal-500", ring: "ring-teal-500/20" },                  // Archive
+];
+const DEFAULT_ACTIVITY_COLOR = { dot: "bg-primary", ring: "ring-primary/20" };
+
+function getActivityColor(action = "") {
+  const a = action.toLowerCase();
+  const match = ACTIVITY_COLORS.find((c) => c.test(a));
+  return match || DEFAULT_ACTIVITY_COLOR;
+}
+
+// Gap antar aktivitas (menit) dalam tanggal yang sama sebelum dianggap
+// sesi baru dan diberi label "(Lanjutan)" — sesuai referensi desain.
+const CONTINUATION_GAP_MINUTES = 30;
 
 export default function LogPage() {
   const { currentUser } = useApp();
@@ -22,11 +49,15 @@ export default function LogPage() {
   const [error, setError] = useState(null);
   const [search, setSearch] = useState("");
   const [filterAction, setFilterAction] = useState("Semua");
+  // BARU: state collapse/expand per user (default semua collapse)
+  const [expandedUsers, setExpandedUsers] = useState(() => new Set());
 
   const fetchLogs = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
+      // Satu query saja ke backend (GET /api/audit) — grouping & sorting
+      // dilakukan di frontend supaya tidak ada query database berulang.
       const { data } = await api.get("/audit", { params: { limit: 500 } });
       const raw = data.logs || [];
 
@@ -93,18 +124,89 @@ export default function LogPage() {
     });
   }, [logs, search, filterAction]);
 
-  // Group berdasarkan user
+  // ── Group by User → Tanggal (Timeline Grouped) ────────────────────────────
+  // Urutan: User ASC, Tanggal DESC, Jam ASC (sesuai spesifikasi).
   const groupedLogs = useMemo(() => {
-    const groups = {};
+    const byUser = new Map();
+
     filtered.forEach((log) => {
-      const key = log.userName;
-      if (!groups[key]) {
-        groups[key] = { userId: log.userId, avatar: log.userAvatar, role: log.userRole, activities: [] };
+      const key = log.userId ?? `nama:${log.userName}`;
+      if (!byUser.has(key)) {
+        byUser.set(key, {
+          key,
+          userId: log.userId,
+          avatar: log.userAvatar,
+          role: log.userRole,
+          userName: log.userName,
+          activities: [],
+        });
       }
-      groups[key].activities.push(log);
+      byUser.get(key).activities.push(log);
     });
-    return groups;
+
+    const users = Array.from(byUser.values()).sort((a, b) =>
+      a.userName.localeCompare(b.userName, "id", { sensitivity: "base" })
+    );
+
+    users.forEach((u) => {
+      // Tanggal DESC, lalu Jam ASC di dalam tanggal yang sama.
+      u.activities.sort((a, b) => {
+        const ta = a.time ? new Date(a.time).getTime() : 0;
+        const tb = b.time ? new Date(b.time).getTime() : 0;
+        const dateA = a.time ? format(new Date(a.time), "yyyy-MM-dd") : "";
+        const dateB = b.time ? format(new Date(b.time), "yyyy-MM-dd") : "";
+        if (dateA !== dateB) return dateA < dateB ? 1 : -1; // tanggal DESC
+        return ta - tb; // jam ASC
+      });
+
+      // Kelompokkan jadi section per tanggal. Jika ada jeda waktu panjang
+      // (> CONTINUATION_GAP_MINUTES) dalam tanggal yang sama, pecah jadi
+      // section baru berlabel "(Lanjutan)" — seperti pada referensi desain.
+      const sections = [];
+      let current = null;
+      let prevTime = null;
+
+      u.activities.forEach((log) => {
+        const t = log.time ? new Date(log.time) : null;
+        const dateKey = t ? format(t, "yyyy-MM-dd") : "unknown";
+        const dateLabel = t ? format(t, "d MMMM yyyy", { locale: idLocale }) : "Tanggal tidak diketahui";
+        const gapMinutes =
+          prevTime && current?.dateKey === dateKey
+            ? (t - prevTime) / 60000
+            : null;
+
+        const isNewSection =
+          !current ||
+          current.dateKey !== dateKey ||
+          (gapMinutes !== null && gapMinutes > CONTINUATION_GAP_MINUTES);
+
+        if (isNewSection) {
+          const isContinuation = current && current.dateKey === dateKey;
+          current = {
+            dateKey,
+            label: isContinuation ? `${dateLabel} (Lanjutan)` : dateLabel,
+            items: [],
+          };
+          sections.push(current);
+        }
+        current.items.push(log);
+        prevTime = t;
+      });
+
+      u.sections = sections;
+    });
+
+    return users;
   }, [filtered]);
+
+  const toggleUser = (key) => {
+    setExpandedUsers((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   return (
     <>
@@ -136,7 +238,7 @@ export default function LogPage() {
         </div>
 
         {/* Filter */}
-        <div className="flex flex-wrap items-center gap-3 bg-card p-4 rounded-xl border border-border">
+        <div className="flex flex-wrap items-center gap-3 bg-card p-4 rounded-xl border border-border shadow-soft">
           <div className="relative flex-1 min-w-[200px]">
             <Search
               size={16}
@@ -173,197 +275,184 @@ export default function LogPage() {
           </button>
         </div>
 
-        {/* Log Container */}
-        <div className="bg-card border border-border rounded-xl overflow-hidden">
+        {/* Loading */}
+        {loading && (
+          <div className="flex flex-col items-center gap-3 py-16 bg-card border border-border rounded-xl shadow-soft">
+            <div className="w-8 h-8 border-[3px] border-primary border-t-transparent rounded-full animate-spin" />
+            <p className="text-sm text-muted-foreground">Memuat log aktivitas...</p>
+          </div>
+        )}
 
-          {/* Loading */}
-          {loading && (
-            <div className="flex flex-col items-center gap-3 py-16">
-              <div className="w-8 h-8 border-[3px] border-primary border-t-transparent rounded-full animate-spin" />
-              <p className="text-sm text-muted-foreground">Memuat log aktivitas...</p>
-            </div>
-          )}
+        {/* Error */}
+        {!loading && error && (
+          <div className="flex flex-col items-center gap-3 py-16 bg-card border border-border rounded-xl shadow-soft">
+            <AlertCircle size={32} className="text-destructive" />
+            <p className="text-sm text-destructive font-medium">{error}</p>
+            <button
+              onClick={fetchLogs}
+              className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90"
+            >
+              Coba Lagi
+            </button>
+          </div>
+        )}
 
-          {/* Error */}
-          {!loading && error && (
-            <div className="flex flex-col items-center gap-3 py-16">
-              <AlertCircle size={32} className="text-destructive" />
-              <p className="text-sm text-destructive font-medium">{error}</p>
-              <button
-                onClick={fetchLogs}
-                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90"
-              >
-                Coba Lagi
-              </button>
-            </div>
-          )}
-
-          {/* Empty */}
-          {!loading && !error && Object.keys(groupedLogs).length === 0 && (
+        {/* Empty */}
+        {!loading && !error && groupedLogs.length === 0 && (
+          <div className="bg-card border border-border rounded-xl shadow-soft">
             <p className="text-center text-muted-foreground py-12">
               Tidak ada log ditemukan.
             </p>
-          )}
+          </div>
+        )}
 
-          {/* Data */}
-          {!loading && !error && (
-            <div className="divide-y divide-border">
-              {Object.entries(groupedLogs).map(([userName, data], i) => (
-                <details
-                  key={i}
-                  className="group bg-background [&_summary::-webkit-details-marker]:hidden"
+        {/* Timeline Grouped — satu card per user */}
+        {!loading && !error && groupedLogs.length > 0 && (
+          <div className="space-y-3">
+            {groupedLogs.map((u) => {
+              const isOpen = expandedUsers.has(u.key);
+              return (
+                <div
+                  key={u.key}
+                  className="bg-card border border-border rounded-xl shadow-soft overflow-hidden transition-shadow hover:shadow-elevated"
                 >
-                  <summary className="flex items-center gap-4 p-4 cursor-pointer hover:bg-muted/30 select-none list-none">
-                    <UserAvatar userId={data.userId} avatar={data.avatar} nama={userName} size={40} />
+                  {/* Header user — klik untuk expand/collapse */}
+                  <button
+                    type="button"
+                    onClick={() => toggleUser(u.key)}
+                    aria-expanded={isOpen}
+                    className="w-full flex items-center gap-4 p-4 hover:bg-muted/30 transition-colors text-left"
+                  >
+                    <UserAvatar userId={u.userId} avatar={u.avatar} nama={u.userName} size={40} />
 
                     <div className="flex-1 min-w-0">
                       <div className="font-bold text-sm text-foreground">
-                        {userName}
-                        <span className="font-normal text-xs text-muted-foreground ml-1">
-                          — {data.role}
-                        </span>
+                        {u.userName}
                       </div>
                       <div className="text-xs text-muted-foreground mt-0.5">
-                        {data.activities.length} aktivitas terekam
+                        {u.role} <span className="mx-1">•</span> {u.activities.length} Aktivitas
                       </div>
                     </div>
 
                     <ChevronDown
                       size={18}
-                      className="text-muted-foreground transition-transform group-open:rotate-180"
+                      className={`text-muted-foreground transition-transform shrink-0 ${isOpen ? "rotate-180" : ""}`}
                     />
-                  </summary>
+                  </button>
 
-                  <div className="px-4 pb-4 pt-1 bg-muted/10 border-t border-border/50">
-                    <div className="ml-[42px] border-l-2 border-primary/20 space-y-4 pl-4 py-2">
-                      {data.activities.map((log, j) => (
-                        <div key={j} className="relative">
-                          <div className="absolute w-2 h-2 bg-primary rounded-full -left-[21px] top-1.5" />
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-0.5">
-                            <span
-                              className={`text-sm font-semibold ${
-                                log.action.startsWith("Catatan Admin")
-                                  ? "text-accent italic"
-                                  : "text-foreground"
-                              }`}
-                            >
-                              {log.action}
-                            </span>
-                            <span className="text-[11px] font-medium text-muted-foreground bg-background border px-2 py-0.5 rounded-full self-start">
-                              {log.time
-                                ? format(new Date(log.time), "dd/MM/yyyy HH:mm")
-                                : "—"}
-                            </span>
+                  {/* Timeline (hanya dirender saat terbuka) */}
+                  {isOpen && (
+                    <div className="px-4 pb-4 pt-1 bg-muted/10 border-t border-border/50 space-y-5">
+                      {u.sections.map((section) => (
+                        <div key={section.label}>
+                          <div className="inline-block text-xs font-semibold text-muted-foreground bg-muted px-3 py-1 rounded-full mb-3 mt-3">
+                            {section.label}
                           </div>
-                          <div className="text-xs text-muted-foreground flex items-center gap-1.5">
-                            <FileText size={12} className="text-primary/70" />
-                            {log.docTitle}
-                            {log.docNomor && (
-                              <span className="font-mono bg-muted px-1.5 py-0.5 rounded text-[10px] text-muted-foreground">
-                                {log.docNomor}
-                              </span>
-                            )}
-                          </div>
-                          {log.integrityStatus && (
-                          <div className="mt-2 space-y-2">
 
-                              {/* Integrity */}
-                              <div className="flex items-center gap-2">
+                          <div className="ml-[7px] border-l-2 border-border space-y-4 pl-5">
+                            {section.items.map((log, j) => {
+                              const color = getActivityColor(log.action);
+                              return (
+                                <div key={j} className="relative">
                                   <span
-                                      className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${
-                                          log.integrityStatus === "VALID"
-                                              ? "bg-green-100 text-green-700"
-                                              : "bg-red-100 text-red-700"
+                                    className={`absolute w-2.5 h-2.5 rounded-full -left-[26px] top-1.5 ring-4 ${color.dot} ${color.ring}`}
+                                  />
+                                  <div className="flex flex-col sm:flex-row sm:items-baseline gap-x-2 gap-y-0.5">
+                                    <span className="text-xs font-mono text-muted-foreground shrink-0 w-12">
+                                      {log.time ? format(new Date(log.time), "HH:mm") : "—"}
+                                    </span>
+                                    <span
+                                      className={`text-sm font-semibold ${
+                                        log.action.startsWith("Catatan Admin")
+                                          ? "text-accent italic"
+                                          : "text-foreground"
                                       }`}
-                                  >
-                                      {log.integrityStatus === "VALID"
-                                          ? "✓ Verified"
-                                          : "⚠ Invalid"}
-                                  </span>
-                              </div>
-
-                              {/* Hash */}
-                              <div className="text-[10px] text-muted-foreground space-y-1">
-                                  <div>
-                                      <span className="font-semibold">
-                                          Previous:
-                                      </span>{" "}
-                                      {log.previousHash
-                                          ? log.previousHash.substring(0,16) + "..."
-                                          : "--"}
+                                    >
+                                      {log.action}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground flex items-center gap-1 min-w-0">
+                                      <FileText size={12} className="text-primary/70 shrink-0" />
+                                      <span className="truncate">{log.docTitle}</span>
+                                      {log.docNomor && (
+                                        <span className="font-mono bg-muted px-1.5 py-0.5 rounded text-[10px] text-muted-foreground shrink-0">
+                                          {log.docNomor}
+                                        </span>
+                                      )}
+                                    </span>
                                   </div>
 
-                                  <div>
-                                      <span className="font-semibold">
-                                          Current:
-                                      </span>{" "}
-                                      {log.currentHash
-                                          ? log.currentHash.substring(0,16) + "..."
-                                          : "--"}
-                                  </div>
-                              </div>
+                                  {log.integrityStatus && (
+                                    <div className="mt-2 space-y-2">
+                                      {/* Integrity */}
+                                      <div className="flex items-center gap-2">
+                                        <span
+                                          className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${
+                                            log.integrityStatus === "VALID"
+                                              ? "bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400"
+                                              : "bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400"
+                                          }`}
+                                        >
+                                          {log.integrityStatus === "VALID" ? "✓ Verified" : "⚠ Invalid"}
+                                        </span>
+                                      </div>
 
-                              {/* Before After */}
-                              {(log.oldValue || log.newValue) && (
-                                  <div className="grid grid-cols-2 gap-2 mt-2">
+                                      {/* Hash */}
+                                      <div className="text-[10px] text-muted-foreground space-y-1">
+                                        <div>
+                                          <span className="font-semibold">Previous:</span>{" "}
+                                          {log.previousHash ? log.previousHash.substring(0, 16) + "..." : "--"}
+                                        </div>
+                                        <div>
+                                          <span className="font-semibold">Current:</span>{" "}
+                                          {log.currentHash ? log.currentHash.substring(0, 16) + "..." : "--"}
+                                        </div>
+                                      </div>
 
-                                      <div className="bg-red-50 rounded p-2">
-                                          <div className="font-semibold text-[11px] text-red-700">
+                                      {/* Before After */}
+                                      {(log.oldValue || log.newValue) && (
+                                        <div className="grid grid-cols-2 gap-2 mt-2">
+                                          <div className="bg-red-50 dark:bg-red-950/20 rounded p-2">
+                                            <div className="font-semibold text-[11px] text-red-700 dark:text-red-400">
                                               Sebelum
+                                            </div>
+                                            {log.oldValue
+                                              ? Object.entries(log.oldValue).map(([k, v]) => (
+                                                  <div key={k} className="text-[10px]">
+                                                    {k}: {String(v)}
+                                                  </div>
+                                                ))
+                                              : <div className="text-[10px]">-</div>}
                                           </div>
 
-                                          {log.oldValue
-                                              ? Object.entries(log.oldValue).map(([k,v]) => (
-                                                  <div
-                                                      key={k}
-                                                      className="text-[10px]"
-                                                  >
-                                                      {k}: {String(v)}
-                                                  </div>
-                                              ))
-                                              : (
-                                                  <div className="text-[10px]">
-                                                      -
-                                                  </div>
-                                              )
-                                          }
-                                      </div>
-
-                                      <div className="bg-green-50 rounded p-2">
-                                          <div className="font-semibold text-[11px] text-green-700">
+                                          <div className="bg-green-50 dark:bg-green-950/20 rounded p-2">
+                                            <div className="font-semibold text-[11px] text-green-700 dark:text-green-400">
                                               Sesudah
+                                            </div>
+                                            {log.newValue
+                                              ? Object.entries(log.newValue).map(([k, v]) => (
+                                                  <div key={k} className="text-[10px]">
+                                                    {k}: {String(v)}
+                                                  </div>
+                                                ))
+                                              : <div className="text-[10px]">-</div>}
                                           </div>
-
-                                          {log.newValue
-                                              ? Object.entries(log.newValue).map(([k,v]) => (
-                                                  <div
-                                                      key={k}
-                                                      className="text-[10px]"
-                                                  >
-                                                      {k}: {String(v)}
-                                                  </div>
-                                              ))
-                                              : (
-                                                  <div className="text-[10px]">
-                                                      -
-                                                  </div>
-                                              )
-                                          }
-                                      </div>
-
-                                  </div>
-                              )}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
                           </div>
-                      )}
                         </div>
                       ))}
                     </div>
-                  </div>
-                </details>
-              ))}
-            </div>
-          )}
-        </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </>
   );

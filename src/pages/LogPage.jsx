@@ -75,21 +75,14 @@ export default function LogPage() {
           newValue: t.new_value,
       }));
 
-      // Filter khusus Kepala Sekolah
-      const principalOnlyActions = [
-        "mengunggah", "menyetujui", "menolak",
-        "mengarsipkan", "menghapus", "mengubah",
-      ];
-      const filtered =
-        currentUser?.role === "Kepala Sekolah"
-          ? normalized.filter((l) =>
-              principalOnlyActions.some((a) =>
-                l.action.toLowerCase().includes(a)
-              )
-            )
-          : normalized;
-
-      setLogs(filtered);
+      // Catatan: filter berdasarkan role (Kepala Sekolah hanya melihat
+      // kategori aktivitas tertentu, role lain hanya melihat aktivitas
+      // miliknya sendiri) SEKARANG dilakukan di backend (GET /api/audit)
+      // lewat WHERE query builder berbasis permission — bukan lagi di sini.
+      // Semua role memakai component & data yang sama persis; backend hanya
+      // mengirim baris yang memang boleh dilihat role tersebut, sehingga
+      // data yang tidak berhak dilihat tidak pernah sampai ke browser.
+      setLogs(normalized);
     } catch (e) {
       setError(e?.response?.data?.error || e.message || "Gagal memuat log");
     } finally {

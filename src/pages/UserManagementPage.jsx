@@ -10,7 +10,7 @@ import { id as localeId } from "date-fns/locale";
 import { DEPARTEMEN_OPTIONS } from "@/data/departemenOptions";
 
 const ALL_ROLES = ["Operator/TU", "Kepala Sekolah", "Guru"];
-const EMPTY_FORM = { nama: "", email: "", role: "Guru", departemen: "" };
+const EMPTY_FORM = { nama: "", email: "", role: "Guru", departemen: "", nip: "" };
 const LAINNYA = "Lainnya";
 // Departemen "Lainnya" adalah pilihan khusus di dropdown (menampilkan textbox
 // tambahan), bukan nilai yang pernah disimpan ke database — sisanya sama
@@ -83,6 +83,17 @@ function UserFormModal({ title, formData, setFormData, submitting, onSubmit, sub
               {ALL_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
             </select>
           </div>
+          {formData.role === "Guru" && (
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">NIP *</label>
+              <input
+                value={formData.nip}
+                onChange={(e) => setFormData((p) => ({ ...p, nip: e.target.value }))}
+                placeholder="Nomor Induk Pegawai"
+                className="w-full px-3 py-2.5 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-foreground mb-1">Departemen</label>
             <select
@@ -183,6 +194,7 @@ export default function UserManagementPage() {
     if (!formData.email.trim()) return "Email wajib diisi.";
     if (!EMAIL_REGEX.test(formData.email.trim())) return "Format email tidak valid.";
     if (!formData.role) return "Role wajib dipilih.";
+    if (formData.role === "Guru" && !formData.nip?.trim()) return "NIP wajib diisi untuk role Guru.";
     if (!formData.departemen.trim()) return "Departemen wajib diisi.";
     return null;
   };
@@ -211,6 +223,10 @@ export default function UserManagementPage() {
   // ── Edit user → PATCH /api/users/:id ─────────────────────────────────────
   const handleEdit = async () => {
     if (!editUserId || !formData.nama.trim() || !formData.email.trim()) return;
+    if (formData.role === "Guru" && !formData.nip?.trim()) {
+      toast({ title: "Data belum lengkap", description: "NIP wajib diisi untuk role Guru.", variant: "destructive" });
+      return;
+    }
     if (originalRole && formData.role !== originalRole) {
       setPendingRoleChange({ id: editUserId, data: formData });
       setShowRoleConfirm(true);
@@ -258,7 +274,7 @@ export default function UserManagementPage() {
   };
 
   const openEdit = (u) => {
-    setFormData({ nama: u.nama, email: u.email, role: u.role, departemen: u.departemen || "" });
+    setFormData({ nama: u.nama, email: u.email, role: u.role, departemen: u.departemen || "", nip: u.nip || "" });
     setOriginalRole(u.role);
     setEditUserId(u.id);
   };
@@ -385,6 +401,7 @@ export default function UserManagementPage() {
                     <th className="text-left py-3 px-4 font-semibold">Pengguna</th>
                     <th className="text-left py-3 px-4 font-semibold hidden sm:table-cell">Email</th>
                     <th className="text-left py-3 px-4 font-semibold">Role</th>
+                    <th className="text-left py-3 px-4 font-semibold hidden md:table-cell">NIP</th>
                     <th className="text-left py-3 px-4 font-semibold hidden md:table-cell">Departemen</th>
                     <th className="text-center py-3 px-4 font-semibold">Aksi</th>
                   </tr>
@@ -392,7 +409,7 @@ export default function UserManagementPage() {
                 <tbody>
                   {activeUsers.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="py-12 text-center text-sm text-muted-foreground">Belum ada pengguna aktif</td>
+                      <td colSpan={6} className="py-12 text-center text-sm text-muted-foreground">Belum ada pengguna aktif</td>
                     </tr>
                   ) : (
                     activeUsers.map((u) => (
@@ -409,6 +426,7 @@ export default function UserManagementPage() {
                         <td className="py-3 px-4">
                           <span className="text-xs px-2 py-0.5 rounded-full bg-primary text-primary-foreground font-medium">{u.role}</span>
                         </td>
+                        <td className="py-3 px-4 text-muted-foreground hidden md:table-cell">{u.role === "Guru" ? (u.nip || "-") : "-"}</td>
                         <td className="py-3 px-4 text-muted-foreground hidden md:table-cell">{u.departemen || "-"}</td>
                         <td className="py-3 px-4 text-center">
                           <div className="flex items-center justify-center gap-2">

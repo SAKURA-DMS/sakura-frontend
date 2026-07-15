@@ -1,4 +1,4 @@
-import { X, Download, ZoomIn, ZoomOut, Maximize, FileText, AlertCircle } from "lucide-react";
+import { X, Download, ZoomIn, ZoomOut, Maximize, FileText, AlertCircle, Lock, Eye, EyeOff, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import api from "@/lib/apiClient";
 
@@ -18,6 +18,16 @@ export default function PdfPreviewOverlay({ onClose, document: doc }) {
   const [error,      setError]      = useState(null);
   const [downloading, setDownloading] = useState(false);
 
+  // ── Password confirmation sebelum download (BARU) ─────────────────────────
+  // Popup ini HANYA konfirmasi password, bukan login ulang: tidak pernah
+  // membuat session/token baru, hanya mencocokkan password ke backend
+  // sebelum file benar-benar diizinkan untuk diunduh.
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [password,          setPassword]          = useState("");
+  const [showPasswordText,  setShowPasswordText]  = useState(false);
+  const [passwordError,     setPasswordError]     = useState(null);
+  const [verifying,         setVerifying]         = useState(false);
+
   const fetchPreview = () => {
     setLoading(true);
     setError(null);
@@ -36,17 +46,54 @@ export default function PdfPreviewOverlay({ onClose, document: doc }) {
 
   useEffect(() => {
     fetchPreview();
-    const handler = (e) => { if (e.key === "Escape") onClose(); };
+    const handler = (e) => {
+      if (e.key !== "Escape") return;
+      // Kalau popup password sedang terbuka, Esc menutup popup itu dulu saja
+      // (tidak langsung menutup overlay preview di belakangnya).
+      if (showPasswordModal) {
+        if (!verifying) closePasswordModal();
+        return;
+      }
+      onClose();
+    };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [doc.id]);
+  }, [doc.id, showPasswordModal, verifying]);
 
-  const handleDownload = async () => {
+  // Klik tombol Download hanya MEMBUKA popup konfirmasi password — file
+  // belum diunduh sama sekali di titik ini.
+  const openPasswordModal = () => {
+    setPassword("");
+    setPasswordError(null);
+    setShowPasswordText(false);
+    setShowPasswordModal(true);
+  };
+
+  const closePasswordModal = () => {
+    if (verifying) return; // jangan biarkan popup ditutup saat sedang proses
+    setShowPasswordModal(false);
+    setPassword("");
+    setPasswordError(null);
+    setShowPasswordText(false);
+  };
+
+  // Password baru benar-benar dikirim ke backend di sini, dan backend-lah
+  // yang mencocokkan hash-nya (lihat POST /api/documents/:id/download-stream).
+  // Frontend TIDAK PERNAH memvalidasi kebenaran password sendiri.
+  const handleConfirmDownload = async () => {
+    if (!password.trim()) {
+      setPasswordError("Password wajib diisi");
+      return;
+    }
+    setVerifying(true);
+    setPasswordError(null);
     setDownloading(true);
     try {
-      const response = await api.get(`/documents/${doc.id}/download-stream`, {
-        responseType: "blob",
-      });
+      const response = await api.post(
+        `/documents/${doc.id}/download-stream`,
+        { password },
+        { responseType: "blob" }
+      );
       let dlFilename = filename;
       const cd = response.headers?.["content-disposition"] || "";
       const match = cd.match(/filename\*?=(?:UTF-8'')?["']?([^"';\n]+)/i);
@@ -57,9 +104,33 @@ export default function PdfPreviewOverlay({ onClose, document: doc }) {
       a.href = url; a.download = dlFilename;
       document.body.appendChild(a); a.click();
       document.body.removeChild(a); URL.revokeObjectURL(url);
+
+      // Sukses → tutup popup password
+      setShowPasswordModal(false);
+      setPassword("");
+      setShowPasswordText(false);
     } catch (err) {
-      alert("Gagal mengunduh file: " + (err?.response?.data?.error || err.message));
+      // PENTING: karena responseType di atas adalah "blob", pesan error dari
+      // backend (JSON) ikut terbungkus sebagai Blob juga — bukan object JSON
+      // biasa — jadi harus dibaca manual sebagai teks lalu di-parse di sini.
+      let message = "Password salah";
+      const rawData = err?.response?.data;
+      if (rawData instanceof Blob) {
+        try {
+          const text = await rawData.text();
+          const parsed = JSON.parse(text);
+          if (parsed?.error) message = parsed.error;
+        } catch {
+          // biarkan pesan default "Password salah" jika body gagal di-parse
+        }
+      } else if (err?.response?.data?.error) {
+        message = err.response.data.error;
+      } else if (err?.message) {
+        message = err.message;
+      }
+      setPasswordError(message);
     } finally {
+      setVerifying(false);
       setDownloading(false);
     }
   };
@@ -94,7 +165,7 @@ export default function PdfPreviewOverlay({ onClose, document: doc }) {
           <div className="w-px h-6 bg-border mx-1" />
 
           <button
-            onClick={handleDownload}
+            onClick={openPasswordModal}
             disabled={loading || !!error || downloading}
             className="p-2 rounded hover:bg-muted disabled:opacity-50"
             title="Download"
@@ -167,7 +238,7 @@ export default function PdfPreviewOverlay({ onClose, document: doc }) {
                 <p className="text-center text-muted-foreground text-sm max-w-xs">
                   File bertipe <strong>{mimeType}</strong> tidak dapat ditampilkan secara inline.
                 </p>
-                <button onClick={handleDownload} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90">
+                <button onClick={openPasswordModal} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90">
                   Download File
                 </button>
               </div>
@@ -175,6 +246,78 @@ export default function PdfPreviewOverlay({ onClose, document: doc }) {
           </div>
         )}
       </div>
+
+      {/* ── Popup Konfirmasi Password sebelum Download ──────────────────────
+          Tidak fullscreen, background blur, responsive, Esc menutup popup,
+          klik di luar popup menutup popup (selama tidak sedang verifying). */}
+      {showPasswordModal && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-foreground/40 backdrop-blur-sm p-4 animate-fade-in"
+          onClick={closePasswordModal}
+        >
+          <div
+            className="bg-card rounded-2xl shadow-2xl w-full max-w-sm p-6 animate-fade-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex flex-col items-center text-center gap-1 mb-5">
+              <div className="w-14 h-14 rounded-full bg-destructive/10 flex items-center justify-center mb-2">
+                <Lock size={24} className="text-destructive" />
+              </div>
+              <h3 className="font-bold text-foreground text-lg">Masukkan Password</h3>
+              <p className="text-sm text-muted-foreground">
+                Untuk mengunduh file ini, masukkan password Anda.
+              </p>
+            </div>
+
+            <div className="space-y-1.5 mb-2">
+              <div className="relative">
+                <input
+                  type={showPasswordText ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => { setPassword(e.target.value); setPasswordError(null); }}
+                  onKeyDown={(e) => { if (e.key === "Enter" && !verifying) handleConfirmDownload(); }}
+                  placeholder="Password Anda"
+                  autoFocus
+                  disabled={verifying}
+                  className={`w-full px-3 py-2.5 pr-10 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 disabled:opacity-60 ${
+                    passwordError ? "border-destructive focus:ring-destructive" : "border-input focus:ring-ring"
+                  }`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPasswordText((v) => !v)}
+                  tabIndex={-1}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  title={showPasswordText ? "Sembunyikan password" : "Tampilkan password"}
+                >
+                  {showPasswordText ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+              {passwordError && (
+                <p className="text-xs text-destructive font-medium">{passwordError}</p>
+              )}
+            </div>
+
+            <div className="flex gap-2 justify-end pt-3">
+              <button
+                onClick={closePasswordModal}
+                disabled={verifying}
+                className="px-4 py-2 rounded-lg border border-input text-sm hover:bg-muted disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleConfirmDownload}
+                disabled={verifying}
+                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
+              >
+                {verifying && <Loader2 size={14} className="animate-spin" />}
+                Download
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

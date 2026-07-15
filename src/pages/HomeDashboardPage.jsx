@@ -37,30 +37,9 @@ export default function HomeDashboardPage() {
               <div className="space-y-3">
                 <h2 className="text-lg font-bold text-foreground">Pengembang Sistem</h2>
                 <p className="text-muted-foreground text-sm leading-relaxed">
-                  Dikembangkan oleh mahasiswa Faculty of Computer Science, President University.
+                  Dikembangkan oleh mahasiswa Faculty of Computer Science, President University:
+                  Aroliani Munte, Alfina Hilma Zein, dan Satwika Zahrani Putri.
                 </p>
-                <div className="rounded-2xl border border-border overflow-hidden">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-muted/50">
-                        <th className="text-left px-4 py-3 font-semibold text-foreground">No.</th>
-                        <th className="text-left px-4 py-3 font-semibold text-foreground">Nama</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {[
-                        ["1", "Aroliani Munte"],
-                        ["2", "Alfina Hilma Zein"],
-                        ["3", "Satwika Zahrani Putri"],
-                      ].map(([no, nama]) => (
-                        <tr key={nama}>
-                          <td className="px-4 py-3 text-muted-foreground">{no}</td>
-                          <td className="px-4 py-3 text-foreground font-medium">{nama}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
                 <p className="text-muted-foreground text-sm">
                   <span className="font-medium text-foreground">Dosen Pembimbing:</span>{" "}
                   Mrs. Rosalina, S.Kom., M.Kom.

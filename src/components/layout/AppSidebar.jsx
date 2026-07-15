@@ -114,11 +114,11 @@ export default function AppSidebar() {
           : "items-center gap-3 px-3 py-2.5"
       } rounded-xl font-medium ${
         active
-          ? "bg-primary/[0.08] text-primary"
+          ? "bg-sidebar-accent text-sidebar-accent-foreground"
           : "text-sidebar-foreground hover:bg-sidebar-accent"
       }`}
     >
-      <Icon size={collapsed ? 22 : 18} className={`shrink-0 ${active ? "text-primary" : ""}`} />
+      <Icon size={collapsed ? 22 : 18} className={`shrink-0 ${active ? "text-sidebar-accent-foreground" : ""}`} />
       {!collapsed && (
         <span className="text-[13px] flex-1 text-left font-semibold">{label}</span>
       )}
@@ -139,7 +139,7 @@ export default function AppSidebar() {
         <>
           <div className={`group flex items-center justify-between px-3 py-2.5 rounded-xl ${
             active
-              ? "bg-primary/[0.08] text-primary"
+              ? "bg-sidebar-accent text-sidebar-accent-foreground"
               : "text-sidebar-foreground hover:bg-sidebar-accent"
           }`}>
             <div
@@ -229,7 +229,7 @@ export default function AppSidebar() {
               onClick={(e) => handleNavigate(e, "/home")}
               className="text-left hover:opacity-80 min-w-0 flex-1"
             >
-              <div className="text-primary font-semibold text-sm tracking-wider">SAKURA</div>
+              <div className="text-sidebar-foreground font-semibold text-sm tracking-wider">SAKURA</div>
               <div className="text-sidebar-foreground/50 text-[10px] font-medium">Document Management</div>
             </button>
             {/* Tombol collapse — hanya berguna di layar besar */}
@@ -288,8 +288,8 @@ export default function AppSidebar() {
               onClick={(e) => handleNavigate(e, "/approval/pending")}
               className={`w-full flex items-center justify-between px-3 py-1.5 text-xs rounded-lg ${
                 location.pathname === "/approval/pending"
-                  ? "text-primary font-semibold"
-                  : "text-sidebar-foreground/70 hover:text-primary"
+                  ? "text-sidebar-accent-foreground font-semibold"
+                  : "text-sidebar-foreground/70 hover:text-sidebar-accent-foreground"
               }`}
             >
               <div className="flex items-center gap-2">
@@ -308,8 +308,8 @@ export default function AppSidebar() {
               onClick={(e) => handleNavigate(e, "/approval/approved")}
               className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs rounded-lg ${
                 location.pathname === "/approval/approved"
-                  ? "text-primary font-semibold"
-                  : "text-sidebar-foreground/70 hover:text-primary"
+                  ? "text-sidebar-accent-foreground font-semibold"
+                  : "text-sidebar-foreground/70 hover:text-sidebar-accent-foreground"
               }`}
             >
               <CheckCircle size={13} /> Disetujui
@@ -336,8 +336,8 @@ export default function AppSidebar() {
                   onClick={(e) => handleNavigate(e, "/archive")}
                   className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs rounded-lg ${
                     !currentFolder && arsipActive
-                      ? "text-primary font-semibold bg-primary/[0.06]"
-                      : "text-sidebar-foreground/70 hover:text-primary"
+                      ? "text-sidebar-accent-foreground font-semibold bg-sidebar-accent/40"
+                      : "text-sidebar-foreground/70 hover:text-sidebar-accent-foreground"
                   }`}
                 >
                   <FolderOpen size={14} />
@@ -359,8 +359,8 @@ export default function AppSidebar() {
                     onClick={(e) => handleNavigate(e, `/archive?folder=${child.folder}`)}
                     className={`w-full flex items-center justify-between px-2 py-1.5 text-xs rounded-md ${
                       currentFolder === child.folder
-                        ? "bg-primary/[0.08] text-primary font-semibold"
-                        : "text-sidebar-foreground/60 hover:text-primary"
+                        ? "bg-sidebar-accent text-sidebar-accent-foreground font-semibold"
+                        : "text-sidebar-foreground/60 hover:text-sidebar-accent-foreground"
                     }`}
                   >
                     <span className="truncate pr-2">{child.label}</span>

@@ -34,30 +34,30 @@ import UserAvatar from "@/components/shared/UserAvatar";
 
 // ── Ikon & warna berdasarkan tipe notifikasi ──────────────────────────────────
 function NotifIcon({ type }) {
-  const base = "w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0";
+  const base = "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ring-1 ring-black/[0.03]";
   switch (type) {
     case "approval":
       return (
         <span className={`${base} bg-emerald-100 dark:bg-emerald-900/40`}>
-          <FileCheck size={14} className="text-emerald-600 dark:text-emerald-400" />
+          <FileCheck size={15} className="text-emerald-600 dark:text-emerald-400" />
         </span>
       );
     case "rejection":
       return (
         <span className={`${base} bg-red-100 dark:bg-red-900/40`}>
-          <FileX size={14} className="text-red-600 dark:text-red-400" />
+          <FileX size={15} className="text-red-600 dark:text-red-400" />
         </span>
       );
     case "upload":
       return (
         <span className={`${base} bg-blue-100 dark:bg-blue-900/40`}>
-          <Clock size={14} className="text-blue-600 dark:text-blue-400" />
+          <Clock size={15} className="text-blue-600 dark:text-blue-400" />
         </span>
       );
     default:
       return (
         <span className={`${base} bg-muted`}>
-          <Info size={14} className="text-muted-foreground" />
+          <Info size={15} className="text-muted-foreground" />
         </span>
       );
   }
@@ -218,15 +218,15 @@ export default function AppHeader({ title, subtitle }) {
           <AnimatePresence>
             {showNotifs && (
               <motion.div
-                initial={{ opacity: 0, y: -8, scale: 0.96 }}
+                initial={{ opacity: 0, y: -10, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -8, scale: 0.96 }}
-                transition={{ duration: 0.15 }}
-                className="fixed z-50 w-[90vw] max-w-sm sm:w-96 max-h-[70vh] bg-card border border-border rounded-2xl shadow-elevated overflow-hidden"
+                exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                transition={{ type: "spring", stiffness: 380, damping: 28 }}
+                className="fixed z-50 w-[90vw] max-w-sm sm:w-96 max-h-[70vh] bg-card border border-border/60 rounded-[22px] shadow-card-hover overflow-hidden backdrop-blur-sm"
                 style={{ top: notifMenuStyle.top, right: notifMenuStyle.right }}
               >
                 {/* Header panel notifikasi */}
-                <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/20">
+                <div className="flex items-center justify-between px-4 py-3.5 border-b border-border bg-muted/20">
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-sm text-foreground">Notifikasi</span>
                     {unreadCount > 0 && (
@@ -235,11 +235,11 @@ export default function AppHeader({ title, subtitle }) {
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
                     <button
                       onClick={handleRefresh}
                       disabled={notificationsLoading}
-                      className="p-1 rounded-lg hover:bg-muted transition-colors disabled:opacity-50"
+                      className="p-1.5 rounded-full hover:bg-muted transition-colors disabled:opacity-50"
                       aria-label="Muat ulang notifikasi"
                       title="Muat ulang"
                     >
@@ -251,13 +251,21 @@ export default function AppHeader({ title, subtitle }) {
                     {unreadCount > 0 && (
                       <button
                         onClick={handleMarkAll}
-                        className="flex items-center gap-1 text-xs text-primary font-medium hover:underline"
+                        className="flex items-center gap-1 text-xs text-primary font-medium hover:underline px-1.5"
                         title="Tandai semua dibaca"
                       >
                         <CheckCheck size={13} />
                         Baca semua
                       </button>
                     )}
+                    <button
+                      onClick={() => setShowNotifs(false)}
+                      className="p-1.5 rounded-full hover:bg-muted transition-colors ml-0.5"
+                      aria-label="Tutup notifikasi"
+                      title="Tutup"
+                    >
+                      <X size={14} className="text-muted-foreground" />
+                    </button>
                   </div>
                 </div>
 
@@ -272,9 +280,9 @@ export default function AppHeader({ title, subtitle }) {
                   )}
 
                   {!notificationsLoading && visibleNotifications.length === 0 && (
-                    <div className="flex flex-col items-center justify-center py-12 gap-3 text-center px-4">
-                      <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
-                        <Bell size={20} className="text-muted-foreground" />
+                    <div className="flex flex-col items-center justify-center py-14 gap-3 text-center px-4">
+                      <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center">
+                        <Bell size={22} className="text-muted-foreground" />
                       </div>
                       <p className="text-sm text-muted-foreground">Belum ada notifikasi</p>
                       <p className="text-xs text-muted-foreground/70">
@@ -283,12 +291,15 @@ export default function AppHeader({ title, subtitle }) {
                     </div>
                   )}
 
-                  {visibleNotifications.map((n) => (
-                    <button
+                  {visibleNotifications.map((n, idx) => (
+                    <motion.button
                       key={n.id}
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.2, delay: Math.min(idx, 5) * 0.03 }}
                       onClick={() => handleNotifClick(n)}
                       className={`
-                        w-full text-left flex items-start gap-3 px-4 py-3
+                        w-full text-left flex items-start gap-3 px-4 py-3.5
                         hover:bg-muted/50 transition-colors group relative
                         ${!n.read ? "bg-primary/5" : ""}
                       `}
@@ -310,13 +321,13 @@ export default function AppHeader({ title, subtitle }) {
 
                       <button
                         onClick={(e) => handleDismiss(e, n.id)}
-                        className="opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-destructive/10 transition-all ml-1 flex-shrink-0"
+                        className="opacity-0 group-hover:opacity-100 p-1.5 rounded-full hover:bg-destructive/10 transition-all ml-1 flex-shrink-0"
                         aria-label="Hapus notifikasi"
                         title="Hapus"
                       >
                         <X size={12} className="text-muted-foreground hover:text-destructive" />
                       </button>
-                    </button>
+                    </motion.button>
                   ))}
                 </div>
 

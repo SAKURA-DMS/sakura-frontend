@@ -51,15 +51,15 @@
     --sakura-pink: 347 55% 52%;
     --sakura-violet: 347 48% 36%;
 
-    /* Sidebar: White & clean */
-    --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 215 20% 32%;
-    --sidebar-primary: 347 62% 38%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 347 30% 95%;
-    --sidebar-accent-foreground: 347 55% 34%;
-    --sidebar-border: 210 14% 91%;
-    --sidebar-ring: 347 55% 40%;
+    /* Sidebar: Deep Maroon — mengikuti identitas brand SAKURA */
+    --sidebar-background: 347 55% 26%;
+    --sidebar-foreground: 347 20% 92%;
+    --sidebar-primary: 0 0% 100%;
+    --sidebar-primary-foreground: 347 62% 30%;
+    --sidebar-accent: 347 45% 34%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 347 40% 22%;
+    --sidebar-ring: 0 0% 100%;
 
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
     --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.05);

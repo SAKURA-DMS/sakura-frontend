@@ -15,7 +15,7 @@ import {
 import { sendChatMessage } from "@/services/chatbotService";
 import { useApp } from "@/contexts/AppContext";
 import * as documentService from "@/services/documentService";
-import profileLogo from "@/assets/logo_sakura.jpg";
+import profileLogo from "@/assets/logo_sakura.png";
 import chatbotGif from "@/assets/aichatbot_sakura.gif";
 import chatbotPoster from "@/assets/sakura_chatbot_poster.png";
 import sakuraBranch from "@/assets/sakura_branch.png";

@@ -99,7 +99,7 @@ export default function UserAvatar({
       ) : (
         <span
           className={cn(
-            "w-full h-full flex items-center justify-center bg-primary/15 text-primary font-bold select-none",
+            "w-full h-full flex items-center justify-center bg-primary text-primary-foreground font-bold select-none",
             square ? "rounded-lg" : "rounded-full",
             className
           )}

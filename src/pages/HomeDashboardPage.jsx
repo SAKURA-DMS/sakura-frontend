@@ -43,21 +43,19 @@ export default function HomeDashboardPage() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="bg-muted/50">
-                        <th className="text-left px-4 py-2.5 font-semibold text-foreground">No.</th>
-                        <th className="text-left px-4 py-2.5 font-semibold text-foreground">Nama</th>
-                        <th className="text-left px-4 py-2.5 font-semibold text-foreground">NIM</th>
+                        <th className="text-left px-4 py-3 font-semibold text-foreground">No.</th>
+                        <th className="text-left px-4 py-3 font-semibold text-foreground">Nama</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
                       {[
-                        ["1", "Aroliani Munte", "001202300098"],
-                        ["2", "Alfina Hilma Zein", "001202300136"],
-                        ["3", "Satwika Zahrani Putri", "001202300099"],
-                      ].map(([no, nama, nim]) => (
-                        <tr key={nim}>
-                          <td className="px-4 py-2.5 text-muted-foreground">{no}</td>
-                          <td className="px-4 py-2.5 text-foreground font-medium">{nama}</td>
-                          <td className="px-4 py-2.5 text-muted-foreground">{nim}</td>
+                        ["1", "Aroliani Munte"],
+                        ["2", "Alfina Hilma Zein"],
+                        ["3", "Satwika Zahrani Putri"],
+                      ].map(([no, nama]) => (
+                        <tr key={nama}>
+                          <td className="px-4 py-3 text-muted-foreground">{no}</td>
+                          <td className="px-4 py-3 text-foreground font-medium">{nama}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -96,7 +94,7 @@ export default function HomeDashboardPage() {
                   {[
                     ["Alamat", "Kp. Kali Jeruk, Desa Kalijaya, Kec. Cikarang Barat, Kab. Bekasi, Jawa Barat"],
                     ["NPSN", "20218452"],
-                    ["Status", "Sekolah Negeri — Jenjang SMP"],
+                    ["Status", "Sekolah Negeri, Jenjang SMP"],
                   ].map(([label, value]) => (
                     <div key={label}>
                       <span className="text-muted-foreground text-xs font-medium">{label}</span>

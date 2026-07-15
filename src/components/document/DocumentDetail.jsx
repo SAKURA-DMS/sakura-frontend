@@ -1,4 +1,4 @@
-import { X, Eye, Clock, FileText, CheckCircle, XCircle, Archive, Folder } from "lucide-react";
+import { X, Eye, Clock, FileText, CheckCircle, XCircle, Archive, Folder, MessageSquare } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { useState, useEffect } from "react";
@@ -25,6 +25,8 @@ export default function DocumentDetailModal({ document: doc, onClose }) {
   // Fetch audit trail langsung dari API berdasarkan document_id
   const [auditTrail, setAuditTrail] = useState(doc.auditTrail || []);
   const [trailLoading, setTrailLoading] = useState(false);
+  // BARU: popup "Komentar" untuk entri approve/reject yang punya catatan
+  const [activeNote, setActiveNote] = useState(null);
 
   useEffect(() => {
     if (!doc?.id) return;
@@ -46,6 +48,17 @@ export default function DocumentDetailModal({ document: doc, onClose }) {
 
   const canApprove = hasPermission("documents.approve") && doc.status === "Menunggu";
   const canArchive = hasPermission("documents.archive") && doc.status === "Disetujui";
+
+  // BARU: ambil isi catatan approve/reject dari kolom new_value (JSON) di
+  // audit_trail — bukan hardcode. Approve pakai key `catatan`, reject pakai
+  // key `alasan` (nama kolom yang sudah dipakai reject sebelum fitur ini
+  // dibuat, tidak diubah supaya logic approval existing tetap sama).
+  const getEntryNote = (entry) => {
+    const nv = entry?.new_value;
+    if (!nv || typeof nv !== "object") return null;
+    const note = nv.catatan || nv.alasan || null;
+    return note && String(note).trim() ? String(note).trim() : null;
+  };
 
   return (
     <>
@@ -123,25 +136,40 @@ export default function DocumentDetailModal({ document: doc, onClose }) {
                 <p className="text-sm text-muted-foreground text-center py-6">Belum ada aktivitas tercatat.</p>
               ) : (
                 <div className="space-y-3">
-                  {auditTrail.map((entry, i) => (
-                    <div key={i} className="flex items-start justify-between gap-4 py-2 border-b border-border last:border-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <UserAvatar userId={entry.user?.id} avatar={entry.user?.avatar} nama={entry.user?.nama || "Sistem"} size={32} />
-                        <div>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-semibold text-sm text-foreground">{entry.user?.nama || "Sistem"}</span>
-                            {entry.user?.role && (
-                              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ROLE_BADGE[entry.user.role] || "bg-muted text-muted-foreground border border-border"}`}>
-                                {entry.user.role}
-                              </span>
-                            )}
+                  {auditTrail.map((entry, i) => {
+                    const note = getEntryNote(entry);
+                    return (
+                      <div key={i} className="flex items-start justify-between gap-4 py-2 border-b border-border last:border-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <UserAvatar userId={entry.user?.id} avatar={entry.user?.avatar} nama={entry.user?.nama || "Sistem"} size={32} />
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-semibold text-sm text-foreground">{entry.user?.nama || "Sistem"}</span>
+                              {entry.user?.role && (
+                                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ROLE_BADGE[entry.user.role] || "bg-muted text-muted-foreground border border-border"}`}>
+                                  {entry.user.role}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm text-foreground/80 mt-0.5">{entry.action}</p>
                           </div>
-                          <p className="text-sm text-foreground/80 mt-0.5">{entry.action}</p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {/* BARU: icon komentar — hanya tampil jika entri punya catatan */}
+                          {note && (
+                            <button
+                              onClick={() => setActiveNote({ entry, note })}
+                              title="Lihat komentar"
+                              className="flex items-center gap-1 px-2 py-1 rounded-full bg-sakura-success text-white text-xs font-semibold hover:opacity-90 transition-opacity"
+                            >
+                              <MessageSquare size={12} /> 1
+                            </button>
+                          )}
+                          <span className="text-xs text-muted-foreground pt-1">{format(new Date(entry.time), "yyyy-MM-dd HH:mm")}</span>
                         </div>
                       </div>
-                      <span className="text-xs text-muted-foreground shrink-0 pt-1">{format(new Date(entry.time), "yyyy-MM-dd HH:mm")}</span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -149,6 +177,55 @@ export default function DocumentDetailModal({ document: doc, onClose }) {
         </div>
       </div>
       {showPdf && <PdfPreviewOverlay onClose={() => setShowPdf(false)} document={doc} />}
+
+      {/* BARU: Popup Komentar — detail catatan approve/reject dari Jejak Aktivitas */}
+      {activeNote && (
+        <div
+          className="fixed inset-0 z-[160] flex items-center justify-center bg-foreground/40 backdrop-blur-sm p-4 animate-fade-in"
+          onClick={() => setActiveNote(null)}
+        >
+          <div
+            className="bg-card rounded-2xl shadow-2xl w-full max-w-md max-h-[85vh] flex flex-col overflow-hidden animate-fade-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
+              <h3 className="font-bold text-foreground">Komentar</h3>
+              <button
+                onClick={() => setActiveNote(null)}
+                className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-5 overflow-y-auto space-y-4">
+              <div className="flex items-center gap-3">
+                <UserAvatar
+                  userId={activeNote.entry.user?.id}
+                  avatar={activeNote.entry.user?.avatar}
+                  nama={activeNote.entry.user?.nama || "Sistem"}
+                  size={36}
+                />
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-sm text-foreground">{activeNote.entry.user?.nama || "Sistem"}</span>
+                    {activeNote.entry.user?.role && (
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ROLE_BADGE[activeNote.entry.user.role] || "bg-muted text-muted-foreground border border-border"}`}>
+                        {activeNote.entry.user.role}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {format(new Date(activeNote.entry.time), "yyyy-MM-dd")} · {format(new Date(activeNote.entry.time), "HH:mm")}
+                  </p>
+                </div>
+              </div>
+              <div className="p-3 rounded-xl bg-muted/50 border border-border text-sm text-foreground whitespace-pre-wrap break-words">
+                {activeNote.note}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

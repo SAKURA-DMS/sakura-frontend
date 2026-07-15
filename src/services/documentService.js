@@ -57,6 +57,10 @@ export function normalizeAuditTrail(trail = []) {
   return trail.map((t) => ({
     time:   t.created_at,
     action: t.action,
+    // BARU: sertakan new_value (JSON dari kolom audit_trail.new_value) —
+    // dipakai untuk menampilkan catatan approve/reject di popup "Komentar"
+    // pada Jejak Aktivitas. Data asli dari database, bukan hardcode.
+    new_value: t.new_value || null,
     user: {
       id:     t.user_id,
       nama:   t.nama   || "Sistem",

@@ -6,6 +6,7 @@ import {
 import * as authService from "@/services/authService";
 import * as userService from "@/services/userService";
 import * as documentService from "@/services/documentService";
+import * as folderService from "@/services/folderService";
 import * as notificationService from "@/services/notificationService";
 import * as presenceService from "@/services/presenceService";
 import { getToken } from "@/lib/apiClient";
@@ -58,9 +59,9 @@ export const AppProvider = ({ children }) => {
   const heartbeatRef = useRef(null);
   const presencePollRef = useRef(null);
 
-  // ── Folders (tetap lokal) ─────────────────────────────────────────────────
-  const [customFolders, setCustomFolders] = useState([]);
-  const [nextFolderId, setNextFolderId] = useState(1000);
+  // ── Folders (sinkron dengan database lewat /api/folders) ────────────────
+  const [folders, setFolders] = useState([]);
+  const [foldersLoading, setFoldersLoading] = useState(false);
 
   // ── Users State ───────────────────────────────────────────────────────────
   const [users, setUsers] = useState([]);
@@ -270,6 +271,7 @@ export const AppProvider = ({ children }) => {
     setPendingUsersState([]);
     setDocuments([]);
     setTrashedDocuments([]);
+    setFolders([]);
     setNotifications([]);
     setOnlineStatuses({});
   };
@@ -281,21 +283,71 @@ export const AppProvider = ({ children }) => {
   // dipakai langsung sebagai callback saat idle tercapai.
   useIdleSession(!!currentUser, logout);
 
-  // ── Folder CRUD (custom folders, tetap local) ─────────────────────────────
-  const createFolder = (folderName, parentPath = null, description = "") => {
-    const id = nextFolderId;
-    setNextFolderId((n) => n + 1);
-    const newFolder = { id, name: folderName, parentPath, description, isCustom: true, createdAt: new Date().toISOString() };
-    setCustomFolders((prev) => [...prev, newFolder]);
-    return newFolder;
+  // ── Folder CRUD — sekarang benar-benar tersimpan di database ──────────────
+  // Setiap aksi (create/rename/move/delete) memanggil API lalu me-refresh
+  // `folders` dari server, sehingga UI otomatis ter-update tanpa perlu
+  // reload halaman, dan folder tidak akan "hilang" lagi setelah dibuat.
+  const loadFolders = useCallback(async () => {
+    setFoldersLoading(true);
+    try {
+      const list = await folderService.listFolders();
+      setFolders(list);
+      return list;
+    } catch (err) {
+      console.error("Gagal memuat folder:", err);
+      return [];
+    } finally {
+      setFoldersLoading(false);
+    }
+  }, []);
+
+  const createFolder = async (folderName, { parent_id = null, category_id = null, type_id = null, description = "" } = {}) => {
+    try {
+      const result = await folderService.createFolder({
+        folder_name: folderName,
+        parent_id,
+        category_id,
+        type_id,
+        description,
+      });
+      await loadFolders();
+      return { ok: true, ...result };
+    } catch (err) {
+      return { ok: false, error: err?.response?.data?.error || err.message || "Gagal membuat folder" };
+    }
   };
 
-  const editFolder = (folderId, data) => {
-    setCustomFolders((prev) => prev.map((f) => (f.id === folderId ? { ...f, ...data } : f)));
+  const editFolder = async (folderId, data = {}) => {
+    try {
+      await folderService.renameFolder(folderId, {
+        folder_name: data.name ?? data.folder_name,
+        description: data.description,
+      });
+      await loadFolders();
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err?.response?.data?.error || err.message || "Gagal memperbarui folder" };
+    }
   };
 
-  const deleteFolder = (folderId) => {
-    setCustomFolders((prev) => prev.filter((f) => f.id !== folderId));
+  const moveFolder = async (folderId, newParentId = null) => {
+    try {
+      await folderService.moveFolder(folderId, newParentId);
+      await loadFolders();
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err?.response?.data?.error || err.message || "Gagal memindahkan folder" };
+    }
+  };
+
+  const deleteFolder = async (folderId) => {
+    try {
+      await folderService.deleteFolder(folderId);
+      await loadFolders();
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: err?.response?.data?.error || err.message || "Gagal menghapus folder" };
+    }
   };
 
   // ── Document CRUD ──────────────────────
@@ -760,7 +812,9 @@ export const AppProvider = ({ children }) => {
         notificationsLoading,
         unreadCount,
         loadNotifications,
-        customFolders,
+        folders,
+        foldersLoading,
+        loadFolders,
         // Online Status
         onlineStatuses,
         isUserOnline,
@@ -805,6 +859,7 @@ export const AppProvider = ({ children }) => {
         // Folder actions
         createFolder,
         editFolder,
+        moveFolder,
         deleteFolder,
       }}
     >

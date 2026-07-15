@@ -436,51 +436,13 @@ export const SIDEBAR_FOLDERS = [
       { label: "SK & Edaran", folder: "sk", path: "cat:4/type:12" },
     ],
   },
-  // ── Arsip Administrasi Guru ──────────────────────────────────────────────
-  // Sebelumnya diberi flag `guruOnly: true` sehingga HANYA tampil untuk role
-  // Guru dan disembunyikan total dari Operator/TU & Kepala Sekolah — ini yang
-  // membuat sistem terasa "per-role" alih-alih "per-permission". Sekarang
-  // visibilitas folder ditentukan oleh `canViewModule()` (lihat AppSidebar.jsx)
-  // berdasarkan `moduleId` di MODULE_DEFINITIONS, bukan flag biner lagi. Semua
-  // menumpang di category_id 5 yang sudah ada; struktur folder tidak berubah.
-  {
-    module: "Administrasi Pembelajaran", moduleId: "administrasi-pembelajaran", children: [
-      { label: "Modul Ajar",                folder: "modul-ajar",  path: "cat:5/type:19" },
-      { label: "RPP",                       folder: "rpp",         path: "cat:5/type:20" },
-      { label: "Silabus",                   folder: "silabus",     path: "cat:5/type:21" },
-      { label: "Program Tahunan (Prota)",   folder: "prota",       path: "cat:5/type:22" },
-      { label: "Program Semester (Promes)", folder: "promes",      path: "cat:5/type:23" },
-      { label: "Bahan Ajar",                folder: "bahan-ajar",  path: "cat:5/type:24" },
-    ],
-  },
-  {
-    module: "Penilaian", moduleId: "penilaian", children: [
-      { label: "Bank Soal",         folder: "bank-soal",        path: "cat:5/type:25" },
-      { label: "Kisi-kisi",         folder: "kisi-kisi",        path: "cat:5/type:26" },
-      { label: "Rubrik Penilaian",  folder: "rubrik-penilaian", path: "cat:5/type:27" },
-      { label: "Rekap Nilai",       folder: "rekap-nilai",      path: "cat:5/type:28" },
-    ],
-  },
-  {
-    module: "Administrasi Kelas", moduleId: "administrasi-kelas", children: [
-      { label: "Jurnal Mengajar",         folder: "jurnal-mengajar",        path: "cat:5/type:29" },
-      { label: "Absensi Siswa",           folder: "absensi-siswa",          path: "cat:5/type:30" },
-      { label: "Laporan Hasil Belajar",   folder: "laporan-hasil-belajar",  path: "cat:5/type:31" },
-      { label: "Portofolio Siswa",        folder: "portofolio-siswa",       path: "cat:5/type:32" },
-    ],
-  },
-  {
-    // NOTE: sebelumnya modul ini keliru diberi label "Kepegawaian" (bentrok
-    // nama dengan modul "Data Guru" di atas). Diperbaiki menjadi
-    // "Pengembangan Profesi" sesuai isi foldernya (SK Mengajar, Sertifikat
-    // Diklat/Seminar Guru, Portofolio Guru).
-    module: "Pengembangan Profesi", moduleId: "pengembangan-profesi", children: [
-      { label: "SK Mengajar",         folder: "sk-mengajar-guru",       path: "cat:5/type:33" },
-      { label: "Sertifikat Diklat",   folder: "sertifikat-diklat-guru", path: "cat:5/type:34" },
-      { label: "Sertifikat Seminar",  folder: "sertifikat-seminar-guru",path: "cat:5/type:35" },
-      { label: "Portofolio Guru",     folder: "portofolio-guru",        path: "cat:5/type:36" },
-    ],
-  },
+  // NOTE (Task 1 - Sidebar Arsip): seluruh menu dummy "Administrasi
+  // Pembelajaran", "Penilaian", "Administrasi Kelas", dan "Pengembangan
+  // Profesi" (folder cat:5/type:19 s/d type:36) sudah dihapus karena tidak
+  // lagi dipakai. Struktur folder yang benar-benar aktif sekarang hanya
+  // Data Siswa, Data Guru, Sarana Prasarana, dan Surat Menyurat di atas,
+  // ditambah folder custom yang dibuat lewat fitur "Buat Folder" (tersimpan
+  // di database, lihat FOLDERS/buildFolderTree).
 ];
 
 export const CHART_MONTHS = [
@@ -531,80 +493,107 @@ export function getChartData(period, monthStr) {
   return period === "weekly" ? generateWeeklyData(monthStr) : generateMonthlyData(monthStr);
 }
 
-// Build folder tree from FOLDERS table (schema-aligned) + academic year nodes for Data Siswa
-export function buildFolderTree(documents) {
-  const tree = [];
-
-  // Build from FOLDERS table hierarchy
-  const rootFolders = FOLDERS.filter((f) => f.parent_id === null);
-
-  rootFolders.forEach((root) => {
-    const children = FOLDERS.filter((f) => f.parent_id === root.folder_id);
-    const childNodes = children.map((child) => {
-      // For Data Siswa category, add tahun_ajaran sub-folders
-      if (root.category_id === 1) {
-        const yearSet = new Set();
-        documents.forEach((doc) => {
-          if (doc.type_id === child.type_id && doc.tahunAjaran) {
-            yearSet.add(doc.tahunAjaran);
-          }
-        });
-        const yearChildren = [...yearSet].sort().reverse().map((year) => ({
-          name: year,
-          path: `cat:${root.category_id}/type:${child.type_id}/year:${year}`,
-          folder_id: child.folder_id,
-          category_id: root.category_id,
-          type_id: child.type_id,
-          tahunAjaran: year,
-          description: "",
-          children: [],
-        }));
-        return {
-          name: child.folder_name,
-          path: `cat:${root.category_id}/type:${child.type_id}`,
-          folder_id: child.folder_id,
-          category_id: root.category_id,
-          type_id: child.type_id,
-          description: child.description || "",
-          children: yearChildren,
-        };
-      }
-      return {
-        name: child.folder_name,
-        path: `cat:${root.category_id}/type:${child.type_id}`,
-        folder_id: child.folder_id,
-        category_id: root.category_id,
-        type_id: child.type_id,
-        description: child.description || "",
-        children: [],
-      };
-    });
-
-    tree.push({
-      name: root.folder_name,
-      path: `cat:${root.category_id}`,
-      folder_id: root.folder_id,
-      category_id: root.category_id,
-      description: root.description || "",
-      children: childNodes,
-    });
+// Build folder tree from the `folders` table (schema folders + custom folders
+// dibuat lewat fitur "Buat Folder") + academic year nodes untuk Data Siswa.
+//
+// `folders` di sini adalah data ASLI dari database (lihat AppContext.jsx →
+// loadFolders() → GET /api/folders), bukan lagi hardcode. Parameter kedua
+// tetap default ke FOLDERS (mock) supaya pemanggil lama yang belum sempat
+// diupdate tetap jalan seperti sebelumnya.
+//
+// Path folder schema-aligned (cat:X, cat:X/type:Y) dipertahankan persis
+// seperti sebelumnya agar docMatchesFolder & fitur lain yang bergantung pada
+// format path tersebut tidak berubah. Folder custom (is_custom = 1), pada
+// kedalaman berapa pun, memakai segmen tambahan `folder:<id>` di akhir path
+// sehingga sub-folder custom bisa dibuat berlapis-lapis.
+export function buildFolderTree(documents, folders = FOLDERS) {
+  const childrenByParent = {};
+  folders.forEach((f) => {
+    const key = f.parent_id === null || f.parent_id === undefined ? "root" : f.parent_id;
+    if (!childrenByParent[key]) childrenByParent[key] = [];
+    childrenByParent[key].push(f);
   });
 
-  return tree;
+  const buildNode = (folder, parentPath) => {
+    let path;
+    if (!folder.is_custom && folder.type_id != null) {
+      // Folder schema level-2 (mis. cat:1/type:1) — selalu tahu category_id-nya
+      // sendiri, jadi path bisa dibangun langsung tanpa bergantung parentPath.
+      path = `cat:${folder.category_id}/type:${folder.type_id}`;
+    } else if (!folder.is_custom && folder.category_id != null && !parentPath) {
+      // Folder schema level-1 (root kategori, mis. cat:1)
+      path = `cat:${folder.category_id}`;
+    } else if (parentPath) {
+      // Folder custom di dalam folder lain (sub-folder), berapa pun kedalamannya.
+      path = `${parentPath}/folder:${folder.folder_id}`;
+    } else {
+      // Folder custom di root arsip (tidak menumpang kategori manapun).
+      path = `folder:${folder.folder_id}`;
+    }
+
+    const childFolders = childrenByParent[folder.folder_id] || [];
+    let children = childFolders.map((child) => buildNode(child, path));
+
+    // Tahun ajaran sub-folder hanya untuk folder schema Data Siswa (category 1)
+    // yang belum punya anak folder custom.
+    if (folder.category_id === 1 && folder.type_id != null && !folder.is_custom && children.length === 0) {
+      const yearSet = new Set();
+      documents.forEach((doc) => {
+        if (doc.type_id === folder.type_id && doc.tahunAjaran) {
+          yearSet.add(doc.tahunAjaran);
+        }
+      });
+      children = [...yearSet].sort().reverse().map((year) => ({
+        name: year,
+        path: `${path}/year:${year}`,
+        folder_id: folder.folder_id,
+        category_id: folder.category_id,
+        type_id: folder.type_id,
+        tahunAjaran: year,
+        description: "",
+        children: [],
+      }));
+    }
+
+    return {
+      name: folder.folder_name,
+      path,
+      folder_id: folder.folder_id,
+      parent_id: folder.parent_id,
+      category_id: folder.category_id,
+      type_id: folder.type_id,
+      description: folder.description || "",
+      is_custom: !!folder.is_custom,
+      children,
+    };
+  };
+
+  const rootFolders = childrenByParent.root || [];
+  return rootFolders.map((root) => buildNode(root, null));
 }
 
 // Match document to folder path using schema-aligned path format
 // If strict=true, only match docs at the exact leaf level (not parent folders that have children)
 export function docMatchesFolder(doc, folderPath, strict = false) {
-  // Parse the structured path: cat:X, cat:X/type:Y, cat:X/type:Y/year:Z
+  // Parse the structured path: cat:X, cat:X/type:Y, cat:X/type:Y/year:Z,
+  // dan segmen tambahan folder:ID untuk folder custom (lihat buildFolderTree).
   const parts = folderPath.split("/");
   const catPart = parts.find((p) => p.startsWith("cat:"));
   const typePart = parts.find((p) => p.startsWith("type:"));
   const yearPart = parts.find((p) => p.startsWith("year:"));
+  const folderPart = [...parts].reverse().find((p) => p.startsWith("folder:"));
 
   const catId = catPart ? Number(catPart.split(":")[1]) : null;
   const typeId = typePart ? Number(typePart.split(":")[1]) : null;
   const year = yearPart ? yearPart.split(":")[1] : null;
+  const folderId = folderPart ? Number(folderPart.split(":")[1]) : null;
+
+  // Folder custom (baik root maupun sub-folder): dokumen dicocokkan lewat
+  // doc.folder_id, bukan cat/type, supaya folder custom tanpa kategori tidak
+  // keliru mencocokkan SEMUA dokumen.
+  if (folderId) {
+    return doc.folder_id === folderId;
+  }
 
   if (catId && doc.category_id !== catId) return false;
   if (typeId && doc.type_id !== typeId) return false;

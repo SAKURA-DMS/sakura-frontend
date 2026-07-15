@@ -125,9 +125,11 @@ export default function ArchivePage() {
     loadDocuments,
     toggleFavorite,
     currentUser,
-    customFolders,
+    folders,
+    loadFolders,
     createFolder,
     editFolder,
+    moveFolder,
     deleteFolder,
     editDocument,
     moveDocument,
@@ -144,7 +146,8 @@ export default function ArchivePage() {
 
   useEffect(() => {
     loadDocuments();
-  }, [loadDocuments]);
+    loadFolders();
+  }, [loadDocuments, loadFolders]);
 
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
 
@@ -248,7 +251,7 @@ export default function ArchivePage() {
     });
   }, [documents, currentUser]);
 
-  const folderTree = useMemo(() => buildFolderTree(documents), [documents]);
+  const folderTree = useMemo(() => buildFolderTree(documents, folders), [documents, folders]);
 
   const toggleExpand = (path) => {
     setExpandedFolders((prev) => {
@@ -410,26 +413,50 @@ export default function ArchivePage() {
     setPreviewMode(window.innerWidth >= 1024 ? "sidebar" : "popup");
   };
 
-  const handleCreateFolder = () => {
+  const handleCreateFolder = async () => {
     if (!newFolderName.trim()) return;
-    createFolder(
-      newFolderName.trim(),
-      createFolderParent,
-      newFolderDesc.trim()
-    );
-    toast({
-      title: "✅ Berhasil",
-      description: `Folder '${newFolderName.trim()}' berhasil dibuat`,
-      className: "bg-green-600 text-white border-none shadow-2xl font-semibold",
+
+    let parent_id = null;
+    let category_id = null;
+    let type_id = null;
+
+    if (createFolderParent) {
+      const parentNode = findFolderNode(folderTree, createFolderParent);
+      if (parentNode) {
+        parent_id = parentNode.folder_id;
+        category_id = parentNode.category_id;
+        type_id = parentNode.type_id;
+      }
+    }
+
+    const result = await createFolder(newFolderName.trim(), {
+      parent_id,
+      category_id,
+      type_id,
+      description: newFolderDesc.trim(),
     });
-    setNewFolderName("");
-    setNewFolderDesc("");
-    setShowCreateFolderModal(false);
-    setCreateFolderParent(null);
+
+    if (result.ok) {
+      toast({
+        title: "✅ Berhasil",
+        description: `Folder '${newFolderName.trim()}' berhasil dibuat`,
+        className: "bg-green-600 text-white border-none shadow-2xl font-semibold",
+      });
+      setNewFolderName("");
+      setNewFolderDesc("");
+      setShowCreateFolderModal(false);
+      setCreateFolderParent(null);
+    } else {
+      toast({
+        variant: "destructive",
+        title: "❌ Gagal",
+        description: result.error || "Gagal membuat folder",
+      });
+    }
   };
 
-  const confirmCreateFolder = () => {
-    handleCreateFolder();
+  const confirmCreateFolder = async () => {
+    await handleCreateFolder();
     setShowCreateFolderConfirm(false);
   };
 
@@ -437,15 +464,23 @@ export default function ArchivePage() {
     if (!editName.trim()) return;
 
     if (editTarget.type === "folder") {
-      editFolder(editTarget.data.id, {
+      const result = await editFolder(editTarget.data.id, {
         name: editName.trim(),
         description: editDesc.trim(),
       });
-      toast({
-        title: "✅ Berhasil",
-        description: `Folder '${editName.trim()}' berhasil diperbarui`,
-        className: "bg-green-600 text-white border-none shadow-2xl font-semibold",
-      });
+      if (result.ok) {
+        toast({
+          title: "✅ Berhasil",
+          description: `Folder '${editName.trim()}' berhasil diperbarui`,
+          className: "bg-green-600 text-white border-none shadow-2xl font-semibold",
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "❌ Gagal",
+          description: result.error || "Gagal memperbarui folder",
+        });
+      }
     } else {
       const category =
         CATEGORIES.find((c) => c.category_id === editCategoryId)?.category_name ||
@@ -484,14 +519,22 @@ export default function ArchivePage() {
 
   const handleDelete = async () => {
     if (deleteTarget.type === "folder") {
-      deleteFolder(deleteTarget.id);
-      toast({
-        variant: "destructive",
-        title: "🗑️ Berhasil Dihapus",
-        description: `Folder '${deleteTarget.name}' berhasil dipindahkan ke Sampah`,
-        className:
-          "shadow-2xl border-2 border-red-800 font-bold bg-destructive text-destructive-foreground",
-      });
+      const result = await deleteFolder(deleteTarget.id);
+      if (result.ok) {
+        toast({
+          variant: "destructive",
+          title: "🗑️ Berhasil Dihapus",
+          description: `Folder '${deleteTarget.name}' berhasil dihapus`,
+          className:
+            "shadow-2xl border-2 border-red-800 font-bold bg-destructive text-destructive-foreground",
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "❌ Gagal",
+          description: result.error || "Gagal menghapus folder",
+        });
+      }
     } else {
       try {
         await deleteDocument(deleteTarget.id);
@@ -519,6 +562,29 @@ export default function ArchivePage() {
 
   const handleMove = async () => {
     if (!moveDestination || !moveTarget) return;
+
+    if (moveTarget.isFolder) {
+      const destNode = findFolderNode(folderTree, moveDestination);
+      const result = await moveFolder(moveTarget.id, destNode ? destNode.folder_id : null);
+      if (result.ok) {
+        toast({
+          title: "✅ Berhasil",
+          description: `Folder '${moveTarget.judul}' berhasil dipindahkan`,
+          className: "bg-green-600 text-white border-none shadow-2xl font-semibold",
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "❌ Gagal",
+          description: result.error || "Gagal memindahkan folder",
+        });
+      }
+      setShowMoveModal(false);
+      setMoveTarget(null);
+      setMoveDestination("");
+      return;
+    }
+
     try {
       await moveDocument(moveTarget.id, moveDestination);
       toast({

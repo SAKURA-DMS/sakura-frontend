@@ -10,12 +10,10 @@ import {
   ChevronRight,
   ChevronDown,
   X,
-  Upload,
   Pencil,
   Trash2,
   MoreVertical,
   FolderPlus,
-  FilePlus,
   ArrowRightLeft,
   Grid2X2,
   Grid3X3,
@@ -41,7 +39,6 @@ import {
 import AppHeader from "@/components/layout/AppHeader";
 import DocumentDetailModal from "@/components/document/DocumentDetail"; // ← FIX: ganti dari modals/
 
-import UploadForm from "@/components/document/UploadForm"; // ← FIX: ganti dari upload/
 import { useApp } from "@/contexts/AppContext";
 import { useSettings } from "@/contexts/SettingsContext";
 import UserAvatar from "@/components/shared/UserAvatar";
@@ -54,7 +51,6 @@ import {
   CATEGORIES,
   DOCUMENT_TYPES,
   TAHUN_AJARAN_OPTIONS,
-  getModuleByPath,
   getModuleByDoc,
   canManageModule,
 } from "@/data/mockData";
@@ -188,7 +184,6 @@ export default function ArchivePage() {
   const [showFavorites, setShowFavorites] = useState(false);
   const [previewDoc, setPreviewDoc] = useState(null);
   const [previewMode, setPreviewMode] = useState("inline");
-  const [showUploadModal, setShowUploadModal] = useState(false);
   const [showRecycleBin, setShowRecycleBin] = useState(false);
 
   // State untuk modal folder di HP
@@ -228,7 +223,6 @@ export default function ArchivePage() {
   // Manajemen struktur folder (buat/ubah nama/hapus folder) tetap khusus
   // Operator/TU — tidak berubah dari sebelumnya.
   const canManageDoc = (doc) => canManageModule(currentUser?.role, getModuleByDoc(doc));
-  const canUploadInSelectedFolder = canManageModule(currentUser?.role, getModuleByPath(selectedFolder));
 
   const accessibleDocuments = useMemo(() => {
     return documents.filter((doc) => {
@@ -1340,11 +1334,6 @@ export default function ArchivePage() {
                       <FolderPlus size={14} className="mr-1.5" /> Sub-folder
                     </Button>
                   )}
-                  {selectedFolder && (isAdmin || canUploadInSelectedFolder) && (
-                    <Button size="sm" onClick={() => setShowUploadModal(true)}>
-                      <FilePlus size={14} className="mr-1.5" /> Upload File
-                    </Button>
-                  )}
                 </div>
               </div>
 
@@ -1445,12 +1434,6 @@ export default function ArchivePage() {
                     className="w-full sm:w-auto flex items-center justify-center gap-1 px-3 py-2 rounded-lg border border-input text-sm hover:bg-muted transition-none"
                   >
                     <RotateCcw size={14} /> Reset
-                  </button>
-                  <button
-                    onClick={() => setShowUploadModal(true)}
-                    className="w-full sm:w-auto flex items-center justify-center gap-1 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-none truncate"
-                  >
-                    <Upload size={14} /> Upload
                   </button>
                 </div>
 
@@ -1562,16 +1545,6 @@ export default function ArchivePage() {
               >
                 <FolderPlus size={15} className="text-muted-foreground" /> Buat
                 Sub-folder
-              </button>
-              <button
-                className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-foreground hover:bg-muted transition-none"
-                onClick={() => {
-                  setShowUploadModal(true);
-                  setContextMenu(null);
-                }}
-              >
-                <FilePlus size={15} className="text-muted-foreground" /> Upload
-                File
               </button>
               <div className="border-t border-border my-1" />
               <button
@@ -2006,40 +1979,6 @@ export default function ArchivePage() {
           document={detailDoc}
           onClose={() => setDetailDoc(null)}
         />
-      )}
-
-      {showUploadModal && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center pt-8 pb-8 px-4">
-          <div
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={() => setShowUploadModal(false)}
-          />
-          <div className="relative z-10 w-full max-w-5xl max-h-[90vh] overflow-y-auto bg-background rounded-2xl shadow-2xl border border-border p-4 sm:p-6">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-lg font-bold text-foreground">
-                  Upload Dokumen
-                </h2>
-                <p className="text-sm text-muted-foreground hidden sm:block">
-                  Form upload identik dengan halaman Upload Dokumen
-                </p>
-              </div>
-              <button
-                onClick={() => setShowUploadModal(false)}
-                className="p-2 rounded-lg hover:bg-muted bg-muted/50"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <UploadForm
-              onSuccess={() => {
-                setShowUploadModal(false);
-                loadDocuments();
-              }}
-              onCancel={() => setShowUploadModal(false)}
-            />
-          </div>
-        </div>
       )}
 
       {showRecycleBin && (

@@ -348,7 +348,7 @@ export default function AppSidebar() {
 
             return (
               <div key={item.module} className="mt-2">
-                <div className="px-2 pt-1 pb-0.5 text-[10px] font-semibold text-muted-foreground uppercase">
+                <div className="px-2 pt-1 pb-0.5 text-[10px] font-semibold text-sidebar-foreground/45 uppercase tracking-wide">
                   {item.module}
                 </div>
                 {item.children.map((child) => (
@@ -365,7 +365,7 @@ export default function AppSidebar() {
                   >
                     <span className="truncate pr-2">{child.label}</span>
                     {folderCounts[child.folder] > 0 && (
-                      <span className="text-[9px] bg-muted px-1 rounded-full">
+                      <span className="text-[9px] font-bold bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full min-w-[16px] text-center shrink-0">
                         {folderCounts[child.folder]}
                       </span>
                     )}

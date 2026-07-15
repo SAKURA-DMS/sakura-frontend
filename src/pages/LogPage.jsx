@@ -2,7 +2,6 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import {
   Search,
   RotateCcw,
-  FileText,
   Clock,
   ChevronDown,
   RefreshCw,
@@ -21,15 +20,15 @@ import api from "@/lib/apiClient";
 // Deteksi kategori berdasarkan kata kunci pada teks `action` yang sudah ada
 // di database (tidak menambah field/kolom baru).
 const ACTIVITY_COLORS = [
-  { test: (a) => a.includes("unggah"), dot: "bg-green-500", ring: "ring-green-500/20" },              // Upload
-  { test: (a) => a.includes("tolak"), dot: "bg-red-500", ring: "ring-red-500/20" },                    // Reject
-  { test: (a) => a.includes("setuju"), dot: "bg-blue-500", ring: "ring-blue-500/20" },                 // Approval (ajukan/setujui)
-  { test: (a) => a.includes("lihat"), dot: "bg-gray-400", ring: "ring-gray-400/20" },                  // View
-  { test: (a) => a.includes("unduh"), dot: "bg-purple-500", ring: "ring-purple-500/20" },              // Download
-  { test: (a) => a.includes("perbarui") || a.includes("metadata") || a.includes("mengubah") || a.includes("edit"), dot: "bg-orange-500", ring: "ring-orange-500/20" }, // Edit
-  { test: (a) => a.includes("arsip"), dot: "bg-teal-500", ring: "ring-teal-500/20" },                  // Archive
+  { test: (a) => a.includes("unggah"), dot: "bg-green-500" },   // Upload
+  { test: (a) => a.includes("tolak"), dot: "bg-red-500" },      // Reject
+  { test: (a) => a.includes("setuju"), dot: "bg-blue-500" },    // Approval (ajukan/setujui)
+  { test: (a) => a.includes("lihat"), dot: "bg-gray-400" },     // View
+  { test: (a) => a.includes("unduh"), dot: "bg-purple-500" },   // Download
+  { test: (a) => a.includes("perbarui") || a.includes("metadata") || a.includes("mengubah") || a.includes("edit"), dot: "bg-orange-500" }, // Edit
+  { test: (a) => a.includes("arsip"), dot: "bg-teal-500" },     // Archive
 ];
-const DEFAULT_ACTIVITY_COLOR = { dot: "bg-primary", ring: "ring-primary/20" };
+const DEFAULT_ACTIVITY_COLOR = { dot: "bg-primary" };
 
 function getActivityColor(action = "") {
   const a = action.toLowerCase();
@@ -169,7 +168,7 @@ export default function LogPage() {
       u.activities.forEach((log) => {
         const t = log.time ? new Date(log.time) : null;
         const dateKey = t ? format(t, "yyyy-MM-dd") : "unknown";
-        const dateLabel = t ? format(t, "d MMMM yyyy", { locale: idLocale }) : "Tanggal tidak diketahui";
+        const dateLabel = t ? format(t, "d MMM yyyy", { locale: idLocale }) : "Tanggal tidak diketahui";
         const gapMinutes =
           prevTime && current?.dateKey === dateKey
             ? (t - prevTime) / 60000
@@ -342,25 +341,23 @@ export default function LogPage() {
 
                   {/* Timeline (hanya dirender saat terbuka) */}
                   {isOpen && (
-                    <div className="px-4 pb-4 pt-1 bg-muted/10 border-t border-border/50 space-y-5">
+                    <div className="px-4 pb-4 pt-1 bg-muted/10 border-t border-border/50 space-y-4">
                       {u.sections.map((section) => (
                         <div key={section.label}>
-                          <div className="inline-block text-xs font-semibold text-muted-foreground bg-muted px-3 py-1 rounded-full mb-3 mt-3">
+                          <div className="inline-block text-xs font-semibold text-muted-foreground bg-muted px-3 py-1.5 rounded-lg mb-3 mt-3">
                             {section.label}
                           </div>
 
-                          <div className="ml-[7px] border-l-2 border-border space-y-4 pl-5">
+                          <div className="space-y-2.5">
                             {section.items.map((log, j) => {
                               const color = getActivityColor(log.action);
                               return (
-                                <div key={j} className="relative">
-                                  <span
-                                    className={`absolute w-2.5 h-2.5 rounded-full -left-[26px] top-1.5 ring-4 ${color.dot} ${color.ring}`}
-                                  />
-                                  <div className="flex flex-col sm:flex-row sm:items-baseline gap-x-2 gap-y-0.5">
-                                    <span className="text-xs font-mono text-muted-foreground shrink-0 w-12">
-                                      {log.time ? format(new Date(log.time), "HH:mm") : "—"}
-                                    </span>
+                                <div key={j} className="flex items-start gap-2.5">
+                                  <span className={`w-2 h-2 rounded-full shrink-0 mt-[7px] ${color.dot}`} />
+                                  <span className="text-xs font-mono text-muted-foreground shrink-0 w-10 pt-[3px]">
+                                    {log.time ? format(new Date(log.time), "HH:mm") : "—"}
+                                  </span>
+                                  <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 min-w-0">
                                     <span
                                       className={`text-sm font-semibold ${
                                         log.action.startsWith("Catatan Admin")
@@ -370,76 +367,17 @@ export default function LogPage() {
                                     >
                                       {log.action}
                                     </span>
-                                    <span className="text-xs text-muted-foreground flex items-center gap-1 min-w-0">
-                                      <FileText size={12} className="text-primary/70 shrink-0" />
-                                      <span className="truncate">{log.docTitle}</span>
-                                      {log.docNomor && (
-                                        <span className="font-mono bg-muted px-1.5 py-0.5 rounded text-[10px] text-muted-foreground shrink-0">
-                                          {log.docNomor}
-                                        </span>
-                                      )}
-                                    </span>
+                                    {log.docId && (
+                                      <span className="text-xs text-muted-foreground flex items-center gap-1 min-w-0">
+                                        {log.docTitle}
+                                        {log.docNomor && (
+                                          <span className="font-mono bg-muted px-1.5 py-0.5 rounded text-[10px] text-muted-foreground shrink-0">
+                                            {log.docNomor}
+                                          </span>
+                                        )}
+                                      </span>
+                                    )}
                                   </div>
-
-                                  {log.integrityStatus && (
-                                    <div className="mt-2 space-y-2">
-                                      {/* Integrity */}
-                                      <div className="flex items-center gap-2">
-                                        <span
-                                          className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${
-                                            log.integrityStatus === "VALID"
-                                              ? "bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400"
-                                              : "bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400"
-                                          }`}
-                                        >
-                                          {log.integrityStatus === "VALID" ? "✓ Verified" : "⚠ Invalid"}
-                                        </span>
-                                      </div>
-
-                                      {/* Hash */}
-                                      <div className="text-[10px] text-muted-foreground space-y-1">
-                                        <div>
-                                          <span className="font-semibold">Previous:</span>{" "}
-                                          {log.previousHash ? log.previousHash.substring(0, 16) + "..." : "--"}
-                                        </div>
-                                        <div>
-                                          <span className="font-semibold">Current:</span>{" "}
-                                          {log.currentHash ? log.currentHash.substring(0, 16) + "..." : "--"}
-                                        </div>
-                                      </div>
-
-                                      {/* Before After */}
-                                      {(log.oldValue || log.newValue) && (
-                                        <div className="grid grid-cols-2 gap-2 mt-2">
-                                          <div className="bg-red-50 dark:bg-red-950/20 rounded p-2">
-                                            <div className="font-semibold text-[11px] text-red-700 dark:text-red-400">
-                                              Sebelum
-                                            </div>
-                                            {log.oldValue
-                                              ? Object.entries(log.oldValue).map(([k, v]) => (
-                                                  <div key={k} className="text-[10px]">
-                                                    {k}: {String(v)}
-                                                  </div>
-                                                ))
-                                              : <div className="text-[10px]">-</div>}
-                                          </div>
-
-                                          <div className="bg-green-50 dark:bg-green-950/20 rounded p-2">
-                                            <div className="font-semibold text-[11px] text-green-700 dark:text-green-400">
-                                              Sesudah
-                                            </div>
-                                            {log.newValue
-                                              ? Object.entries(log.newValue).map(([k, v]) => (
-                                                  <div key={k} className="text-[10px]">
-                                                    {k}: {String(v)}
-                                                  </div>
-                                                ))
-                                              : <div className="text-[10px]">-</div>}
-                                          </div>
-                                        </div>
-                                      )}
-                                    </div>
-                                  )}
                                 </div>
                               );
                             })}

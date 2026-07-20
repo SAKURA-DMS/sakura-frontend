@@ -272,6 +272,7 @@ export default function LogPage() {
   const [visibleCounts, setVisibleCounts] = useState({});
 
   const [exportState, setExportState] = useState(null);
+  const [showExportConfirm, setShowExportConfirm] = useState(false);
 
   /* =========================================================
      FETCH LOGS
@@ -709,119 +710,65 @@ export default function LogPage() {
 
   const handleExportExcel = () => {
     if (filtered.length === 0) {
-      setExportState({
-        type: "error",
-        message:
-          "Tidak ada data aktivitas untuk diekspor.",
-      });
-
-      setTimeout(
-        () => setExportState(null),
-        3000
-      );
-
+      setShowExportConfirm(false);
+      setExportState({ type: "error", message: "Tidak ada data aktivitas untuk diekspor." });
+      setTimeout(() => setExportState(null), 3000);
       return;
     }
 
-    setExportState({
-      type: "loading",
-      message:
-        "Menyiapkan file Excel...",
-    });
+    setShowExportConfirm(false);
+    setExportState({ type: "loading", message: "Menyiapkan file Excel..." });
 
     try {
-      const rows = filtered
-        .slice()
-        .sort(
-          (a, b) =>
-            new Date(b.time || 0) -
-            new Date(a.time || 0)
-        )
-        .map((log) => {
-          const visual =
-            getActivityVisual(log.action);
+      const exportData = filtered.slice().sort(
+        (a, b) => new Date(b.time || 0) - new Date(a.time || 0)
+      );
 
-          return {
-            Waktu: log.time
-              ? format(
-                  new Date(log.time),
-                  "dd/MM/yyyy HH:mm"
-                )
-              : "-",
+      const rows = exportData.map((log) => {
+        const visual = getActivityVisual(log.action);
+        return {
+          Waktu: log.time ? format(new Date(log.time), "dd/MM/yyyy HH:mm") : "-",
+          Nama: log.userName,
+          Peran: log.userRole,
+          Aktivitas: log.action,
+          Dokumen: log.docId && log.docTitle ? log.docTitle : "-",
+          "No. Dokumen": log.docNomor || "-",
+          Status: log.docId ? "-" : visual.status || "-",
+        };
+      });
 
-            Nama: log.userName,
-
-            Peran: log.userRole,
-
-            Aktivitas: log.action,
-
-            Dokumen:
-              log.docId && log.docTitle
-                ? log.docTitle
-                : "-",
-
-            "No. Dokumen":
-              log.docNomor || "-",
-
-            Status:
-              log.docId
-                ? "-"
-                : visual.status || "-",
-          };
-        });
-
-      const ws =
-        XLSX.utils.json_to_sheet(rows);
-
+      const ws = XLSX.utils.json_to_sheet(rows);
       ws["!cols"] = [
-        { wch: 17 },
-        { wch: 22 },
-        { wch: 14 },
-        { wch: 38 },
-        { wch: 32 },
-        { wch: 22 },
-        { wch: 10 },
+        { wch: 17 }, { wch: 22 }, { wch: 14 }, { wch: 38 },
+        { wch: 32 }, { wch: 22 }, { wch: 10 },
       ];
 
-      const wb =
-        XLSX.utils.book_new();
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Log Aktivitas");
 
-      XLSX.utils.book_append_sheet(
-        wb,
-        ws,
-        "Log Aktivitas"
-      );
+      const validDates = exportData
+        .filter((log) => log.time && !Number.isNaN(new Date(log.time).getTime()))
+        .map((log) => new Date(log.time))
+        .sort((a, b) => a - b);
 
-      XLSX.writeFile(
-        wb,
-        `Log_Aktivitas_SAKURA_${format(
-          new Date(),
-          "yyyyMMdd_HHmm"
-        )}.xlsx`
-      );
+      let fileDateLabel = format(new Date(), "yyyy-MM-dd");
+      if (validDates.length > 0) {
+        const oldestLabel = format(validDates[0], "yyyy-MM-dd");
+        const newestLabel = format(validDates[validDates.length - 1], "yyyy-MM-dd");
+        fileDateLabel = oldestLabel === newestLabel
+          ? oldestLabel
+          : `${oldestLabel}_sampai_${newestLabel}`;
+      }
 
-      setExportState({
-        type: "success",
-        message:
-          "File Excel berhasil diekspor.",
-      });
+      const fileName = `Log_Aktivitas_SAKURA_${fileDateLabel}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+      setExportState({ type: "success", message: `${fileName} berhasil diunduh.` });
     } catch (err) {
-      console.error(
-        "Export Excel gagal:",
-        err
-      );
-
-      setExportState({
-        type: "error",
-        message:
-          "Gagal mengekspor file Excel.",
-      });
+      console.error("Export Excel gagal:", err);
+      setExportState({ type: "error", message: "Gagal mengekspor file Excel." });
     }
 
-    setTimeout(
-      () => setExportState(null),
-      3500
-    );
+    setTimeout(() => setExportState(null), 3500);
   };
 
   /* =========================================================
@@ -1088,35 +1035,78 @@ export default function LogPage() {
 
             </Popover>
 
-            {/* EXPORT WITH FLOATING TOOLTIP */}
+            {/* EXPORT EXCEL WITH CONFIRMATION */}
 
-            <div className="relative group">
+            <div className="relative">
+              <div className="relative group">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (filtered.length > 0) setShowExportConfirm((prev) => !prev);
+                  }}
+                  disabled={filtered.length === 0}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-primary/30 bg-background text-primary text-sm font-medium hover:bg-primary/5 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <FileSpreadsheet size={15} />
+                  Ekspor
+                </button>
 
-              <button
-                type="button"
-                onClick={handleExportExcel}
-                disabled={
-                  filtered.length === 0
-                }
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-primary/30 bg-background text-primary text-sm font-medium hover:bg-primary/5 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-
-                <FileSpreadsheet
-                  size={15}
-                />
-
-                Ekspor
-
-              </button>
-
-              <div className="pointer-events-none absolute right-0 top-full mt-2 z-40 whitespace-nowrap rounded-lg bg-foreground px-3 py-2 text-[11px] text-background opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition-all shadow-lg">
-
-                Unduh log aktivitas sebagai Excel (.xlsx)
-
-                <div className="absolute -top-1 right-5 w-2 h-2 bg-foreground rotate-45" />
-
+                {!showExportConfirm && (
+                  <div className="pointer-events-none absolute right-0 top-full mt-2 z-40 whitespace-nowrap rounded-lg bg-foreground px-3 py-2 text-[11px] text-background opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition-all shadow-lg">
+                    Unduh log aktivitas sebagai Excel (.xlsx)
+                    <div className="absolute -top-1 right-5 w-2 h-2 bg-foreground rotate-45" />
+                  </div>
+                )}
               </div>
 
+              {showExportConfirm && (
+                <>
+                  <button
+                    type="button"
+                    aria-label="Tutup konfirmasi ekspor"
+                    onClick={() => setShowExportConfirm(false)}
+                    className="fixed inset-0 z-40 cursor-default"
+                  />
+
+                  <div className="absolute right-0 top-full mt-2 z-50 w-[320px] rounded-xl border border-border bg-card p-4 shadow-xl">
+                    <div className="flex items-start gap-3">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                        <FileSpreadsheet size={18} />
+                      </span>
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-foreground">
+                          Ekspor Log Aktivitas?
+                        </div>
+                        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                          Data log yang sedang ditampilkan sesuai filter akan diekspor ke file Excel (.xlsx).
+                        </p>
+                        <p className="mt-2 text-[11px] text-muted-foreground">
+                          {filtered.length} aktivitas akan diekspor.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowExportConfirm(false)}
+                        className="rounded-lg border border-input px-3.5 py-2 text-xs font-medium text-foreground hover:bg-muted transition-colors"
+                      >
+                        Batal
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleExportExcel}
+                        className="flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-xs font-medium text-primary-foreground hover:opacity-90 transition-opacity"
+                      >
+                        <FileSpreadsheet size={14} />
+                        Ekspor
+                      </button>
+                    </div>
+                    <div className="absolute -top-[5px] right-6 h-2.5 w-2.5 rotate-45 border-l border-t border-border bg-card" />
+                  </div>
+                </>
+              )}
             </div>
 
             {/* RESET */}

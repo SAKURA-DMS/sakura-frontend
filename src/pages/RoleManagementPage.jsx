@@ -154,17 +154,72 @@ export default function RoleManagementPage() {
 
                       return (
                         <td key={role} className="text-center py-3 px-4">
-                          <button
-                            onClick={() => handleAskToggle(role, perm.key)}
-                            className={`w-8 h-8 rounded-full inline-flex items-center justify-center transition-colors ${
-                              has
-                                ? "bg-sakura-success/20 text-sakura-success hover:bg-sakura-success/30"
-                                : "bg-muted text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                            }`}
-                            title={`Ubah akses ${perm.label} untuk ${role}`}
-                          >
-                            {has ? <Check size={16} /> : <XIcon size={16} />}
-                          </button>
+                          <div className="relative inline-flex group">
+                            <button
+                              onClick={() => handleAskToggle(role, perm.key)}
+                              className={`w-8 h-8 rounded-full inline-flex items-center justify-center transition-colors ${
+                                has
+                                  ? "bg-sakura-success/20 text-sakura-success hover:bg-sakura-success/30"
+                                  : "bg-muted text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                              }`}
+                              aria-label={`${
+                                has ? "Nonaktifkan" : "Aktifkan"
+                              } akses ${perm.label} untuk ${role}`}
+                            >
+                              {has ? (
+                                <Check size={16} />
+                              ) : (
+                                <XIcon size={16} />
+                              )}
+                            </button>
+
+                            {/* HOVER NOTIFICATION */}
+                            <div
+                              className="
+                                pointer-events-none
+                                absolute
+                                bottom-full
+                                left-1/2
+                                z-50
+                                mb-2
+                                w-max
+                                max-w-[260px]
+                                -translate-x-1/2
+                                rounded-lg
+                                bg-foreground
+                                px-3
+                                py-2
+                                text-xs
+                                font-medium
+                                leading-relaxed
+                                text-background
+                                opacity-0
+                                invisible
+                                shadow-lg
+                                transition-all
+                                duration-150
+                                group-hover:visible
+                                group-hover:opacity-100
+                              "
+                            >
+                              Klik untuk {has ? "menonaktifkan" : "mengaktifkan"}{" "}
+                              akses &quot;{perm.label}&quot; untuk {role}
+
+                              <span
+                                className="
+                                  absolute
+                                  left-1/2
+                                  top-full
+                                  h-2
+                                  w-2
+                                  -translate-x-1/2
+                                  -translate-y-1
+                                  rotate-45
+                                  bg-foreground
+                                "
+                              />
+                            </div>
+                          </div>
                         </td>
                       );
                     })}
@@ -185,6 +240,7 @@ export default function RoleManagementPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Konfirmasi perubahan akses</AlertDialogTitle>
+
             <AlertDialogDescription>
               {pendingToggle
                 ? pendingToggle.has
@@ -193,8 +249,10 @@ export default function RoleManagementPage() {
                 : ""}
             </AlertDialogDescription>
           </AlertDialogHeader>
+
           <AlertDialogFooter>
             <AlertDialogCancel>Batal</AlertDialogCancel>
+
             <AlertDialogAction onClick={handleConfirmToggle}>
               Ya, ubah
             </AlertDialogAction>

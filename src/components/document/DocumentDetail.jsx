@@ -24,6 +24,7 @@ export default function DocumentDetailModal({ document: doc, onClose }) {
 
   // Fetch audit trail langsung dari API berdasarkan document_id
   const [auditTrail, setAuditTrail] = useState(doc.auditTrail || []);
+  const [documentMetadata, setDocumentMetadata] = useState(doc.metadata || null);
   const [trailLoading, setTrailLoading] = useState(false);
   // BARU: popup "Komentar" untuk entri approve/reject yang punya catatan
   const [activeNote, setActiveNote] = useState(null);
@@ -32,8 +33,9 @@ export default function DocumentDetailModal({ document: doc, onClose }) {
     if (!doc?.id) return;
     setTrailLoading(true);
     getDocument(doc.id)
-      .then(({ auditTrail: trail }) => {
+      .then(({ document: detailDocument, auditTrail: trail, metadata }) => {
         setAuditTrail(trail || []);
+        setDocumentMetadata(metadata || detailDocument?.metadata || null);
       })
       .catch(() => {
         // fallback ke data yang sudah ada
@@ -60,6 +62,38 @@ export default function DocumentDetailModal({ document: doc, onClose }) {
     return note && String(note).trim() ? String(note).trim() : null;
   };
 
+  // Metadata detail berasal langsung dari tabel metadata backend sesuai kategori.
+  // Field teknis database tidak ditampilkan kepada pengguna.
+  const METADATA_LABELS = {
+    nama_siswa: "Nama Siswa", nis: "NIS", nisn: "NISN", kelas: "Kelas",
+    tahun_ajaran: "Tahun Ajaran", tempat_lahir: "Tempat Lahir",
+    tanggal_lahir: "Tanggal Lahir", jenis_kelamin: "Jenis Kelamin",
+    nama_orang_tua: "Nama Orang Tua", no_hp_orang_tua: "No. HP Orang Tua",
+    nama_guru: "Nama Guru", nip: "NIP", nuptk: "NUPTK",
+    mata_pelajaran: "Mata Pelajaran", pendidikan_terakhir: "Pendidikan Terakhir",
+    status_kepegawaian: "Status Kepegawaian", kode_barang: "Kode Barang",
+    nama_barang: "Nama Barang", jumlah: "Jumlah", tahun_pengadaan: "Tahun Pengadaan",
+    kondisi: "Kondisi", lokasi: "Lokasi Barang", nomor_agenda: "Nomor Agenda",
+    nomor_surat: "Nomor Surat", tanggal_surat: "Tanggal Surat",
+    tanggal_diterima: "Tanggal Diterima", pengirim: "Pengirim", perihal: "Perihal",
+    tujuan: "Tujuan", penandatangan: "Penandatangan", nomor_sk: "Nomor SK",
+    tanggal_sk: "Tanggal SK", tentang: "Tentang",
+  };
+
+  const HIDDEN_METADATA_KEYS = new Set([
+    "id", "document_id", "created_at", "updated_at", "deleted_at"
+  ]);
+
+  const metadataEntries = Object.entries(documentMetadata || {})
+    .filter(([key, value]) =>
+      !HIDDEN_METADATA_KEYS.has(key) &&
+      METADATA_LABELS[key] &&
+      value !== null &&
+      value !== undefined &&
+      String(value).trim() !== ""
+    )
+    .map(([key, value]) => [METADATA_LABELS[key], String(value)]);
+
   return (
     <>
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 backdrop-blur-sm animate-fade-in p-4" onClick={onClose}>
@@ -70,7 +104,7 @@ export default function DocumentDetailModal({ document: doc, onClose }) {
           </div>
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 scrollbar-thin">
             <div className="grid grid-cols-2 gap-4 text-sm">
-              {[["Nomor Dokumen", doc.nomorDokumen], ["Kategori", doc.kategori], ["Kelas / Unit", doc.kelas], ["Pengunggah", null], ["Tanggal Upload", format(new Date(doc.tanggalUpload), "yyyy-MM-dd HH:mm")], ["Tanggal Edit Terakhir", format(new Date(doc.tanggalEdit), "yyyy-MM-dd HH:mm")], ["Versi", `v${doc.versi}`], ["Status", null], ...(doc.namaSiswa ? [["Nama Siswa", doc.namaSiswa]] : []), ...(doc.nisn ? [["NISN", doc.nisn]] : []), ...(doc.tahunAjaran ? [["Tahun Ajaran", doc.tahunAjaran]] : [])].map(([label, val]) => (
+              {[["Nomor Dokumen", doc.nomorDokumen], ["Kategori", doc.kategori], ["Kelas / Unit", doc.kelas], ["Pengunggah", null], ["Tanggal Upload", format(new Date(doc.tanggalUpload), "yyyy-MM-dd HH:mm")], ["Tanggal Edit Terakhir", format(new Date(doc.tanggalEdit), "yyyy-MM-dd HH:mm")], ["Versi", `v${doc.versi}`], ["Status", null]].map(([label, val]) => (
                 <div key={label}><div className="text-muted-foreground text-xs">{label}</div>{label === "Pengunggah" ? (<div className="flex items-center gap-2 mt-0.5"><span className="font-medium text-foreground">{doc.pengunggah.nama}</span><span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ROLE_BADGE[doc.pengunggah.role] || "bg-muted text-muted-foreground border border-border"}`}>{doc.pengunggah.role}</span></div>) : label === "Status" ? (<span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full mt-0.5 ${STATUS_COLORS[doc.status]}`}>{doc.status}</span>) : (<div className="font-medium text-foreground">{val}</div>)}</div>
               ))}
             </div>
@@ -85,6 +119,27 @@ export default function DocumentDetailModal({ document: doc, onClose }) {
                 {doc.kategori}
               </button>
             </div>
+
+            {metadataEntries.length > 0 && (
+              <div className="rounded-xl border border-border bg-muted/20 p-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <ClipboardList size={17} className="text-primary" />
+                  <div>
+                    <h3 className="font-bold text-sm text-foreground">Data Detail Dokumen</h3>
+                    <p className="text-xs text-muted-foreground">Metadata yang diisi saat dokumen diunggah</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 text-sm">
+                  {metadataEntries.map(([label, value]) => (
+                    <div key={label}>
+                      <div className="text-muted-foreground text-xs mb-0.5">{label}</div>
+                      <div className="font-medium text-foreground break-words">{value}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {doc.catatan && <div className="px-3 py-2 rounded-lg bg-sakura-warning/10 border border-sakura-warning/30 text-sm text-sakura-warning font-medium">⚠ {doc.catatan}</div>}
             <div className="flex flex-wrap gap-3">
               <button onClick={() => setShowPdf(true)} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"><Eye size={16} /> Preview</button>

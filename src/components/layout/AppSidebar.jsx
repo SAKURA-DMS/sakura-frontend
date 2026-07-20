@@ -18,6 +18,7 @@ import {
   FolderOpen,
   Trash2,
   X,
+  ShieldCheck,
 } from "lucide-react";
 
 import logoSakura from "@/assets/logo_sakura.png";
@@ -407,6 +408,17 @@ export default function AppSidebar() {
           onClick={(e) => handleNavigate(e, "/settings")}
         />
       </nav>
+
+      {/* Footer copyright — hanya tampil saat sidebar tidak di-collapse */}
+      {!collapsed && (
+        <div className="px-4 py-4 border-t border-sidebar-border flex items-center gap-2.5 shrink-0">
+          <ShieldCheck size={18} className="text-sidebar-foreground/40 shrink-0" />
+          <div className="text-sidebar-foreground/40 text-[10px] leading-tight">
+            <div>&copy; {new Date().getFullYear()} SAKURA DMS</div>
+            <div>All rights reserved.</div>
+          </div>
+        </div>
+      )}
       </aside>
     </>
   );

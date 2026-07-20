@@ -105,15 +105,10 @@ export async function listTrashedDocuments() {
 
 export async function getDocument(id) {
   const { data } = await api.get(`/documents/${id}`);
-  // Endpoint detail mengembalikan metadata terpisah dari object document.
-  // Gabungkan sebelum normalisasi supaya metadata kategori tidak hilang di UI.
-  const doc = normalizeDocument({
-    ...data.document,
-    metadata: data.metadata || data.document?.metadata || null,
-  });
+  const doc   = normalizeDocument(data.document);
   const trail = normalizeAuditTrail(data.auditTrail || []);
   doc.auditTrail = trail;
-  return { document: doc, auditTrail: trail, metadata: data.metadata || null };
+  return { document: doc, auditTrail: trail, metadata: data.metadata };
 }
 
 /**

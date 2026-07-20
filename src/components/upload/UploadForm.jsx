@@ -1502,7 +1502,7 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
               <div className="flex items-center justify-between text-sm">
                 <span className="font-medium text-foreground flex items-center gap-2">
                   <span className="inline-block w-3 h-3 rounded-full bg-primary animate-pulse" />
-                  {uploadProgress < 100 ? "Mengunggah ke Supabase Storage..." : "Menyimpan ke database..."}
+                  {uploadProgress < 100 ? "Mengunggah dokumen..." : "Memproses dokumen..."}
                 </span>
                 <span className="font-bold text-primary">{uploadProgress}%</span>
               </div>

@@ -433,10 +433,22 @@ export default function ChatBot() {
 
   function handleQuickAction(action) {
     setShowMore(false);
+
     if (action.prompt === "__reset__") {
       setMessages([{ ...welcomeMessage, time: new Date() }]);
       return;
     }
+
+    if (action.key === "cari") {
+      const prefix = "Cari dokumen: ";
+      setInput(prefix);
+      requestAnimationFrame(() => {
+        inputRef.current?.focus();
+        inputRef.current?.setSelectionRange?.(prefix.length, prefix.length);
+      });
+      return;
+    }
+
     sendText(action.prompt);
   }
 

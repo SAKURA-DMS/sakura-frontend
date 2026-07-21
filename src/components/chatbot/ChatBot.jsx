@@ -160,12 +160,19 @@ function MessageBubble({ msg, navigate, onLinkClick }) {
             <div className="mt-2.5 flex flex-wrap gap-2">
               {links.map((l, idx) => (
                 <button
-                  key={idx}
-                  onClick={() => (onLinkClick ? onLinkClick(l) : navigate(l.path))}
+                  key={`${l.path}-${idx}`}
+                  onClick={() =>
+                    onLinkClick
+                      ? onLinkClick(l)
+                      : navigate(l.path)
+                  }
                   className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full bg-primary/10 hover:bg-primary/20 text-primary transition-colors"
                 >
                   <Upload className="w-3.5 h-3.5" />
-                  {l.label}
+
+                  <span>
+                    {l.label}
+                  </span>
                 </button>
               ))}
             </div>

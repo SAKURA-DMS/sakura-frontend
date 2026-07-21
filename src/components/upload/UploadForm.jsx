@@ -3,7 +3,7 @@ import {
   Upload, Camera, X, Eye, FileText, CalendarIcon, Maximize,
   ZoomIn, ZoomOut, ChevronLeft, ChevronRight, RotateCw,
   AlertTriangle, Lock, Search, Info, CheckCircle, ChevronDown, Plus, Save, Users,
-  RotateCcw, Clock, FileCheck, Wand2, Download, ShieldCheck, FolderOpen, ClipboardPenLine, UserRound, Check,
+  RotateCcw, Clock, FileCheck, Wand2, Download, ShieldCheck, FolderOpen, FolderUp, ClipboardPenLine, UserRound, Check,
 } from "lucide-react";
 import CameraScanModal from "@/components/scan/CameraScanModal";
 import OCRFillModal from "@/components/scan/OCRFillModal";
@@ -36,104 +36,52 @@ function CaraMengisiGuide({ mode, onClose }) {
 
   const steps = isJudul
     ? [
-        {
-          icon: Upload,
-          title: "Pilih file",
-          desc: "PDF, JPG, atau PNG.",
-        },
-        {
-          icon: ClipboardPenLine,
-          title: "Isi informasi",
-          desc: "Judul, kategori, dan jenis.",
-        },
-        {
-          icon: CheckCircle,
-          title: "Periksa",
-          desc: "Pastikan data sudah sesuai.",
-        },
-        {
-          icon: FileCheck,
-          title: "Unggah",
-          desc: "Simpan dokumen ke sistem.",
-        },
+        { icon: FolderOpen, title: "Pilih File", desc: "Pilih dokumen dari perangkat." },
+        { icon: ClipboardPenLine, title: "Isi Informasi", desc: "Isi judul, kategori, dan jenis." },
+        { icon: CheckCircle, title: "Periksa", desc: "Pastikan data sudah sesuai." },
+        { icon: FolderUp, title: "Unggah", desc: "Simpan dokumen ke sistem." },
       ]
     : [
-        {
-          icon: Upload,
-          title: "Pilih file",
-          desc: "PDF, JPG, atau PNG.",
-        },
-        {
-          icon: ClipboardPenLine,
-          title: "Isi informasi",
-          desc: "Lengkapi data dasar dokumen.",
-        },
-        {
-          icon: UserRound,
-          title: "Isi detail",
-          desc: "Tambahkan data sesuai jenis.",
-        },
-        {
-          icon: FileCheck,
-          title: "Unggah",
-          desc: "Periksa lalu simpan dokumen.",
-        },
+        { icon: FolderOpen, title: "Pilih File", desc: "Pilih dokumen dari perangkat." },
+        { icon: ClipboardPenLine, title: "Isi Informasi", desc: "Lengkapi informasi dokumen." },
+        { icon: UserRound, title: "Isi Detail", desc: "Isi data sesuai jenis dokumen." },
+        { icon: FolderUp, title: "Unggah", desc: "Periksa lalu simpan dokumen." },
       ];
 
   return (
     <div className="mt-3 rounded-xl border border-border bg-card overflow-hidden animate-fade-in">
-      <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border">
+      <div className="flex items-center justify-between gap-3 px-5 py-3.5 border-b border-border">
         <div className="flex items-center gap-2 min-w-0">
-          <Info size={15} className="text-primary shrink-0" />
+          <Info size={16} className="text-primary shrink-0" />
           <p className="text-sm font-semibold text-foreground truncate">
-            Cara mengisi {isJudul ? "Hanya Judul" : "Isi Data Lengkap"}
+            Cara Mengisi
+            <span className="text-primary">
+              {" — "}{isJudul ? "Hanya Judul" : "Isi Data Lengkap"}
+            </span>
           </p>
         </div>
-
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Tutup panduan"
-          className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-        >
+        <button type="button" onClick={onClose} aria-label="Tutup panduan" className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
           <X size={15} />
         </button>
       </div>
 
-      <div className="px-4 py-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+      <div className="px-5 py-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {steps.map((step, index) => {
             const StepIcon = step.icon;
-
             return (
-              <div
-                key={step.title}
-                className="flex items-start gap-3 rounded-lg border border-border/70 bg-muted/20 px-3 py-3"
-              >
-                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                  <StepIcon size={15} className="text-primary" />
+              <div key={step.title} className="relative min-h-[150px] rounded-xl border border-border bg-background px-4 py-5 flex flex-col items-center justify-center text-center">
+                <span className="absolute top-3 left-3 w-7 h-7 rounded-full bg-primary/10 text-primary text-[11px] font-semibold flex items-center justify-center">
+                  {String(index + 1).padStart(2, "0")}
+                </span>
+                <div className="w-12 h-12 mb-3 rounded-xl bg-primary/10 border border-primary/10 flex items-center justify-center">
+                  <StepIcon size={23} strokeWidth={1.8} className="text-primary" />
                 </div>
-
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold text-foreground">
-                    {index + 1}. {step.title}
-                  </p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
-                    {step.desc}
-                  </p>
-                </div>
+                <p className="text-sm font-semibold text-foreground">{step.title}</p>
+                <p className="mt-1 text-xs text-muted-foreground leading-snug">{step.desc}</p>
               </div>
             );
           })}
-        </div>
-
-        <div className="mt-3 flex items-start gap-2 px-3 py-2.5 rounded-lg bg-primary/[0.04] border border-primary/10">
-          <Info size={14} className="text-primary shrink-0 mt-0.5" />
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            {isJudul
-              ? "Pilih mode ini jika dokumen cukup dicatat berdasarkan judul, kategori, dan jenis tanpa data detail."
-              : "Pilih mode ini jika informasi dokumen perlu dicatat lebih rinci agar mudah dicari dan difilter."}
-          </p>
         </div>
       </div>
     </div>

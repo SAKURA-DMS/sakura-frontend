@@ -352,6 +352,7 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const [stream, setStream] = useState(null);
+  const streamRef = useRef(null);
   const [cameraReady, setCameraReady] = useState(false);
   const [capturedRaw, setCapturedRaw] = useState(null);       // raw dataUrl setelah foto
   const [processedUrl, setProcessedUrl] = useState(null);     // setelah post-process
@@ -376,33 +377,134 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
   const [sharpen, setSharpen] = useState(true);
   const [autoPerspective, setAutoPerspective] = useState(false);
 
-  // ── Start kamera ──
+  // ── Start kamera ────────────────────────────────────────────────────────
+  // Prioritaskan kamera belakang UTAMA. Pada beberapa Android,
+  // facingMode: "environment" saja dapat memilih lensa ultra-wide (0.5x),
+  // sehingga garis dokumen terlihat melengkung/cekung.
   const startCamera = useCallback(async () => {
+    setCameraReady(false);
+
+    // Pastikan stream lama benar-benar berhenti sebelum membuka kamera lagi.
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+
+    const attachCameraSettings = async (ms) => {
+      const track = ms.getVideoTracks()[0];
+      if (!track) return ms;
+
+      const cap = track.getCapabilities?.() || {};
+      const settings = track.getSettings?.() || {};
+
+      // Jangan pernah memulai di bawah 1x. Jika perangkat mendukung hardware
+      // zoom, 1x adalah titik aman untuk menghindari tampilan ultra-wide.
+      if (cap.zoom) {
+        const minZoom = Math.max(Number(cap.zoom.min) || 1, 1);
+        const maxZoom = Math.max(Number(cap.zoom.max) || minZoom, minZoom);
+        const defaultZoom = Math.min(Math.max(1, minZoom), maxZoom);
+        setZoomRange([minZoom, maxZoom]);
+        setZoom(defaultZoom);
+
+        try {
+          await track.applyConstraints({
+            advanced: [{ zoom: defaultZoom }],
+          });
+        } catch {
+          // Beberapa browser melaporkan capability zoom tetapi menolak set awal.
+        }
+      } else {
+        setZoomRange([1, 1]);
+        setZoom(1);
+      }
+
+      // Autofocus hanya diterapkan jika benar-benar didukung perangkat.
+      if (Array.isArray(cap.focusMode) && cap.focusMode.includes("continuous")) {
+        try {
+          await track.applyConstraints({
+            advanced: [{ focusMode: "continuous" }],
+          });
+        } catch {
+          // Abaikan jika browser tidak mendukung constraint ini.
+        }
+      }
+
+      console.debug("[Scanner] Camera settings:", settings);
+      return ms;
+    };
+
     try {
-      const ms = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: "environment",
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
-          focusMode: "continuous",     // auto focus
-          advanced: [{ focusMode: "continuous-picture" }],
-        },
+      // 1) Minta izin kamera dulu agar label device dapat dibaca browser.
+      const permissionStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" } },
         audio: false,
       });
-      setStream(ms);
 
-      // Cek zoom capability
-      const track = ms.getVideoTracks()[0];
-      if (track) {
-        const cap = track.getCapabilities?.() || {};
-        if (cap.zoom) setZoomRange([cap.zoom.min, cap.zoom.max]);
+      // 2) Cari kamera belakang utama dan hindari label ultra-wide/0.5x jika
+      // browser/perangkat mengekspos nama lensanya.
+      let selectedDeviceId = null;
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const cameras = devices.filter((d) => d.kind === "videoinput");
+
+        const rearCameras = cameras.filter((d) =>
+          /back|rear|environment|belakang/i.test(d.label || "")
+        );
+        const pool = rearCameras.length ? rearCameras : cameras;
+
+        const nonUltraWide = pool.filter((d) =>
+          !/ultra[ -]?wide|ultrawide|0\.5|wide angle|fisheye/i.test(d.label || "")
+        );
+
+        const candidates = nonUltraWide.length ? nonUltraWide : pool;
+        const preferred =
+          candidates.find((d) => /main|primary|camera 1|back camera/i.test(d.label || "")) ||
+          candidates[0];
+
+        selectedDeviceId = preferred?.deviceId || null;
+      } catch {
+        // enumerateDevices tidak wajib tersedia di semua browser.
       }
-    } catch {
-      // Fallback tanpa constraint advanced
+
+      // Tutup stream izin sebelum membuka stream final.
+      permissionStream.getTracks().forEach((track) => track.stop());
+
+      const videoConstraints = selectedDeviceId
+        ? {
+            deviceId: { exact: selectedDeviceId },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+            aspectRatio: { ideal: 16 / 9 },
+          }
+        : {
+            facingMode: { ideal: "environment" },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+            aspectRatio: { ideal: 16 / 9 },
+          };
+
+      const ms = await navigator.mediaDevices.getUserMedia({
+        video: videoConstraints,
+        audio: false,
+      });
+
+      await attachCameraSettings(ms);
+      streamRef.current = ms;
+      setStream(ms);
+    } catch (primaryError) {
+      console.warn("[Scanner] Kamera utama gagal, memakai fallback:", primaryError);
+
       try {
         const ms = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment" },
+          video: {
+            facingMode: { ideal: "environment" },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+          },
+          audio: false,
         });
+        await attachCameraSettings(ms);
+        streamRef.current = ms;
         setStream(ms);
       } catch {
         alert("Kamera tidak dapat diakses. Pastikan izin kamera telah diberikan.");
@@ -413,10 +515,10 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
   useEffect(() => {
     startCamera();
     return () => {
-      stream?.getTracks().forEach((t) => t.stop());
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
     };
-  // eslint-disable-next-line
-  }, []);
+  }, [startCamera]);
 
   useEffect(() => {
     if (videoRef.current && stream) {
@@ -482,7 +584,9 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
     setIsProcessing(false);
 
     // Hentikan kamera
-    stream?.getTracks().forEach((t) => t.stop());
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    setCameraReady(false);
     setStep(autoPerspective && corners ? "result" : "result");
   }, [brightness, contrast, sharpen, autoPerspective, stream]);
 
@@ -632,7 +736,7 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
             <Sliders size={16} />
           </button>
           <button
-            onClick={() => { stream?.getTracks().forEach((t) => t.stop()); onClose(); }}
+            onClick={() => { streamRef.current?.getTracks().forEach((t) => t.stop()); streamRef.current = null; onClose(); }}
             className="p-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors"
           >
             <X size={18} />
@@ -706,7 +810,7 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
               autoPlay
               playsInline
               muted
-              className="w-full h-full object-cover bg-black"
+              className="w-full h-full object-contain bg-black"
               style={{ display: cameraReady ? "block" : "none" }}
             />
             {!cameraReady && (

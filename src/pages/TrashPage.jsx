@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   XCircle,
   Loader2,
+  RotateCcw,
 } from "lucide-react";
 
 import { format } from "date-fns";
@@ -22,19 +23,22 @@ export default function TrashPage() {
     loadTrashedDocuments,
   } = useApp();
 
-  // Menyimpan status proses per dokumen
+  // Status proses restore / delete
   const [processing, setProcessing] = useState({
     id: null,
     action: null,
   });
 
-  // Feedback lokal yang muncul dekat tombol yang diklik.
-  // Posisi disimpan sebelum request karena row akan hilang setelah aksi berhasil.
+  // Confirmation popover sebelum aksi dijalankan
+  const [confirmation, setConfirmation] = useState(null);
+
+  // Feedback setelah aksi berhasil / gagal
   const [actionFeedback, setActionFeedback] = useState(null);
 
   const feedbackTimerRef = useRef(null);
+  const confirmationRef = useRef(null);
 
-  // Phase 4: load dokumen trash dari backend saat halaman dibuka
+  // Load dokumen trash saat halaman dibuka
   useEffect(() => {
     loadTrashedDocuments();
   }, [loadTrashedDocuments]);
@@ -48,15 +52,115 @@ export default function TrashPage() {
     };
   }, []);
 
-  /**
-   * Menampilkan feedback kecil di dekat tombol yang baru diklik.
-   *
-   * buttonElement:
-   * Elemen tombol asli yang digunakan untuk mengambil posisi di layar.
-   *
-   * Feedback menggunakan position: fixed sehingga tetap terlihat
-   * walaupun row dokumen langsung hilang setelah restore/delete berhasil.
-   */
+  // Tutup confirmation jika klik di luar popup
+  useEffect(() => {
+    if (!confirmation) return;
+
+    const handleOutsideClick = (event) => {
+      if (
+        confirmationRef.current &&
+        !confirmationRef.current.contains(event.target)
+      ) {
+        setConfirmation(null);
+      }
+    };
+
+    const handleEscape = (event) => {
+      if (event.key === "Escape") {
+        setConfirmation(null);
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [confirmation]);
+
+  // Hitung posisi popup agar muncul dekat tombol yang diklik
+  const getPopupPosition = (
+    buttonElement,
+    popupWidth = 330,
+    estimatedHeight = 170
+  ) => {
+    const rect = buttonElement.getBoundingClientRect();
+
+    let top = rect.bottom + 10;
+    let left = rect.right - popupWidth;
+
+    // Jangan keluar sisi kiri layar
+    if (left < 16) {
+      left = 16;
+    }
+
+    // Jangan keluar sisi kanan layar
+    if (left + popupWidth > window.innerWidth - 16) {
+      left = window.innerWidth - popupWidth - 16;
+    }
+
+    // Jika ruang bawah sempit, tampilkan di atas tombol
+    if (top + estimatedHeight > window.innerHeight - 16) {
+      top = rect.top - estimatedHeight - 10;
+    }
+
+    // Pastikan tetap terlihat
+    if (top < 16) {
+      top = 16;
+    }
+
+    return {
+      top,
+      left,
+      rect,
+    };
+  };
+
+  // Tampilkan konfirmasi Restore
+  const askRestoreConfirmation = (doc, event) => {
+    if (processing.id) return;
+
+    setActionFeedback(null);
+
+    const { top, left, rect } = getPopupPosition(
+      event.currentTarget,
+      330,
+      165
+    );
+
+    setConfirmation({
+      type: "restore",
+      doc,
+      top,
+      left,
+      buttonRect: rect,
+    });
+  };
+
+  // Tampilkan konfirmasi Hapus Permanen
+  const askDeleteConfirmation = (doc, event) => {
+    if (processing.id) return;
+
+    setActionFeedback(null);
+
+    const { top, left, rect } = getPopupPosition(
+      event.currentTarget,
+      350,
+      190
+    );
+
+    setConfirmation({
+      type: "delete",
+      doc,
+      top,
+      left,
+      buttonRect: rect,
+    });
+  };
+
+  // Menampilkan feedback sukses / gagal dekat tombol
   const showActionFeedback = ({
     buttonElement,
     type,
@@ -67,31 +171,27 @@ export default function TrashPage() {
 
     const rect = buttonElement.getBoundingClientRect();
 
-    // Lebar popup
     const popupWidth = 310;
 
-    // Usahakan popup berada di bawah tombol.
     let top = rect.bottom + 10;
-
-    // Posisi sejajar dengan sisi kanan tombol.
     let left = rect.right - popupWidth;
 
-    // Jangan sampai keluar sisi kiri layar.
     if (left < 16) {
       left = 16;
     }
 
-    // Jangan sampai keluar sisi kanan layar.
     if (left + popupWidth > window.innerWidth - 16) {
       left = window.innerWidth - popupWidth - 16;
     }
 
-    // Kalau ruang bawah terlalu sempit,
-    // tampilkan popup di atas tombol.
     const estimatedHeight = 90;
 
     if (top + estimatedHeight > window.innerHeight - 16) {
       top = rect.top - estimatedHeight - 10;
+    }
+
+    if (top < 16) {
+      top = 16;
     }
 
     if (feedbackTimerRef.current) {
@@ -111,23 +211,20 @@ export default function TrashPage() {
     }, 3500);
   };
 
-  /**
-   * Restore dokumen.
-   *
-   * Feedback "berhasil" hanya muncul jika promise backend selesai
-   * tanpa error.
-   */
-  const handleRestore = async (doc, event) => {
+  // Jalankan Restore setelah user menekan tombol "Pulihkan"
+  const handleRestore = async () => {
+    if (!confirmation || confirmation.type !== "restore") return;
     if (!restoreDocument) return;
 
-    const buttonElement = event.currentTarget;
+    const { doc, buttonRect } = confirmation;
 
-    // Simpan posisi SEBELUM request.
-    const rect = buttonElement.getBoundingClientRect();
-
+    // Simpan posisi tombol sebelum row hilang
     const buttonPosition = {
-      getBoundingClientRect: () => rect,
+      getBoundingClientRect: () => buttonRect,
     };
+
+    // Tutup confirmation sebelum request
+    setConfirmation(null);
 
     try {
       setProcessing({
@@ -165,22 +262,20 @@ export default function TrashPage() {
     }
   };
 
-  /**
-   * Hapus dokumen secara permanen.
-   *
-   * Feedback baru muncul setelah request backend benar-benar berhasil.
-   */
-  const handlePermanentDelete = async (doc, event) => {
+  // Jalankan hapus permanen setelah user menekan "Hapus Permanen"
+  const handlePermanentDelete = async () => {
+    if (!confirmation || confirmation.type !== "delete") return;
     if (!permanentlyDeleteDocument) return;
 
-    const buttonElement = event.currentTarget;
+    const { doc, buttonRect } = confirmation;
 
-    // Simpan posisi tombol SEBELUM dokumen hilang dari daftar.
-    const rect = buttonElement.getBoundingClientRect();
-
+    // Simpan posisi tombol sebelum row hilang
     const buttonPosition = {
-      getBoundingClientRect: () => rect,
+      getBoundingClientRect: () => buttonRect,
     };
+
+    // Tutup confirmation sebelum request
+    setConfirmation(null);
 
     try {
       setProcessing({
@@ -234,11 +329,9 @@ export default function TrashPage() {
           />
 
           <p className="text-sm font-medium">
-            Dokumen di kotak sampah akan dihapus
-            secara otomatis dan permanen setelah
-            30 hari. Pastikan untuk memulihkan
-            dokumen penting sebelum batas waktu
-            habis.
+            Dokumen di kotak sampah akan dihapus secara otomatis dan permanen
+            setelah 30 hari. Pastikan untuk memulihkan dokumen penting sebelum
+            batas waktu habis.
           </p>
         </div>
 
@@ -252,8 +345,7 @@ export default function TrashPage() {
                 className="text-muted-foreground"
               />
 
-              Daftar Dokumen Dihapus (
-              {trashedDocuments.length})
+              Daftar Dokumen Dihapus ({trashedDocuments.length})
             </h3>
           </div>
 
@@ -269,8 +361,7 @@ export default function TrashPage() {
                 <p>Kotak sampah kosong.</p>
 
                 <p className="text-xs mt-1">
-                  Tidak ada dokumen yang dihapus
-                  saat ini.
+                  Tidak ada dokumen yang dihapus saat ini.
                 </p>
               </div>
             ) : (
@@ -314,8 +405,7 @@ export default function TrashPage() {
                         </h4>
 
                         <div className="text-xs text-muted-foreground mt-0.5">
-                          {doc.nomorDokumen} ·
-                          Kategori: {doc.kategori}
+                          {doc.nomorDokumen} · Kategori: {doc.kategori}
                         </div>
 
                         <div className="text-xs font-medium text-destructive mt-1.5">
@@ -337,7 +427,10 @@ export default function TrashPage() {
                         disabled={isProcessing}
                         className="hover:bg-sakura-success/10 hover:text-sakura-success hover:border-sakura-success/30"
                         onClick={(event) =>
-                          handleRestore(doc, event)
+                          askRestoreConfirmation(
+                            doc,
+                            event
+                          )
                         }
                       >
                         {isRestoring ? (
@@ -362,7 +455,7 @@ export default function TrashPage() {
                         size="sm"
                         disabled={isProcessing}
                         onClick={(event) =>
-                          handlePermanentDelete(
+                          askDeleteConfirmation(
                             doc,
                             event
                           )
@@ -393,6 +486,160 @@ export default function TrashPage() {
         </div>
       </div>
 
+      {/* =========================================================
+          CONFIRMATION POPOVER
+          Muncul SEBELUM restore / hapus permanen dijalankan
+          ========================================================= */}
+      {confirmation && (
+        <div
+          ref={confirmationRef}
+          className="
+            fixed z-[10000]
+            w-[350px] max-w-[calc(100vw-32px)]
+            bg-background
+            border border-border
+            rounded-xl
+            shadow-xl
+            overflow-hidden
+            animate-in fade-in-0 zoom-in-95 duration-150
+          "
+          style={{
+            top: confirmation.top,
+            left: confirmation.left,
+          }}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="confirmation-title"
+        >
+          <div className="p-4">
+            <div className="flex items-start gap-3">
+              {/* Icon */}
+              <div
+                className={`
+                  w-9 h-9
+                  rounded-full
+                  flex items-center justify-center
+                  shrink-0
+
+                  ${
+                    confirmation.type === "delete"
+                      ? "bg-destructive/10 text-destructive"
+                      : "bg-sakura-success/10 text-sakura-success"
+                  }
+                `}
+              >
+                {confirmation.type === "delete" ? (
+                  <Trash2 size={18} />
+                ) : (
+                  <RotateCcw size={18} />
+                )}
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 min-w-0">
+                <p
+                  id="confirmation-title"
+                  className="text-sm font-semibold text-foreground"
+                >
+                  {confirmation.type === "delete"
+                    ? "Hapus dokumen permanen?"
+                    : "Pulihkan dokumen?"}
+                </p>
+
+                <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+                  {confirmation.type === "delete" ? (
+                    <>
+                      Dokumen{" "}
+                      <span className="font-medium text-foreground">
+                        "{confirmation.doc.judul}"
+                      </span>{" "}
+                      akan dihapus dari sistem dan tidak dapat dipulihkan lagi.
+                    </>
+                  ) : (
+                    <>
+                      Dokumen{" "}
+                      <span className="font-medium text-foreground">
+                        "{confirmation.doc.judul}"
+                      </span>{" "}
+                      akan dikembalikan ke Arsip Dokumen.
+                    </>
+                  )}
+                </p>
+              </div>
+
+              {/* Close */}
+              <button
+                type="button"
+                onClick={() =>
+                  setConfirmation(null)
+                }
+                className="
+                  shrink-0
+                  text-muted-foreground
+                  hover:text-foreground
+                  transition-colors
+                  rounded-md
+                  p-0.5
+                "
+                aria-label="Tutup konfirmasi"
+              >
+                <XCircle size={15} />
+              </button>
+            </div>
+          </div>
+
+          {/* Action buttons */}
+          <div className="px-4 pb-4 flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setConfirmation(null)
+              }
+            >
+              Batal
+            </Button>
+
+            {confirmation.type === "delete" ? (
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                onClick={handlePermanentDelete}
+              >
+                <Trash2
+                  size={14}
+                  className="mr-2"
+                />
+                Hapus Permanen
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleRestore}
+                className="
+                  bg-sakura-success
+                  text-white
+                  hover:bg-sakura-success/90
+                "
+              >
+                <RefreshCcw
+                  size={14}
+                  className="mr-2"
+                />
+                Pulihkan
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================
+          ACTION FEEDBACK
+          Tetap muncul SETELAH aksi berhasil / gagal
+          ========================================================= */}
       {actionFeedback && (
         <div
           className="

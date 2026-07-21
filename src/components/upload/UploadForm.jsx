@@ -3,7 +3,7 @@ import {
   Upload, Camera, X, Eye, FileText, CalendarIcon, Maximize,
   ZoomIn, ZoomOut, ChevronLeft, ChevronRight, RotateCw,
   AlertTriangle, Lock, Search, Info, CheckCircle, ChevronDown, Plus, Save, Users,
-  RotateCcw, Clock, FileCheck, Wand2, Download, ShieldCheck,
+  RotateCcw, Clock, FileCheck, Wand2, Download, ShieldCheck, FolderOpen, ClipboardPenLine, UserRound, Check,
 } from "lucide-react";
 import CameraScanModal from "@/components/scan/CameraScanModal";
 import OCRFillModal from "@/components/scan/OCRFillModal";
@@ -32,144 +32,107 @@ const MODE_LENGKAP = "isi_data_lengkap";
 
 // ─── Cara Mengisi Guide — full-width professional layout ─────────────────
 function CaraMengisiGuide({ mode, onClose }) {
-  const steps =
-    mode === MODE_JUDUL
-      ? [
-          {
-            icon: "📂",
-            title: "Upload File",
-            desc: "Unggah file dokumen yang akan diarsipkan dalam sistem SAKURA.",
-            step: "01",
-          },
-          {
-            icon: "📝",
-            title: "Isi Informasi Dasar",
-            desc: "Isi judul dokumen, pilih kategori, jenis, folder, dan tanggal upload.",
-            step: "02",
-          },
-          {
-            icon: "✅",
-            title: "Verifikasi",
-            desc: "Periksa kembali seluruh informasi yang telah diisi.",
-            step: "03",
-          },
-          {
-            icon: "💾",
-            title: "Simpan & Unggah",
-            desc: 'Klik tombol "Upload Dokumen" untuk mengunggah ke sistem.',
-            step: "04",
-          },
-        ]
-      : [
-          {
-            icon: "📂",
-            title: "Upload File",
-            desc: "Unggah file dokumen yang akan diarsipkan dalam sistem SAKURA.",
-            step: "01",
-          },
-          {
-            icon: "📝",
-            title: "Isi Informasi Dasar",
-            desc: "Isi judul dokumen, pilih kategori, jenis, folder, dan tanggal upload.",
-            step: "02",
-          },
-          {
-            icon: "👤",
-            title: "Isi Data Detail",
-            desc: "Lengkapi data sesuai jenis dokumen: data siswa, guru, inventaris, atau surat.",
-            step: "03",
-          },
-          {
-            icon: "💾",
-            title: "Simpan & Unggah",
-            desc: 'Periksa kembali data, lalu klik "Upload Dokumen" untuk menyelesaikan.',
-            step: "04",
-          },
-        ];
+  const isJudul = mode === MODE_JUDUL;
+
+  const steps = isJudul
+    ? [
+        {
+          icon: Upload,
+          title: "Pilih file",
+          desc: "PDF, JPG, atau PNG.",
+        },
+        {
+          icon: ClipboardPenLine,
+          title: "Isi informasi",
+          desc: "Judul, kategori, dan jenis.",
+        },
+        {
+          icon: CheckCircle,
+          title: "Periksa",
+          desc: "Pastikan data sudah sesuai.",
+        },
+        {
+          icon: FileCheck,
+          title: "Unggah",
+          desc: "Simpan dokumen ke sistem.",
+        },
+      ]
+    : [
+        {
+          icon: Upload,
+          title: "Pilih file",
+          desc: "PDF, JPG, atau PNG.",
+        },
+        {
+          icon: ClipboardPenLine,
+          title: "Isi informasi",
+          desc: "Lengkapi data dasar dokumen.",
+        },
+        {
+          icon: UserRound,
+          title: "Isi detail",
+          desc: "Tambahkan data sesuai jenis.",
+        },
+        {
+          icon: FileCheck,
+          title: "Unggah",
+          desc: "Periksa lalu simpan dokumen.",
+        },
+      ];
 
   return (
-    <div className="mt-4 rounded-2xl border border-border bg-card shadow-sm overflow-hidden animate-fade-in">
-      {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/30">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-            <Info size={15} className="text-primary" />
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-foreground">
-              Panduan Pengisian —{" "}
-              <span className="text-primary">
-                {mode === MODE_JUDUL ? "Mode Hanya Judul" : "Mode Isi Data Lengkap"}
-              </span>
-            </p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Ikuti langkah berikut untuk mengunggah dokumen dengan benar
-            </p>
-          </div>
+    <div className="mt-3 rounded-xl border border-border bg-card overflow-hidden animate-fade-in">
+      <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border">
+        <div className="flex items-center gap-2 min-w-0">
+          <Info size={15} className="text-primary shrink-0" />
+          <p className="text-sm font-semibold text-foreground truncate">
+            Cara mengisi {isJudul ? "Hanya Judul" : "Isi Data Lengkap"}
+          </p>
         </div>
+
         <button
+          type="button"
           onClick={onClose}
-          className="p-1.5 hover:bg-muted rounded-lg text-muted-foreground hover:text-foreground transition-colors"
+          aria-label="Tutup panduan"
+          className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
         >
           <X size={15} />
         </button>
       </div>
 
-      {/* Steps */}
-      <div className="px-6 py-6">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {steps.map((s, i) => (
-            <div key={i} className="relative flex flex-col">
-              {/* Connector line (hidden on mobile, shown on lg) */}
-              {i < steps.length - 1 && (
-                <div className="hidden lg:block absolute top-7 left-[calc(50%+2rem)] right-0 h-px border-t-2 border-dashed border-border z-0" />
-              )}
+      <div className="px-4 py-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+          {steps.map((step, index) => {
+            const StepIcon = step.icon;
 
-              <div className="relative z-10 flex flex-col items-center text-center p-4 rounded-xl bg-muted/20 border border-border/60 hover:border-primary/30 hover:bg-primary/[0.03] transition-all group">
-                {/* Step number badge */}
-                <div className="absolute -top-2.5 left-4 px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20">
-                  <span className="text-[10px] font-bold text-primary tracking-wider">{s.step}</span>
+            return (
+              <div
+                key={step.title}
+                className="flex items-start gap-3 rounded-lg border border-border/70 bg-muted/20 px-3 py-3"
+              >
+                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                  <StepIcon size={15} className="text-primary" />
                 </div>
 
-                {/* Icon */}
-                <div className="w-14 h-14 rounded-2xl bg-background border border-border shadow-sm flex items-center justify-center text-2xl mb-3 mt-2 group-hover:scale-105 transition-transform">
-                  {s.icon}
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-foreground">
+                    {index + 1}. {step.title}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+                    {step.desc}
+                  </p>
                 </div>
-
-                {/* Title */}
-                <p className="text-sm font-bold text-foreground mb-1.5">{s.title}</p>
-
-                {/* Description */}
-                <p className="text-xs text-muted-foreground leading-relaxed">{s.desc}</p>
               </div>
-
-              {/* Mobile connector */}
-              {i < steps.length - 1 && (
-                <div className="flex justify-center lg:hidden mt-2 mb-0">
-                  <ChevronRight size={16} className="text-border rotate-90" />
-                </div>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
 
-        {/* Mode tip */}
-        <div className="mt-4 flex items-start gap-3 p-3.5 rounded-xl bg-primary/[0.04] border border-primary/15">
-          <CheckCircle size={15} className="text-primary shrink-0 mt-0.5" />
+        <div className="mt-3 flex items-start gap-2 px-3 py-2.5 rounded-lg bg-primary/[0.04] border border-primary/10">
+          <Info size={14} className="text-primary shrink-0 mt-0.5" />
           <p className="text-xs text-muted-foreground leading-relaxed">
-            {mode === MODE_JUDUL ? (
-              <>
-                <strong className="text-foreground">Mode Hanya Judul</strong> cocok untuk dokumen tebal
-                (buku absensi, laporan semester, arsip lama) di mana cukup mencatat judul dan kategorinya
-                tanpa perlu mengisi data per-halaman.
-              </>
-            ) : (
-              <>
-                <strong className="text-foreground">Mode Isi Data Lengkap</strong> ideal untuk dokumen
-                yang membutuhkan pencatatan metadata spesifik — seperti data siswa, data guru, inventaris,
-                atau surat masuk/keluar — sehingga dokumen mudah ditemukan dan difilter di Arsip.
-              </>
-            )}
+            {isJudul
+              ? "Pilih mode ini jika dokumen cukup dicatat berdasarkan judul, kategori, dan jenis tanpa data detail."
+              : "Pilih mode ini jika informasi dokumen perlu dicatat lebih rinci agar mudah dicari dan difilter."}
           </p>
         </div>
       </div>
@@ -471,7 +434,7 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
     setPendingDraft(null);
     setDraftRestored(true);
     toast({
-      title: "✓ Draft Dipulihkan",
+      title: "Draft Dipulihkan",
       description: d.fileName
         ? `Data draft dan preview "${d.fileName}" berhasil dimuat. Pilih file kembali untuk melanjutkan upload.`
         : "Data draft berhasil dimuat. Lanjutkan mengisi form.",
@@ -643,7 +606,7 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
       setMetaData((prev) => ({ ...prev, ...fields }));
       if (fields.judul && !form.judul) update("judul", fields.judul);
       toast({
-        title: "✓ Form Diisi Otomatis",
+        title: "Form Diisi Otomatis",
         description: `${Object.keys(fields).length} field berhasil diisi dari OCR${
           DOCUMENT_TYPE_LABELS[documentType] ? ` (${DOCUMENT_TYPE_LABELS[documentType]})` : ""
         }. Anda tetap bisa mengedit sebelum menyimpan.`,
@@ -816,7 +779,7 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
     setUploadProgress(null);
 
     if (!result.ok) {
-      toast({ variant: "destructive", title: "❌ Gagal Mengunggah", description: result.error || "Terjadi kesalahan saat upload." });
+      toast({ variant: "destructive", title: "Gagal Mengunggah", description: result.error || "Terjadi kesalahan saat upload." });
       return;
     }
 
@@ -824,11 +787,11 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
     clearDraft();
 
     toast({
-      title: "✓ Dokumen Berhasil Diunggah",
+      title: "Dokumen Berhasil Diunggah",
       description: (
         <div className="flex flex-col gap-2">
           <span>{needsApproval ? "Dokumen masuk antrian persetujuan." : "Dokumen langsung diarsipkan."}</span>
-          <button onClick={() => navigate("/archive")} className="text-xs text-primary font-semibold hover:underline text-left">→ Lihat di Arsip Dokumen</button>
+          <button onClick={() => navigate("/archive")} className="text-xs text-primary font-semibold hover:underline text-left">Lihat di Arsip Dokumen</button>
         </div>
       ),
     });

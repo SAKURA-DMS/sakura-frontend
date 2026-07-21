@@ -219,11 +219,21 @@ function OtpCountdown({ onResend, initialSeconds = 180, maxAttempts = 3 }) {
 /* ════════════════════════════════════════════════════
    2FA VERIFICATION SCREEN — full split-panel layout
    ════════════════════════════════════════════════════ */
-function TwoFAScreen({ email, onVerify, onBack, isSending, isSubmitting }) {
+function TwoFAScreen({
+  email,
+  onVerify,
+  onBack,
+  isSending,
+  isSubmitting,
+  externalError = "",
+  onClearError,
+}) {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
-  const [otpSent, setOtpSent] = useState(true); // FIX: OTP sudah dikirim backend saat /login
+  const [otpSent, setOtpSent] = useState(true); // OTP sudah dikirim backend saat /login
   const [error, setError] = useState("");
   const inputRefs = useRef([]);
+
+  const displayError = error || externalError;
 
   const handleChange = (val, idx) => {
     const digit = val.replace(/\D/g, "").slice(-1);
@@ -231,6 +241,7 @@ function TwoFAScreen({ email, onVerify, onBack, isSending, isSubmitting }) {
     next[idx] = digit;
     setOtp(next);
     setError("");
+    onClearError?.();
     if (digit && idx < 5) inputRefs.current[idx + 1]?.focus();
   };
 
@@ -241,18 +252,31 @@ function TwoFAScreen({ email, onVerify, onBack, isSending, isSubmitting }) {
   };
 
   const handlePaste = (e) => {
-    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
-    if (pasted.length === 6) {
-      setOtp(pasted.split(""));
-      inputRefs.current[5]?.focus();
-    }
     e.preventDefault();
+    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    if (!pasted) return;
+
+    const next = ["", "", "", "", "", ""];
+    pasted.split("").forEach((digit, index) => {
+      if (index < 6) next[index] = digit;
+    });
+
+    setOtp(next);
+    setError("");
+    onClearError?.();
+
+    const focusIndex = Math.min(pasted.length, 6) - 1;
+    if (focusIndex >= 0) inputRefs.current[focusIndex]?.focus();
   };
 
   const handleSend = async () => {
     try {
+      setError("");
+      onClearError?.();
       await sendOtp(email);
+      setOtp(["", "", "", "", "", ""]);
       setOtpSent(true);
+      setTimeout(() => inputRefs.current[0]?.focus(), 0);
     } catch (err) {
       setError(err.message || "Gagal mengirim OTP. Coba lagi.");
     }
@@ -260,10 +284,13 @@ function TwoFAScreen({ email, onVerify, onBack, isSending, isSubmitting }) {
 
   const handleVerify = () => {
     const code = otp.join("");
-    if (code.length < 6) {
+    if (!/^\d{6}$/.test(code)) {
       setError("Masukkan 6 digit kode OTP yang dikirim ke email Anda.");
       return;
     }
+
+    setError("");
+    onClearError?.();
     onVerify(code);
   };
 
@@ -458,8 +485,8 @@ function TwoFAScreen({ email, onVerify, onBack, isSending, isSubmitting }) {
                 </div>
               </div>
 
-              {error && (
-                <p className="text-sm text-destructive font-medium text-center">{error}</p>
+              {displayError && (
+                <p className="text-sm text-destructive font-medium text-center">{displayError}</p>
               )}
 
               <OtpCountdown onResend={handleSend} />
@@ -556,15 +583,41 @@ export default function LoginPage() {
   };
 
   const handleVerifyOtp = async (code) => {
-    if (!/^\d{6}$/.test(code)) return;
+    if (!/^\d{6}$/.test(code)) {
+      setError("Masukkan 6 digit kode OTP yang valid.");
+      return;
+    }
+
+    if (!pendingEmail) {
+      setError("Sesi verifikasi tidak ditemukan. Silakan login kembali.");
+      return;
+    }
+
     setIsSubmitting(true);
     setError("");
+
     try {
-      const { user } = await verifyOtpLogin(pendingEmail, code);
-      finalizeLogin(user);
-      navigate("/dashboard");
+      const result = await verifyOtpLogin(pendingEmail, code);
+
+      if (!result?.user) {
+        throw new Error("Data pengguna tidak diterima dari server. Silakan coba lagi.");
+      }
+
+      finalizeLogin(result.user);
+      navigate("/dashboard", { replace: true });
     } catch (err) {
-      setError(err.message || "Kode OTP salah atau sudah kedaluwarsa.");
+      console.error("[2FA VERIFY ERROR]", {
+        status: err?.response?.status,
+        data: err?.response?.data,
+        message: err?.message,
+      });
+
+      setError(
+        err?.response?.data?.error ||
+        err?.response?.data?.message ||
+        err?.message ||
+        "Kode OTP salah atau sudah kedaluwarsa."
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -575,8 +628,14 @@ export default function LoginPage() {
       <TwoFAScreen
         email={pendingEmail}
         onVerify={handleVerifyOtp}
-        onBack={() => { setOtpStep(false); setPendingEmail(null); }}
+        onBack={() => {
+          setOtpStep(false);
+          setPendingEmail(null);
+          setError("");
+        }}
         isSubmitting={isSubmitting}
+        externalError={error}
+        onClearError={() => setError("")}
       />
     );
   }

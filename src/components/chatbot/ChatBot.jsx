@@ -395,7 +395,15 @@ export default function ChatBot() {
     setLoading(true);
 
     try {
-      const res = await sendChatMessage(text);
+      const history = messages
+        .slice(-10)
+        .map((msg) => ({
+          role: msg.role,
+          content: msg.text || "",
+          links: Array.isArray(msg.links) ? msg.links : [],
+        }));
+
+      const res = await sendChatMessage(text, history);
       const answer = extractMessage(res);
       const links = res.links || res.link || [];
       setMessages((prev) => [...prev, { role: "assistant", text: answer, links, time: new Date() }]);

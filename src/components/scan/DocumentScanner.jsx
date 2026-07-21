@@ -17,7 +17,7 @@ import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import {
   Camera, X, ZoomIn, ZoomOut, Sun, Contrast, Scan,
   RotateCw, Check, Sliders, ChevronRight, AlertTriangle,
-  Focus, Maximize2, RefreshCw,
+  Focus, Maximize2, RefreshCw, Plus, Images,
 } from "lucide-react";
 
 // ─── Konstanta kualitas kompresi ────────────────────────────────────────────
@@ -355,6 +355,7 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
   const [cameraReady, setCameraReady] = useState(false);
   const [capturedRaw, setCapturedRaw] = useState(null);       // raw dataUrl setelah foto
   const [processedUrl, setProcessedUrl] = useState(null);     // setelah post-process
+  const [scannedPages, setScannedPages] = useState([]);       // halaman scan yang sudah disimpan
   const [detectedCorners, setDetectedCorners] = useState(null); // [{x,y}×4] dalam piksel
   const [adjustedCorners, setAdjustedCorners] = useState(null); // user-dragged corners
 
@@ -523,20 +524,72 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
     reprocess();
   }, [step, brightness, contrast, sharpen, autoPerspective, reprocess]);
 
-  // ── Selesai / kirim ke parent ──
-  const handleDone = useCallback(() => {
-    if (!processedUrl) return;
-    // Konversi dataUrl ke File
-    const byteString = atob(processedUrl.split(",")[1]);
-    const ab = new ArrayBuffer(byteString.length);
-    const ia = new Uint8Array(ab);
-    for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
-    const blob = new Blob([ab], { type: "image/jpeg" });
-    const file = new File([blob], `scan-${Date.now()}.jpg`, { type: "image/jpeg" });
-    onCapture(file, processedUrl);
-  }, [processedUrl, onCapture]);
+  // ── Helper: gabungkan seluruh halaman menjadi satu JPEG vertikal ──
+  // File gabungan ini tetap kompatibel dengan alur upload lama yang menerima 1 file,
+  // sedangkan pageImages tetap dikirim terpisah untuk preview per halaman.
+  const buildMultiPageFile = useCallback(async (pages) => {
+    const images = await Promise.all(
+      pages.map((src) => new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = src;
+      }))
+    );
 
-  // ── Ulang scan ──
+    const width = Math.max(...images.map((img) => img.naturalWidth || img.width));
+    const heights = images.map((img) =>
+      Math.round((img.naturalHeight || img.height) * (width / (img.naturalWidth || img.width)))
+    );
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = heights.reduce((sum, h) => sum + h, 0);
+    const ctx = canvas.getContext("2d");
+
+    let y = 0;
+    images.forEach((img, index) => {
+      ctx.drawImage(img, 0, y, width, heights[index]);
+      y += heights[index];
+    });
+
+    const blob = await new Promise((resolve) =>
+      canvas.toBlob(resolve, "image/jpeg", COMPRESS_QUALITY)
+    );
+    if (!blob) throw new Error("Gagal membuat file hasil scan");
+
+    return new File(
+      [blob],
+      `scan-${pages.length}-halaman-${Date.now()}.jpg`,
+      { type: "image/jpeg" }
+    );
+  }, []);
+
+  // ── Scan halaman berikutnya (KHUSUS camera biasa, bukan OCR) ──
+  const scanAnotherPage = useCallback(() => {
+    if (!processedUrl || ocrMode) return;
+    setScannedPages((prev) => [...prev, processedUrl]);
+    setCapturedRaw(null);
+    setProcessedUrl(null);
+    setDetectedCorners(null);
+    setAdjustedCorners(null);
+    setStep("camera");
+    startCamera();
+  }, [processedUrl, ocrMode, startCamera]);
+
+  // ── Selesai / kirim seluruh halaman ke parent ──
+  const handleDone = useCallback(async () => {
+    if (!processedUrl) return;
+    setIsProcessing(true);
+    try {
+      const pages = ocrMode ? [processedUrl] : [...scannedPages, processedUrl];
+      const file = await buildMultiPageFile(pages);
+      onCapture(file, pages);
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [processedUrl, scannedPages, ocrMode, buildMultiPageFile, onCapture]);
+
+  // ── Ulang scan halaman aktif saja ──
   const retake = useCallback(() => {
     setCapturedRaw(null);
     setProcessedUrl(null);
@@ -859,10 +912,16 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
                 </span>
               )}
             </div>
-            <div className="flex gap-3">
+            {!ocrMode && scannedPages.length > 0 && (
+              <div className="flex items-center gap-2 px-1 text-xs text-blue-300">
+                <Images size={14} />
+                <span>{scannedPages.length} halaman sudah tersimpan</span>
+              </div>
+            )}
+            <div className="flex gap-3 flex-wrap">
               <button
                 onClick={retake}
-                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-white/10 text-white text-sm font-medium hover:bg-white/20 transition-colors"
+                className="flex-1 min-w-[110px] flex items-center justify-center gap-2 py-3 rounded-xl bg-white/10 text-white text-sm font-medium hover:bg-white/20 transition-colors"
               >
                 <RotateCw size={16} /> {ocrMode ? "Ambil Ulang" : "Foto Ulang"}
               </button>
@@ -875,12 +934,25 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
                   <Maximize2 size={16} />
                 </button>
               )}
+              {!ocrMode && (
+                <button
+                  onClick={scanAnotherPage}
+                  disabled={isProcessing}
+                  className="flex-1 min-w-[150px] flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-white/10 text-white text-sm font-medium hover:bg-white/20 transition-colors disabled:opacity-50"
+                >
+                  <Plus size={16} /> Scan Halaman Lagi
+                </button>
+              )}
               <button
                 onClick={handleDone}
                 disabled={isProcessing}
-                className="flex-[2] flex items-center justify-center gap-2 py-3 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50"
+                className="flex-[2] min-w-[170px] flex items-center justify-center gap-2 py-3 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50"
               >
-                {ocrMode ? <><Scan size={16} /> Scan OCR</> : <><Check size={16} /> Gunakan Hasil Ini</>}
+                {ocrMode ? (
+                  <><Scan size={16} /> Scan OCR</>
+                ) : (
+                  <><Check size={16} /> Gunakan {scannedPages.length + 1} Halaman</>
+                )}
               </button>
             </div>
           </div>

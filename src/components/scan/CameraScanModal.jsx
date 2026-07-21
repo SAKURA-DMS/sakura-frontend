@@ -19,13 +19,15 @@ import { useState } from "react";
 import DocumentScanner from "@/components/scan/DocumentScanner";
 
 export default function CameraScanModal({ onClose, onComplete, onScanForOCR, ocrMode = false }) {
-  const handleCapture = (file, dataUrl) => {
-    // Kirim ke parent sebagai satu halaman
-    onComplete(file, [dataUrl]);
+  const handleCapture = (file, pageImages) => {
+    const images = Array.isArray(pageImages) ? pageImages : [pageImages].filter(Boolean);
 
-    // Jika parent ingin langsung ke OCR
-    if (onScanForOCR) {
-      onScanForOCR(dataUrl);
+    // Camera biasa dapat mengirim banyak halaman sekaligus.
+    onComplete(file, images);
+
+    // OCR tetap hanya memakai satu halaman pertama.
+    if (onScanForOCR && images[0]) {
+      onScanForOCR(images[0]);
     }
   };
 

@@ -378,132 +378,71 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
   const [autoPerspective, setAutoPerspective] = useState(false);
 
   // ── Start kamera ────────────────────────────────────────────────────────
-  // Prioritaskan kamera belakang UTAMA. Pada beberapa Android,
-  // facingMode: "environment" saja dapat memilih lensa ultra-wide (0.5x),
-  // sehingga garis dokumen terlihat melengkung/cekung.
+  // Gunakan kamera belakang default milik browser (seperti versi awal yang
+  // framing-nya full), tetapi minta resolusi setinggi mungkin. Jangan paksa
+  // aspectRatio/deviceId tertentu karena pada beberapa Android hal itu justru
+  // dapat memilih physical lens yang berbeda atau membuat framing aneh.
   const startCamera = useCallback(async () => {
     setCameraReady(false);
 
-    // Pastikan stream lama benar-benar berhenti sebelum membuka kamera lagi.
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
     }
 
-    const attachCameraSettings = async (ms) => {
+    const configureTrack = async (ms) => {
       const track = ms.getVideoTracks()[0];
-      if (!track) return ms;
+      if (!track) return;
 
       const cap = track.getCapabilities?.() || {};
-      const settings = track.getSettings?.() || {};
 
-      // Jangan pernah memulai di bawah 1x. Jika perangkat mendukung hardware
-      // zoom, 1x adalah titik aman untuk menghindari tampilan ultra-wide.
+      // Pertahankan 1x sebagai default. Zoom hanya lewat hardware camera API,
+      // bukan CSS transform, supaya preview dan hasil capture tetap konsisten.
       if (cap.zoom) {
-        const minZoom = Math.max(Number(cap.zoom.min) || 1, 1);
-        const maxZoom = Math.max(Number(cap.zoom.max) || minZoom, minZoom);
+        const minZoom = Number(cap.zoom.min) || 1;
+        const maxZoom = Number(cap.zoom.max) || 1;
         const defaultZoom = Math.min(Math.max(1, minZoom), maxZoom);
         setZoomRange([minZoom, maxZoom]);
         setZoom(defaultZoom);
-
         try {
-          await track.applyConstraints({
-            advanced: [{ zoom: defaultZoom }],
-          });
-        } catch {
-          // Beberapa browser melaporkan capability zoom tetapi menolak set awal.
-        }
+          await track.applyConstraints({ advanced: [{ zoom: defaultZoom }] });
+        } catch {}
       } else {
         setZoomRange([1, 1]);
         setZoom(1);
       }
 
-      // Autofocus hanya diterapkan jika benar-benar didukung perangkat.
       if (Array.isArray(cap.focusMode) && cap.focusMode.includes("continuous")) {
         try {
-          await track.applyConstraints({
-            advanced: [{ focusMode: "continuous" }],
-          });
-        } catch {
-          // Abaikan jika browser tidak mendukung constraint ini.
-        }
+          await track.applyConstraints({ advanced: [{ focusMode: "continuous" }] });
+        } catch {}
       }
-
-      console.debug("[Scanner] Camera settings:", settings);
-      return ms;
     };
 
     try {
-      // 1) Minta izin kamera dulu agar label device dapat dibaca browser.
-      const permissionStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: "environment" } },
-        audio: false,
-      });
-
-      // 2) Cari kamera belakang utama dan hindari label ultra-wide/0.5x jika
-      // browser/perangkat mengekspos nama lensanya.
-      let selectedDeviceId = null;
-      try {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const cameras = devices.filter((d) => d.kind === "videoinput");
-
-        const rearCameras = cameras.filter((d) =>
-          /back|rear|environment|belakang/i.test(d.label || "")
-        );
-        const pool = rearCameras.length ? rearCameras : cameras;
-
-        const nonUltraWide = pool.filter((d) =>
-          !/ultra[ -]?wide|ultrawide|0\.5|wide angle|fisheye/i.test(d.label || "")
-        );
-
-        const candidates = nonUltraWide.length ? nonUltraWide : pool;
-        const preferred =
-          candidates.find((d) => /main|primary|camera 1|back camera/i.test(d.label || "")) ||
-          candidates[0];
-
-        selectedDeviceId = preferred?.deviceId || null;
-      } catch {
-        // enumerateDevices tidak wajib tersedia di semua browser.
-      }
-
-      // Tutup stream izin sebelum membuka stream final.
-      permissionStream.getTracks().forEach((track) => track.stop());
-
-      const videoConstraints = selectedDeviceId
-        ? {
-            deviceId: { exact: selectedDeviceId },
-            width: { ideal: 1920 },
-            height: { ideal: 1080 },
-            aspectRatio: { ideal: 16 / 9 },
-          }
-        : {
-            facingMode: { ideal: "environment" },
-            width: { ideal: 1920 },
-            height: { ideal: 1080 },
-            aspectRatio: { ideal: 16 / 9 },
-          };
-
+      // Pertama coba kamera belakang default dengan resolusi tinggi.
+      // Ini paling dekat dengan perilaku scanner versi awal di Android.
       const ms = await navigator.mediaDevices.getUserMedia({
-        video: videoConstraints,
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 2560 },
+          height: { ideal: 1440 },
+        },
         audio: false,
       });
 
-      await attachCameraSettings(ms);
+      await configureTrack(ms);
       streamRef.current = ms;
       setStream(ms);
     } catch (primaryError) {
-      console.warn("[Scanner] Kamera utama gagal, memakai fallback:", primaryError);
+      console.warn("[Scanner] Kamera HD gagal, memakai fallback:", primaryError);
 
       try {
         const ms = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: { ideal: "environment" },
-            width: { ideal: 1920 },
-            height: { ideal: 1080 },
-          },
+          video: { facingMode: { ideal: "environment" } },
           audio: false,
         });
-        await attachCameraSettings(ms);
+        await configureTrack(ms);
         streamRef.current = ms;
         setStream(ms);
       } catch {
@@ -810,7 +749,7 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
               autoPlay
               playsInline
               muted
-              className="w-full h-full object-contain bg-black"
+              className="w-full h-full object-cover bg-black"
               style={{ display: cameraReady ? "block" : "none" }}
             />
             {!cameraReady && (

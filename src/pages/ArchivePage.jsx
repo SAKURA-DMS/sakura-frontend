@@ -423,28 +423,37 @@ export default function ArchivePage() {
       }
     }
 
-    const result = await createFolder(newFolderName.trim(), {
-      parent_id,
-      category_id,
-      type_id,
-      description: newFolderDesc.trim(),
-    });
-
-    if (result.ok) {
-      toast({
-        title: "✅ Berhasil",
-        description: `Folder '${newFolderName.trim()}' berhasil dibuat`,
-        className: "bg-green-600 text-white border-none shadow-2xl font-semibold",
+    try {
+      const result = await createFolder(newFolderName.trim(), {
+        parent_id,
+        category_id,
+        type_id,
+        description: newFolderDesc.trim(),
       });
+
+      if (!result?.ok) {
+        toast({
+          variant: "destructive",
+          title: "Folder gagal dibuat",
+          description: result?.error || "Folder tidak dapat dibuat. Silakan coba kembali.",
+        });
+        return;
+      }
+
+      toast({
+        title: "Folder berhasil dibuat",
+        description: `"${newFolderName.trim()}" telah ditambahkan ke arsip.`,
+      });
+
       setNewFolderName("");
       setNewFolderDesc("");
       setShowCreateFolderModal(false);
       setCreateFolderParent(null);
-    } else {
+    } catch (err) {
       toast({
         variant: "destructive",
-        title: "❌ Gagal",
-        description: result.error || "Gagal membuat folder",
+        title: "Folder gagal dibuat",
+        description: err?.message || "Terjadi kesalahan saat membuat folder. Silakan coba kembali.",
       });
     }
   };
@@ -455,25 +464,35 @@ export default function ArchivePage() {
   };
 
   const handleEdit = async () => {
-    if (!editName.trim()) return;
+    if (!editName.trim() || !editTarget) return;
 
     if (editTarget.type === "folder") {
-      const result = await editFolder(editTarget.data.id, {
-        name: editName.trim(),
-        description: editDesc.trim(),
-      });
-      if (result.ok) {
-        toast({
-          title: "✅ Berhasil",
-          description: `Folder '${editName.trim()}' berhasil diperbarui`,
-          className: "bg-green-600 text-white border-none shadow-2xl font-semibold",
+      try {
+        const result = await editFolder(editTarget.data.id, {
+          name: editName.trim(),
+          description: editDesc.trim(),
         });
-      } else {
+
+        if (!result?.ok) {
+          toast({
+            variant: "destructive",
+            title: "Folder gagal diperbarui",
+            description: result?.error || "Perubahan folder tidak dapat disimpan. Silakan coba kembali.",
+          });
+          return;
+        }
+
+        toast({
+          title: "Folder berhasil diperbarui",
+          description: `Perubahan pada "${editName.trim()}" telah disimpan.`,
+        });
+      } catch (err) {
         toast({
           variant: "destructive",
-          title: "❌ Gagal",
-          description: result.error || "Gagal memperbarui folder",
+          title: "Folder gagal diperbarui",
+          description: err?.message || "Terjadi kesalahan saat memperbarui folder. Silakan coba kembali.",
         });
+        return;
       }
     } else {
       const category =
@@ -494,16 +513,16 @@ export default function ArchivePage() {
         });
 
         toast({
-          title: "✅ Berhasil",
-          description: `Dokumen '${editName.trim()}' berhasil diperbarui`,
-          className: "bg-green-600 text-white border-none shadow-2xl font-semibold",
+          title: "Dokumen berhasil diperbarui",
+          description: `Perubahan pada "${editName.trim()}" telah disimpan.`,
         });
       } catch (err) {
         toast({
           variant: "destructive",
-          title: "❌ Gagal",
-          description: err?.message || "Gagal memperbarui dokumen",
+          title: "Dokumen gagal diperbarui",
+          description: err?.message || "Perubahan dokumen tidak dapat disimpan. Silakan coba kembali.",
         });
+        return;
       }
     }
 
@@ -512,40 +531,49 @@ export default function ArchivePage() {
   };
 
   const handleDelete = async () => {
+    if (!deleteTarget) return;
+
     if (deleteTarget.type === "folder") {
-      const result = await deleteFolder(deleteTarget.id);
-      if (result.ok) {
+      try {
+        const result = await deleteFolder(deleteTarget.id);
+
+        if (!result?.ok) {
+          toast({
+            variant: "destructive",
+            title: "Folder gagal dihapus",
+            description: result?.error || "Folder tidak dapat dihapus. Silakan coba kembali.",
+          });
+          return;
+        }
+
+        toast({
+          title: "Folder berhasil dihapus",
+          description: `"${deleteTarget.name}" telah dihapus dari arsip.`,
+        });
+      } catch (err) {
         toast({
           variant: "destructive",
-          title: "🗑️ Berhasil Dihapus",
-          description: `Folder '${deleteTarget.name}' berhasil dihapus`,
-          className:
-            "shadow-2xl border-2 border-red-800 font-bold bg-destructive text-destructive-foreground",
+          title: "Folder gagal dihapus",
+          description: err?.message || "Terjadi kesalahan saat menghapus folder. Silakan coba kembali.",
         });
-      } else {
-        toast({
-          variant: "destructive",
-          title: "❌ Gagal",
-          description: result.error || "Gagal menghapus folder",
-        });
+        return;
       }
     } else {
       try {
         await deleteDocument(deleteTarget.id);
         if (previewDoc?.id === deleteTarget.id) closePreview();
+
         toast({
-          variant: "destructive",
-          title: "🗑️ Berhasil Dihapus",
-          description: `Dokumen '${deleteTarget.name}' berhasil dipindahkan ke Sampah`,
-          className:
-            "shadow-2xl border-2 border-red-800 font-bold bg-destructive text-destructive-foreground",
+          title: "Dokumen dipindahkan ke Sampah",
+          description: `"${deleteTarget.name}" telah dipindahkan ke Sampah.`,
         });
       } catch (err) {
         toast({
           variant: "destructive",
-          title: "❌ Gagal",
-          description: err?.message || "Gagal menghapus dokumen",
+          title: "Dokumen gagal dihapus",
+          description: err?.message || "Dokumen tidak dapat dipindahkan ke Sampah. Silakan coba kembali.",
         });
+        return;
       }
     }
 
@@ -558,21 +586,35 @@ export default function ArchivePage() {
     if (!moveDestination || !moveTarget) return;
 
     if (moveTarget.isFolder) {
-      const destNode = findFolderNode(folderTree, moveDestination);
-      const result = await moveFolder(moveTarget.id, destNode ? destNode.folder_id : null);
-      if (result.ok) {
+      try {
+        const destNode = findFolderNode(folderTree, moveDestination);
+        const result = await moveFolder(
+          moveTarget.id,
+          destNode ? destNode.folder_id : null
+        );
+
+        if (!result?.ok) {
+          toast({
+            variant: "destructive",
+            title: "Folder gagal dipindahkan",
+            description: result?.error || "Folder tidak dapat dipindahkan. Silakan coba kembali.",
+          });
+          return;
+        }
+
         toast({
-          title: "✅ Berhasil",
-          description: `Folder '${moveTarget.judul}' berhasil dipindahkan`,
-          className: "bg-green-600 text-white border-none shadow-2xl font-semibold",
+          title: "Folder berhasil dipindahkan",
+          description: `"${moveTarget.judul}" telah dipindahkan ke folder tujuan.`,
         });
-      } else {
+      } catch (err) {
         toast({
           variant: "destructive",
-          title: "❌ Gagal",
-          description: result.error || "Gagal memindahkan folder",
+          title: "Folder gagal dipindahkan",
+          description: err?.message || "Terjadi kesalahan saat memindahkan folder. Silakan coba kembali.",
         });
+        return;
       }
+
       setShowMoveModal(false);
       setMoveTarget(null);
       setMoveDestination("");
@@ -581,21 +623,22 @@ export default function ArchivePage() {
 
     try {
       await moveDocument(moveTarget.id, moveDestination);
+
       toast({
-        title: "✅ Berhasil",
-        description: `Dokumen '${moveTarget.judul}' berhasil dipindahkan`,
-        className: "bg-green-600 text-white border-none shadow-2xl font-semibold",
+        title: "Dokumen berhasil dipindahkan",
+        description: `"${moveTarget.judul}" telah dipindahkan ke folder tujuan.`,
       });
+
+      setShowMoveModal(false);
+      setMoveTarget(null);
+      setMoveDestination("");
     } catch (err) {
       toast({
         variant: "destructive",
-        title: "❌ Gagal",
-        description: err?.message || "Gagal memindahkan dokumen",
+        title: "Dokumen gagal dipindahkan",
+        description: err?.message || "Dokumen tidak dapat dipindahkan. Silakan coba kembali.",
       });
     }
-    setShowMoveModal(false);
-    setMoveTarget(null);
-    setMoveDestination("");
   };
 
   const confirmMove = () => {

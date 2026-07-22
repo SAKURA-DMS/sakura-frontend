@@ -101,7 +101,7 @@ export default function DashboardPage() {
           {/* Sakura branch decoration - visual only */}
           <div className="absolute inset-0 pointer-events-none select-none" aria-hidden="true">
             <img
-              src="/sakura_branch.png"
+              src="/branchwelcoming.png"
               alt=""
               className="absolute -right-2 -top-6 w-[360px] lg:w-[440px] max-w-[46%] h-auto object-contain object-top-right opacity-40"
             />

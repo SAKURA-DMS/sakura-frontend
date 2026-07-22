@@ -268,15 +268,6 @@ export default function DashboardPage() {
           >
             {/* Greeting */}
             <div className="flex items-center gap-2 mb-1">
-              <span
-                className="
-                  w-5
-                  h-[2px]
-                  rounded-full
-                  bg-primary/55
-                "
-              />
-
               <p className="text-primary text-sm font-semibold">
                 {getGreeting()},
               </p>

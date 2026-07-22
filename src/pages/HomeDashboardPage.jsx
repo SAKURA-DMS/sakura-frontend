@@ -18,8 +18,8 @@ import {
   Navigation,
 } from "lucide-react";
 
-import logoSakura from "@/assets/logo_sakura.png";
-import schoolBuilding from "@/assets/school_building.jpg";
+import logoSMP from "@/assets/logosmpn4.jpg";
+import schoolPlang from "@/assets/school_plang.jpg";
 
 export default function HomeDashboardPage() {
   const schoolLatitude = "-6.2629";
@@ -71,46 +71,30 @@ export default function HomeDashboardPage() {
 
             <div className="relative z-10 p-6 lg:p-8">
 
-              <div className="flex flex-col sm:flex-row sm:items-center gap-5">
+              <div className="relative overflow-hidden border-b border-border bg-gradient-to-r from-primary/[0.08] via-card to-card">
+                <img src="/branchwelcoming.png" alt="" className="absolute right-0 top-0 w-[430px] max-w-[45%] h-full object-cover object-left opacity-55 pointer-events-none select-none" aria-hidden="true" />
 
-                {/* Logo */}
-                <div className="relative shrink-0">
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-card/10 to-card/5 pointer-events-none" aria-hidden="true" />
 
-                  <div className="absolute inset-0 rounded-2xl bg-primary/10 blur-lg scale-110" />
+                <div className="relative z-10 p-6 lg:p-8">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-5">
+                    <div className="relative shrink-0">
+                      <div className="absolute inset-0 rounded-2xl bg-primary/10 blur-lg scale-110" />
+                      <div className="relative w-[74px] h-[74px] rounded-2xl bg-card border border-primary/15 shadow-sm flex items-center justify-center p-1.5">
+                        <img src={logoSakura} alt="Logo SAKURA" className="w-full h-full rounded-xl object-cover" />
+                      </div>
+                    </div>
 
-                  <div className="relative w-[74px] h-[74px] rounded-2xl bg-card border border-primary/15 shadow-sm flex items-center justify-center p-1.5">
+                    <div className="min-w-0">
+                      <div className="inline-flex items-center gap-2 px-2.5 py-1 mb-2 rounded-full bg-primary/10 text-primary">
+                        <Archive size={12} />
+                        <span className="text-[10px] uppercase tracking-[0.14em] font-bold">Document Management System</span>
+                      </div>
 
-                    <img
-                      src={logoSakura}
-                      alt="Logo SAKURA"
-                      className="w-full h-full rounded-xl object-cover"
-                    />
-
+                      <h1 className="text-2xl lg:text-3xl font-extrabold text-foreground tracking-[0.08em]">SAKURA</h1>
+                      <p className="text-muted-foreground text-sm lg:text-[15px] mt-1 leading-relaxed max-w-3xl">Secure Archiving and Keeping of Unified Records for Administration</p>
+                    </div>
                   </div>
-                </div>
-
-                {/* Nama sistem */}
-                <div className="min-w-0">
-
-                  <div className="inline-flex items-center gap-2 px-2.5 py-1 mb-2 rounded-full bg-primary/10 text-primary">
-
-                    <Archive size={12} />
-
-                    <span className="text-[10px] uppercase tracking-[0.14em] font-bold">
-                      Document Management System
-                    </span>
-
-                  </div>
-
-                  <h1 className="text-2xl lg:text-3xl font-extrabold text-foreground tracking-[0.08em]">
-                    SAKURA
-                  </h1>
-
-                  <p className="text-muted-foreground text-sm lg:text-[15px] mt-1 leading-relaxed max-w-3xl">
-                    Secure Archiving and Keeping of Unified Records for
-                    Administration
-                  </p>
-
                 </div>
               </div>
             </div>
@@ -307,8 +291,8 @@ export default function HomeDashboardPage() {
             <div className="relative h-56 md:h-72 overflow-hidden">
 
               <img
-                src={schoolBuilding}
-                alt="Gedung SMP Negeri 4 Cikarang Barat"
+                src={schoolPlang}
+                alt="Papan Nama SMP Negeri 4 Cikarang Barat"
                 className="w-full h-full object-cover"
               />
 

@@ -9,7 +9,6 @@ import {
   GraduationCap,
   Users,
   BookOpen,
-  Sparkles,
   CalendarDays,
   Award,
   Maximize2,
@@ -18,6 +17,7 @@ import {
   Navigation,
 } from "lucide-react";
 
+import logoSakura from "@/assets/logo_sakura.png";
 import logoSMP from "@/assets/logosmpn4.jpg";
 import schoolPlang from "@/assets/school_plang.jpg";
 
@@ -50,51 +50,74 @@ export default function HomeDashboardPage() {
         <Card className="rounded-2xl border-border shadow-soft overflow-hidden">
 
           {/* Header identitas */}
-          <div className="relative overflow-hidden border-b border-border bg-gradient-to-br from-primary/[0.09] via-card to-primary/[0.03]">
+          <div className="relative overflow-hidden border-b border-border bg-primary/8 dark:bg-primary/10 min-h-[170px]">
 
+            {/* Sakura branch - sama seperti welcoming Dashboard */}
             <div
-              className="absolute -right-20 -top-24 w-64 h-64 rounded-full border border-primary/10 pointer-events-none"
-              aria-hidden="true"
-            />
-
-            <div
-              className="absolute right-24 -bottom-28 w-52 h-52 rounded-full bg-primary/[0.04] pointer-events-none"
-              aria-hidden="true"
-            />
-
-            <div
-              className="absolute right-[28%] top-8 text-primary/10 pointer-events-none"
+              className="absolute inset-0 pointer-events-none select-none"
               aria-hidden="true"
             >
-              <Sparkles size={34} />
+              <img
+                src="/branchwelcoming.png"
+                alt=""
+                className="absolute -right-2 -top-6 w-[360px] lg:w-[440px] max-w-[46%] h-auto object-contain object-top-right opacity-40"
+              />
+
+              <span className="absolute right-[31%] top-[24%] text-primary/20 text-lg rotate-[-20deg]">
+                ❀
+              </span>
+
+              <span className="absolute right-[38%] top-[48%] text-primary/15 text-xs rotate-[25deg]">
+                ❀
+              </span>
+
+              <span className="absolute right-[27%] top-[72%] text-primary/15 text-sm rotate-[45deg]">
+                ❀
+              </span>
             </div>
 
             <div className="relative z-10 p-6 lg:p-8">
 
-              <div className="relative overflow-hidden border-b border-border bg-gradient-to-r from-primary/[0.08] via-card to-card">
-                <img src="/branchwelcoming.png" alt="" className="absolute right-0 top-0 w-[430px] max-w-[45%] h-full object-cover object-left opacity-55 pointer-events-none select-none" aria-hidden="true" />
+              <div className="flex flex-col sm:flex-row sm:items-center gap-5">
 
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-card/10 to-card/5 pointer-events-none" aria-hidden="true" />
+                {/* Logo */}
+                <div className="relative shrink-0">
 
-                <div className="relative z-10 p-6 lg:p-8">
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-5">
-                    <div className="relative shrink-0">
-                      <div className="absolute inset-0 rounded-2xl bg-primary/10 blur-lg scale-110" />
-                      <div className="relative w-[74px] h-[74px] rounded-2xl bg-card border border-primary/15 shadow-sm flex items-center justify-center p-1.5">
-                        <img src={logoSakura} alt="Logo SAKURA" className="w-full h-full rounded-xl object-cover" />
-                      </div>
-                    </div>
+                  <div className="absolute inset-0 rounded-2xl bg-primary/10 blur-lg scale-110" />
 
-                    <div className="min-w-0">
-                      <div className="inline-flex items-center gap-2 px-2.5 py-1 mb-2 rounded-full bg-primary/10 text-primary">
-                        <Archive size={12} />
-                        <span className="text-[10px] uppercase tracking-[0.14em] font-bold">Document Management System</span>
-                      </div>
+                  <div className="relative w-[74px] h-[74px] rounded-2xl bg-card border border-primary/15 shadow-sm flex items-center justify-center p-1.5">
 
-                      <h1 className="text-2xl lg:text-3xl font-extrabold text-foreground tracking-[0.08em]">SAKURA</h1>
-                      <p className="text-muted-foreground text-sm lg:text-[15px] mt-1 leading-relaxed max-w-3xl">Secure Archiving and Keeping of Unified Records for Administration</p>
-                    </div>
+                    <img
+                      src={logoSakura}
+                      alt="Logo SAKURA"
+                      className="w-full h-full rounded-xl object-cover"
+                    />
+
                   </div>
+                </div>
+
+                {/* Nama sistem */}
+                <div className="min-w-0">
+
+                  <div className="inline-flex items-center gap-2 px-2.5 py-1 mb-2 rounded-full bg-primary/10 text-primary">
+
+                    <Archive size={12} />
+
+                    <span className="text-[10px] uppercase tracking-[0.14em] font-bold">
+                      Document Management System
+                    </span>
+
+                  </div>
+
+                  <h1 className="text-2xl lg:text-3xl font-extrabold text-foreground tracking-[0.08em]">
+                    SAKURA
+                  </h1>
+
+                  <p className="text-muted-foreground text-sm lg:text-[15px] mt-1 leading-relaxed max-w-3xl">
+                    Secure Archiving and Keeping of Unified Records for
+                    Administration
+                  </p>
+
                 </div>
               </div>
             </div>
@@ -549,7 +572,6 @@ export default function HomeDashboardPage() {
     </>
   );
 }
-
 
 /* =========================================================
    SCHOOL INFO CARD

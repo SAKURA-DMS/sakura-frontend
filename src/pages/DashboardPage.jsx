@@ -72,10 +72,27 @@ export default function DashboardPage() {
   }, [currentUser, loadStats]);
 
   // ── Dokumen yang visible untuk user ini ──────────────────────────────────
-  const visibleDocs =
-    currentUser?.role === "Guru"
-      ? documents.filter((d) => d.pengunggah?.id === currentUser.id)
-      : documents;
+  // Disamakan dengan hak akses di ArchivePage:
+  // Operator/TU & Kepala Sekolah melihat semua dokumen.
+  // Guru melihat semua dokumen umum; dokumen sensitif hanya miliknya/terkait dirinya.
+  const visibleDocs = documents.filter((doc) => {
+    if (currentUser?.role === "Operator/TU") return true;
+    if (currentUser?.role === "Kepala Sekolah") return true;
+
+    if (currentUser?.role === "Guru") {
+      const isSensitive = Number(doc.category_id) === 2 || Number(doc.type_id) === 12;
+      if (!isSensitive) return true;
+
+      const belongsToCurrentTeacher =
+        currentUser?.nip && String(doc.nip || "") === String(currentUser.nip);
+      const uploadedByCurrentUser =
+        String(doc.pengunggah?.id || "") === String(currentUser.id);
+
+      return belongsToCurrentTeacher || uploadedByCurrentUser;
+    }
+
+    return false;
+  });
 
   // ── Stats: API jika tersedia, fallback ke count lokal ────────────────────
   const counts = dashboardStats ?? {

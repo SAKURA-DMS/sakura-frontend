@@ -307,8 +307,8 @@ export default function HomeDashboardPage() {
                 <div className="flex items-center gap-4">
                   <div className="w-14 h-14 rounded-2xl border border-primary/15 bg-primary/5 flex items-center justify-center p-1.5 shrink-0">
                     <img
-                      src={logoSakura}
-                      alt="Logo SAKURA"
+                      src={logoSMP}
+                      alt="Logo SMPN 4 Cikarang Barat"
                       className="w-full h-full rounded-xl object-cover"
                     />
                   </div>

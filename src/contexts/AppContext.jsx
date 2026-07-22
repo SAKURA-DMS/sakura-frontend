@@ -264,8 +264,14 @@ export const AppProvider = ({ children }) => {
   };
 
   // ── LOGOUT ────────────────────────────────────────────────────────────────
-  const logout = async () => {
-    await authService.logout();
+  const logout = () => {
+    // Jalankan logout backend tanpa menahan UI.
+    // Dengan begitu user langsung keluar tanpa harus menunggu respons server.
+    const logoutRequest = authService.logout();
+
+    // Bersihkan state frontend langsung.
+    // isLoggedIn otomatis menjadi false karena currentUser = null,
+    // sehingga ProtectedRoute langsung mengarahkan ke halaman login.
     setCurrentUser(null);
     setUsers([]);
     setPendingUsersState([]);
@@ -274,6 +280,12 @@ export const AppProvider = ({ children }) => {
     setFolders([]);
     setNotifications([]);
     setOnlineStatuses({});
+    setMobileSidebarOpen(false);
+
+    // Biarkan request logout backend selesai di background.
+    Promise.resolve(logoutRequest).catch((err) => {
+      console.warn("Logout backend gagal:", err);
+    });
   };
 
   // ── Idle Session (Task 2): logout otomatis setelah 12 jam tanpa aktivitas.

@@ -98,16 +98,19 @@ export default function DashboardPage() {
       <div className="p-6 lg:p-8 space-y-6 bg-background">
         {/* Hero greeting */}
         <div className="relative overflow-hidden rounded-2xl p-6 lg:p-8 bg-primary/8 dark:bg-primary/10 border border-primary/15 dark:border-primary/20">
-          <svg className="absolute right-4 top-1/2 -translate-y-1/2 opacity-[0.06] dark:opacity-[0.12]" width="120" height="120" viewBox="0 0 120 120" aria-hidden="true">
-            {[0, 72, 144, 216, 288].map((angle) => {
-              const rad = (angle * Math.PI) / 180;
-              const tx = 60 + Math.cos(rad) * 30;
-              const ty = 60 + Math.sin(rad) * 30;
-              return <ellipse key={angle} cx={tx} cy={ty} rx="18" ry="28" fill="hsl(var(--primary))" transform={`rotate(${angle} ${tx} ${ty})`} />;
-            })}
-            <circle cx="60" cy="60" r="8" fill="hsl(var(--primary))" />
-          </svg>
-          <div className="relative">
+          {/* Sakura branch decoration - visual only */}
+          <div className="absolute inset-0 pointer-events-none select-none" aria-hidden="true">
+            <img
+              src="/sakura_branch.png"
+              alt=""
+              className="absolute -right-2 -top-6 w-[360px] lg:w-[440px] max-w-[46%] h-auto object-contain object-top-right opacity-40"
+            />
+            <span className="absolute right-[31%] top-[24%] text-primary/20 text-lg rotate-[-20deg]">❀</span>
+            <span className="absolute right-[38%] top-[48%] text-primary/15 text-xs rotate-[25deg]">❀</span>
+            <span className="absolute right-[27%] top-[72%] text-primary/15 text-sm rotate-[45deg]">❀</span>
+          </div>
+
+          <div className="relative z-10">
             <p className="text-primary text-sm font-medium opacity-80">{getGreeting()},</p>
             <h2 className="text-2xl lg:text-3xl font-bold text-foreground mt-1">{currentUser?.nama}</h2>
             <p className="text-muted-foreground text-sm mt-2 max-w-lg">

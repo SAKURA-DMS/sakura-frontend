@@ -1,9 +1,7 @@
 import api from "@/lib/apiClient";
 
-// ── Normalizer ────────────────────────────────────────────────────────────────
-
 /**
- * Normalize satu row dari backend ke format yang dipakai frontend.
+ * 
  * @param {object} row
  * @returns {{ id: number, message: string, type: string, docId: number|null, read: boolean, time: string }}
  */
@@ -18,7 +16,7 @@ function normalizeNotif(row) {
   };
 }
 
-// ── API Functions ─────────────────────────────────────────────────────────────
+// API Functions
 
 /**
  * Ambil semua notifikasi milik user yang sedang login.
@@ -30,7 +28,7 @@ export async function listNotifications() {
 }
 
 /**
- * Ambil jumlah notifikasi yang belum dibaca (lightweight, untuk polling badge).
+ * 
  * @returns {Promise<number>}
  */
 export async function getUnreadCount() {
@@ -56,7 +54,7 @@ export async function markAllRead() {
 }
 
 /**
- * Hapus satu notifikasi (soft-delete dari sisi user).
+ * 
  * @param {number} id
  * @returns {Promise<void>}
  */

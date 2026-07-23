@@ -1,24 +1,7 @@
 import { useState } from "react";
 import AppHeader from "@/components/layout/AppHeader";
 import { Card, CardContent } from "@/components/ui/card";
-
-import {
-  Archive,
-  ShieldCheck,
-  Building2,
-  MapPin,
-  GraduationCap,
-  Users,
-  BookOpen,
-  CalendarDays,
-  Award,
-  Maximize2,
-  Mail,
-  ExternalLink,
-  Navigation,
-  X,
-} from "lucide-react";
-
+import { Archive, ShieldCheck, Building2, MapPin, GraduationCap, Users, BookOpen, CalendarDays, Award, Maximize2, Mail, ExternalLink, Navigation, X } from "lucide-react";
 import logoSakura from "@/assets/logo_sakura.png";
 import logoSMP from "@/assets/logosmpn4.jpg";
 import schoolPlang from "@/assets/school_plang.jpg";
@@ -46,17 +29,9 @@ export default function HomeDashboardPage() {
       />
 
       <div className="flex-1 overflow-y-auto p-6 lg:p-8 space-y-6">
-
-        {/* =========================================================
-            INFORMASI SISTEM SAKURA
-        ========================================================= */}
-
+        {/* INFORMASI SISTEM SAKURA */}
         <Card className="rounded-2xl border-border shadow-soft overflow-hidden">
-
-          {/* Header identitas */}
           <div className="relative overflow-hidden border-b border-border bg-primary/8 dark:bg-primary/10 min-h-[170px]">
-
-            {/* Sakura branch - sama seperti welcoming Dashboard */}
             <div
               className="absolute inset-0 pointer-events-none select-none"
               aria-hidden="true"
@@ -82,7 +57,6 @@ export default function HomeDashboardPage() {
 
             <div className="relative z-10 p-6 lg:p-8">
               <div className="flex flex-col sm:flex-row sm:items-center gap-5">
-
                 {/* Logo */}
                 <div className="relative shrink-0">
                   <div className="absolute inset-0 rounded-2xl bg-primary/10 blur-lg scale-110" />
@@ -261,14 +235,9 @@ export default function HomeDashboardPage() {
           </CardContent>
         </Card>
 
-        {/* =========================================================
-            PROFIL SEKOLAH
-        ========================================================= */}
-
+        {/* PROFIL SEKOLAH */}
         <Card className="rounded-2xl border-border shadow-soft overflow-hidden">
           <CardContent className="p-0">
-
-            {/* FOTO SEKOLAH — KLIK UNTUK FULLSCREEN */}
             <div
               className="relative h-56 md:h-72 overflow-hidden cursor-zoom-in group"
               onClick={() => setImagePreviewOpen(true)}
@@ -491,16 +460,13 @@ export default function HomeDashboardPage() {
 
       </div>
 
-      {/* =========================================================
-          FULLSCREEN IMAGE PREVIEW
-      ========================================================= */}
+      {/* FULLSCREEN IMAGE PREVIEW */}
 
       {imagePreviewOpen && (
         <div
           className="fixed inset-0 z-[9999] bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 md:p-8 cursor-zoom-out"
           onClick={() => setImagePreviewOpen(false)}
         >
-          {/* Tombol X */}
           <button
             type="button"
             onClick={(e) => {
@@ -513,7 +479,6 @@ export default function HomeDashboardPage() {
             <X size={23} />
           </button>
 
-          {/* Foto utuh */}
           <div
             className="relative max-w-[95vw] max-h-[90vh] flex items-center justify-center cursor-default"
             onClick={(e) => e.stopPropagation()}
@@ -541,9 +506,7 @@ export default function HomeDashboardPage() {
   );
 }
 
-/* =========================================================
-   SCHOOL INFO CARD
-========================================================= */
+/* SCHOOL INFO CARD */
 
 function SchoolInfoCard({
   icon: Icon,

@@ -1,7 +1,7 @@
 import api from "@/lib/apiClient";
 
 /**
- * Ambil semua user aktif dari database.
+ * Ambil semua user aktif 
  * @returns {Promise<{ users: Array }>}
  */
 export async function listUsers() {
@@ -10,7 +10,7 @@ export async function listUsers() {
 }
 
 /**
- * Ambil user yang menunggu approval.
+ * Ambil user yang menunggu approval
  * @returns {Promise<{ users: Array }>}
  */
 export async function listPendingUsers() {
@@ -19,17 +19,17 @@ export async function listPendingUsers() {
 }
 
 /**
- * Buat user baru.
+ * Buat user baru
  * @param {{ nama: string, email: string, role: string, departemen?: string, nip?: string }} payload
  * @returns {Promise<{ message: string, user: object }>}
  */
 export async function createUser(payload) {
   const { data } = await api.post("/users", payload);
-  return data; // { message, user }
+  return data; 
 }
 
 /**
- * Update data user.
+ * Update data user
  * @param {number} userId
  * @param {{ nama?: string, email?: string, role?: string, departemen?: string, nip?: string }} payload
  * @returns {Promise<{ message: string, user: object }>}
@@ -50,7 +50,7 @@ export async function updateAvatar(userId, avatar) {
 }
 
 /**
- * Hapus user secara permanen.
+ * Hapus user secara permanen
  * @param {number} userId
  * @returns {Promise<{ message: string }>}
  */
@@ -60,7 +60,7 @@ export async function deleteUser(userId) {
 }
 
 /**
- * Aktifkan akun user yang sedang pending.
+ * Aktifkan akun user yang sedang pending
  * @param {number} userId
  * @param {string} [role]
  * @returns {Promise<{ message: string }>}
@@ -71,7 +71,7 @@ export async function activateUser(userId, role) {
 }
 
 /**
- * Tolak registrasi user yang sedang pending.
+ * Tolak registrasi user yang sedang pending
  * @param {number} userId
  * @returns {Promise<{ message: string }>}
  */

@@ -1,7 +1,5 @@
 import { useState, useRef, useMemo, useCallback, useEffect } from "react";
-import {
-  Upload, Camera, X, Eye, FileText, CalendarIcon, Maximize,
-  ZoomIn, ZoomOut, ChevronLeft, ChevronRight, RotateCw,
+import { Upload, Camera, X, Eye, FileText, CalendarIcon, Maximize, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, RotateCw,
   AlertTriangle, Lock, Search, Info, CheckCircle, ChevronDown, Plus, Save, Users,
   RotateCcw, Clock, FileCheck, Wand2, Download, ShieldCheck, FolderOpen, FolderUp, ClipboardPenLine, UserRound, Check,
 } from "lucide-react";
@@ -11,11 +9,7 @@ import { useApp } from "@/contexts/AppContext";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
-import {
-  CATEGORIES, DOCUMENT_TYPES, TAHUN_AJARAN_OPTIONS,
-  CATEGORY_FORM_FIELDS, SURAT_TYPE_FORM_FIELDS,
-  getAutoFolderPath, getFolderIdForDocument
-} from "@/data/mockData";
+import { CATEGORIES, DOCUMENT_TYPES, TAHUN_AJARAN_OPTIONS, CATEGORY_FORM_FIELDS, SURAT_TYPE_FORM_FIELDS, getAutoFolderPath, getFolderIdForDocument } from "@/data/mockData";
 import { Calendar } from "@/components/ui/calendar";
 import api from "@/lib/apiClient";
 import { saveDraft, loadDraft, clearDraft, hasDraft } from "@/services/uploadDraftService";
@@ -26,11 +20,10 @@ import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
-// ─── Mode constants ────────────────────────────────────────────────────────
 const MODE_JUDUL = "hanya_judul";
 const MODE_LENGKAP = "isi_data_lengkap";
 
-// ─── Cara Mengisi Guide — full-width professional layout ─────────────────
+// Cara Mengisi Guide
 function CaraMengisiGuide({ mode, onClose }) {
   const isJudul = mode === MODE_JUDUL;
 
@@ -88,7 +81,7 @@ function CaraMengisiGuide({ mode, onClose }) {
   );
 }
 
-// ─── Draft restore banner ─────────────────────────────────────────────────
+// Draft restore banner
 function DraftBanner({ draftDate, onRestore, onDiscard }) {
   const formatted = draftDate
     ? (() => {
@@ -138,7 +131,7 @@ function DraftBanner({ draftDate, onRestore, onDiscard }) {
   );
 }
 
-// ─── "Lainnya" custom input with save ──────────────────────────────────────
+// custom input with save 
 function LainnyaInput({ value, onChange, onSave, placeholder = "Masukkan nama baru..." }) {
   return (
     <div className="mt-2 flex gap-2 animate-fade-in">
@@ -160,22 +153,21 @@ function LainnyaInput({ value, onChange, onSave, placeholder = "Masukkan nama ba
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
 export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUploadOwn, lockedNip, lockedTypeId }) {
   const { uploadDocument, currentUser, users } = useApp();
   const { toast } = useToast();
   const navigate = useNavigate();
   const fileRef = useRef(null);
 
-  // ── Draft state ────────────────────────────────────────────────────────
-  const [pendingDraft, setPendingDraft] = useState(null); // draft belum dipulihkan
+  // Draft state 
+  const [pendingDraft, setPendingDraft] = useState(null); 
   const [draftRestored, setDraftRestored] = useState(false);
 
-  // ── Mode pengisian ─────────────────────────────────────────────────────
+  // Mode pengisian
   const [fillMode, setFillMode] = useState(MODE_JUDUL);
   const [showCaraGuide, setShowCaraGuide] = useState(false);
 
-  // ── File state ─────────────────────────────────────────────────────────
+  // File state
   const [file, setFile] = useState(null);
   const [filePreview, setFilePreview] = useState(null);
   const [scanPageImages, setScanPageImages] = useState([]);
@@ -183,8 +175,6 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
   const [localFileUrl, setLocalFileUrl] = useState(null);
   const [localPreviewZoom, setLocalPreviewZoom] = useState(100);
 
-  // Buat object URL dari file asli yang dipilih (belum diupload ke server),
-  // agar preview menampilkan isi file sesungguhnya, bukan template dummy.
   useEffect(() => {
     if (!file) { setLocalFileUrl(null); return; }
     const objectUrl = URL.createObjectURL(file);
@@ -194,8 +184,6 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
 
   const [pdfThumbnail, setPdfThumbnail] = useState(null);
 
-  // Generate thumbnail halaman pertama PDF pakai PDF.js, untuk ditampilkan
-  // di kotak "Preview Dokumen" (sebelumnya hanya ikon generik untuk PDF).
   useEffect(() => {
     if (!file || file.type !== "application/pdf") { setPdfThumbnail(null); return; }
     let cancelled = false;
@@ -230,7 +218,7 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
   const [fullPreviewPage, setFullPreviewPage] = useState(0);
   const [uploadProgress, setUploadProgress] = useState(null);
 
-  // ── Category / Type ────────────────────────────────────────────────────
+  // Category / Type
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
   const [selectedTypeId, setSelectedTypeId] = useState(null);
   const [categoryList, setCategoryList] = useState(CATEGORIES);
@@ -244,17 +232,15 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
   const [showJenisLainnya, setShowJenisLainnya] = useState(false);
   const [jenisLainnyaText, setJenisLainnyaText] = useState("");
 
-  // ── Sensitive / Urgent / Approval Kepsek / NIP ─────────────────────────
+  // Sensitive / Urgent / Approval Kepsek / NIP
   const [isUrgent, setIsUrgent] = useState(false);
   const [isSensitif, setIsSensitif] = useState(false);
-  // Default ON — mengikuti perilaku lama (semua dokumen otomatis masuk
-  // antrian persetujuan Kepala Sekolah sebelum diarsipkan).
   const [needsApproval, setNeedsApproval] = useState(true);
   const [ownerNIPs, setOwnerNIPs] = useState(lockedNip ? [lockedNip] : []);
   const [nipSearch, setNipSearch] = useState("");
   const [nipDropdownOpen, setNipDropdownOpen] = useState(false);
 
-  // ── Form fields ────────────────────────────────────────────────────────
+  // Form fields 
   const [form, setForm] = useState({
     nomorDokumen: "",
     judul: "",
@@ -265,23 +251,15 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
   });
   const [metaData, setMetaData] = useState({});
 
-  // ── Mode OCR ────────────────────────────────────────────────────────────
-  // Aktif setelah user menekan "Gunakan Data Ini" di OCRFillModal. Saat aktif,
-  // section "Data Detail" reguler disembunyikan dan digantikan section
-  // "Data Hasil OCR" (lihat render di bawah). Metadata reguler & flow upload
-  // TIDAK diubah — ini hanya menambah jalur tampilan/isi baru di atasnya.
+  // Mode OCR
   const [ocrDataMode, setOcrDataMode] = useState(false);
   const [ocrDocType, setOcrDocType] = useState(null);
   const ocrFieldOrder = ocrDocType ? (OCR_FIELD_ORDER[ocrDocType] || []) : [];
 
-  // ── Nomor Dokumen (generated, readonly) ───────────────────────────────
-  // Nilai ini hanya preview sisi klien — nomor final (berurutan, unik)
-  // di-generate ulang di server saat submit. Ditampilkan di form agar user
-  // bisa melihat format nomor sebelum dokumen disimpan.
+  // Nomor Dokumen
   const [nomorPreview, setNomorPreview] = useState("");
   const [nomorLoading, setNomorLoading] = useState(false);
 
-  // Otomatis fetch preview nomor setiap kali kategori & jenis berubah
   useEffect(() => {
     if (!selectedCategoryId || !selectedTypeId) {
       setNomorPreview("");
@@ -299,7 +277,7 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
   const update = (key, val) => setForm((p) => ({ ...p, [key]: val }));
   const updateMeta = (key, val) => setMetaData((p) => ({ ...p, [key]: val }));
 
-  // ── Draft: check on mount ──────────────────────────────────────────────
+  // Draft: check on mount 
   useEffect(() => {
     const draft = loadDraft();
     if (draft) {
@@ -307,7 +285,7 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
     }
   }, []);
 
-  // ── Draft: auto-save on every form change ──────────────────────────────
+  // Draft: auto-save on every form change
   const draftPayload = useMemo(() => ({
     fillMode,
     isUrgent,
@@ -331,9 +309,7 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
     filePreview, file, scanPageImages,
   ]);
 
-  // Save draft whenever meaningful data changes (debounce 800ms)
   useEffect(() => {
-    // Don't save an empty form or if upload is in progress
     if (uploadProgress !== null) return;
     const hasData = form.judul || selectedCategoryId || file || scanPageImages.length > 0;
     if (!hasData) return;
@@ -342,7 +318,6 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
     return () => clearTimeout(t);
   }, [draftPayload, uploadProgress]);
 
-  // Save draft on page unload / visibility change / navigation
   useEffect(() => {
     const handleBeforeUnload = () => {
       const hasData = form.judul || selectedCategoryId || file || scanPageImages.length > 0;
@@ -360,7 +335,7 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
     };
   }, [draftPayload, form, selectedCategoryId, file, scanPageImages, uploadProgress]);
 
-  // ── Draft: restore handler ─────────────────────────────────────────────
+  // Draft: restore handler
   const handleRestoreDraft = () => {
     const d = pendingDraft;
     if (!d) return;
@@ -389,14 +364,14 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
     });
   };
 
-  // ── Draft: discard handler ─────────────────────────────────────────────
+  // Draft: discard handler
   const handleDiscardDraft = () => {
     clearDraft();
     setPendingDraft(null);
     toast({ title: "Draft dihapus", description: "Mulai pengisian baru." });
   };
 
-  // ── Reset: hapus semua data + draft ───────────────────────────────────
+  // Reset
   const handleReset = () => {
     clearDraft();
     setFile(null);
@@ -431,9 +406,6 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
     toast({ title: "Form dikosongkan", description: "Semua data dan draft telah dihapus." });
   };
 
-  // ── Auto-fill category for Guru ────────────────────────────────────────
-  // Guru hanya boleh upload ke kategori "Administrasi" (category_id 5) —
-  // lihat migration_guru_document_types.sql untuk daftar jenis dokumennya.
   useEffect(() => {
     if (guruUploadOwn && !selectedCategoryId) {
       const cat = categoryList.find((c) => c.category_id === 5);
@@ -443,7 +415,6 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
     }
   }, [guruUploadOwn, selectedCategoryId, categoryList]);
 
-  // ── Derived lists ──────────────────────────────────────────────────────
   const jenisOptions = useMemo(() => {
     if (!selectedCategoryId) return [];
     return typeList.filter((t) => t.category_id === selectedCategoryId);
@@ -463,7 +434,6 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
     return getAutoFolderPath(selectedCategoryId, selectedTypeId, tahun);
   }, [selectedCategoryId, selectedTypeId, metaData.tahunAjaran]);
 
-  // NIP helpers
   const nipUsers = useMemo(() => users.filter((u) => u.nip && u.nip.length > 0), [users]);
   const filteredNipUsers = useMemo(() => {
     const q = nipSearch.toLowerCase();
@@ -475,7 +445,7 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
   const addNip = (nip) => { setOwnerNIPs((p) => [...p, nip]); setNipSearch(""); setNipDropdownOpen(false); };
   const removeNip = (nip) => { if (!guruUploadOwn) setOwnerNIPs((p) => p.filter((n) => n !== nip)); };
 
-  // ── Rotate scan page ───────────────────────────────────────────────────
+  // Rotate scan page 
   const rotatePage = useCallback((idx) => {
     const src = scanPageImages[idx];
     if (!src) return;
@@ -492,7 +462,7 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
     img.src = src;
   }, [scanPageImages]);
 
-  // ── File handling ──────────────────────────────────────────────────────
+  // File handling
   const handleFile = (f) => {
     const maxSize = 25 * 1024 * 1024;
     const allowed = ["application/pdf", "image/jpeg", "image/png", "image/jpg"];
@@ -544,9 +514,6 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
     setShouldAutoConfirmOCR(false);
     if (mode === "manual") return;
 
-    // Masuk Mode OCR: metadata reguler (Data Detail) disembunyikan, digantikan
-    // section "Data Hasil OCR" yang otomatis terisi dari hasil scan namun
-    // tetap bisa diedit sebelum submit.
     setOcrDataMode(true);
     setOcrDocType(documentType || null);
 
@@ -567,13 +534,11 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
     }
   };
 
-  // ── Keluar dari Mode OCR (kembali ke metadata reguler) ─────────────────
   const exitOcrDataMode = () => {
     setOcrDataMode(false);
     setOcrDocType(null);
   };
 
-  // ── "Lainnya" save handlers ────────────────────────────────────────────
   const saveKategoriLainnya = async () => {
     const name = kategoriLainnyaText.trim();
     if (!name) return;
@@ -635,14 +600,13 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
     }
   };
 
-  // ── Submit / Confirm ───────────────────────────────────────────────────
+  // Submit 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!form.judul) { toast({ variant: "destructive", title: "Nama dokumen wajib diisi" }); return; }
     if (!selectedCategoryId) { toast({ variant: "destructive", title: "Pilih kategori dokumen terlebih dahulu" }); return; }
     if (!selectedTypeId) { toast({ variant: "destructive", title: "Pilih jenis dokumen terlebih dahulu" }); return; }
     if (!file) { toast({ variant: "destructive", title: "File wajib dipilih", description: "Pilih file dokumen sebelum melanjutkan." }); return; }
-    // Sensitive aktif -> NIP pemilik wajib dipilih, tidak boleh upload jika kosong.
     if (isSensitif && ownerNIPs.length === 0) {
       toast({ variant: "destructive", title: "NIP Pemilik Dokumen wajib dipilih", description: "Dokumen sensitif harus memiliki minimal satu pemilik (NIP)." });
       return;
@@ -692,10 +656,6 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
         }
       }
 
-      // Mode OCR: sertakan seluruh field hasil OCR (termasuk yang tidak ada
-      // di template kategori reguler, mis. nomorPeserta/namaSekolah untuk
-      // ijazah) ke payload metadata. Tidak menghapus/menimpa metadata reguler
-      // di atas — hanya menambahkan.
       if (ocrDataMode && ocrFieldOrder.length > 0) {
         ocrFieldOrder.forEach((key) => {
           if (metaData[key]) metadata[key] = metaData[key];
@@ -713,12 +673,9 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
     if (folderId) formData.append("folder_id", folderId);
     if (metaData.tahunAjaran) formData.append("tahun_ajaran", metaData.tahunAjaran);
     formData.append("metadata", JSON.stringify(metadata));
-    // Toggle "Butuh Approval Kepsek" (Task 1)
     formData.append("approval_required", needsApproval ? "true" : "false");
-    // Toggle "Dokumen Sensitive" (Task 2)
     formData.append("is_sensitive", isSensitif ? "true" : "false");
     if (isSensitif) formData.append("owner_nips", JSON.stringify(ownerNIPs));
-    // Toggle "Urgent"
     formData.append("is_urgent", isUrgent ? "true" : "false");
 
     setShowConfirm(false);
@@ -730,8 +687,6 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
       toast({ variant: "destructive", title: "Gagal Mengunggah", description: result.error || "Terjadi kesalahan saat upload." });
       return;
     }
-
-    // Upload sukses — hapus draft
     clearDraft();
 
     toast({
@@ -755,7 +710,7 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
     }, 1000);
   };
 
-  // ── Dynamic field renderer ─────────────────────────────────────────────
+  // Dynamic field renderer 
   const renderField = (field) => {
     if (field.type === "tahun_ajaran") {
       return (
@@ -814,12 +769,10 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
     return "Data Tambahan";
   };
 
-  // ══════════════════════════════════════════════════════════════════════
   // RENDER
-  // ══════════════════════════════════════════════════════════════════════
   return (
     <>
-      {/* ── Draft Restore Banner ───────────────────────────────────────── */}
+      {/* Draft Restore Banner */}
       {pendingDraft && (
         <DraftBanner
           draftDate={pendingDraft.savedAt}
@@ -828,7 +781,7 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
         />
       )}
 
-      {/* ── Draft Restored Info ────────────────────────────────────────── */}
+      {/* Draft Restored Info */}
       {draftRestored && (
         <div className="mb-4 flex items-center gap-2.5 px-4 py-3 rounded-xl border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 animate-fade-in">
           <FileCheck size={15} className="text-green-600 dark:text-green-400 shrink-0" />
@@ -841,7 +794,7 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
         </div>
       )}
 
-      {/* ── Mode Selector ──────────────────────────────────────────────── */}
+      {/* Mode Selector */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-3">
           <div>
@@ -907,13 +860,13 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
           </button>
         </div>
 
-        {/* Guide — full width below mode selector */}
+        {/* Guide */}
         {showCaraGuide && (
           <CaraMengisiGuide mode={fillMode} onClose={() => setShowCaraGuide(false)} />
         )}
       </div>
 
-      {/* ── Toggle Row: Urgent / Sensitif / Approval Kepsek ────────────── */}
+      {/* Toggle Row */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
         {/* Urgent */}
         <div className="bg-card border border-border rounded-xl px-4 py-3 flex items-center justify-between gap-3">
@@ -964,7 +917,7 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
         </p>
       </div>
 
-      {/* Dokumen Sensitif — detail card (full width, hanya bisa dilihat pemilik) */}
+      {/* Dokumen Sensitif */}
       {isSensitif && (
         <div className="bg-card border border-primary/30 rounded-xl p-4 sm:p-6 mb-6">
           <div className="flex items-center justify-between mb-3">
@@ -1020,13 +973,10 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
         </div>
       )}
 
-      {/* ── Main Form ──────────────────────────────────────────────────── */}
+      {/* Main Form */}
       <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* LEFT COLUMN */}
         <div className="space-y-6">
-          {/* Upload File */}
           <div className="bg-card border border-border rounded-xl p-4 sm:p-6">
-            {/* Header dengan tombol Reset */}
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-foreground flex items-center gap-2">
                 <Upload size={18} className="text-primary" /> Upload File Dokumen
@@ -1085,7 +1035,7 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
               </>
             )}
 
-            {/* File info — from actual file or restored draft */}
+            {/* File info */}
             {(file || (draftRestored && !file && (filePreview || scanPageImages.length > 0))) && (
               <div className="mt-4 flex items-center gap-3 p-3 rounded-lg bg-muted/50 border border-border">
                 <FileText size={20} className="text-primary shrink-0" />
@@ -1169,7 +1119,6 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
           )}
         </div>
 
-        {/* RIGHT COLUMN */}
         <div className="space-y-6">
           {/* Informasi Dokumen */}
           <div className="bg-card border border-border rounded-xl p-4 sm:p-6">
@@ -1179,7 +1128,7 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
-              {/* ── Nomor Dokumen (generated otomatis, readonly) ── */}
+              {/* Nomor Dokumen */}
               <div className="sm:col-span-2">
                 <label className="block text-sm font-medium text-foreground mb-1">
                   Nomor Dokumen *
@@ -1242,8 +1191,6 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
                     setSelectedCategoryId(catId || null);
                     setSelectedTypeId(null);
                     setJenisValue("");
-                    // Saat Mode OCR aktif, metadata hasil OCR tidak dihapus
-                    // hanya karena kategori/jenis dokumen diganti.
                     if (!ocrDataMode) setMetaData({});
                     update("kategori", cat?.category_name || "");
                     update("jenisDokumen", "");
@@ -1254,7 +1201,6 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
                   <option value="">Pilih kategori</option>
                   {(guruUploadOwn ? categoryList.filter((c) => c.category_id === 5) : categoryList)
                     .map((c) => <option key={c.category_id} value={c.category_id}>{c.category_name}</option>)}
-                  {/* Guru tidak boleh membuat kategori baru di luar Administrasi */}
                   {!guruUploadOwn && <option value="lainnya">+ Lainnya (tambah baru)</option>}
                 </select>
                 {showKategoriLainnya && (
@@ -1291,8 +1237,6 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
                     const docType = typeList.find((t) => t.type_id === typeId);
                     setJenisValue(val);
                     setSelectedTypeId(typeId || null);
-                    // Saat Mode OCR aktif, metadata hasil OCR tidak dihapus
-                    // hanya karena kategori/jenis dokumen diganti.
                     if (!ocrDataMode) setMetaData({});
                     update("jenisDokumen", docType?.type_name || "");
                     setShowJenisLainnya(false);
@@ -1330,7 +1274,7 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
             )}
           </div>
 
-          {/* Data Detail — reguler, disembunyikan saat Mode OCR aktif */}
+          {/* Data Detail */}
           {fillMode === MODE_LENGKAP && !ocrDataMode && hasSelection && dynamicFields.length > 0 && (
             <div className="bg-card border border-border rounded-xl p-4 sm:p-6 animate-fade-in">
               <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
@@ -1348,7 +1292,7 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
             </div>
           )}
 
-          {/* Data Hasil OCR — muncul menggantikan Data Detail saat Mode OCR aktif */}
+          {/* Data Hasil OCR */}
           {fillMode === MODE_LENGKAP && ocrDataMode && (
             <div className="bg-card border border-primary/30 rounded-xl p-4 sm:p-6 animate-fade-in">
               <div className="flex items-center justify-between mb-1">
@@ -1551,7 +1495,6 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
             </div>
           </div>
 
-          {/* Konten: file asli yang dipilih, bukan template dummy */}
           <div className="flex-1 overflow-auto flex items-start justify-center p-8 bg-muted/30">
             <div className="transition-transform origin-top" style={{ transform: `scale(${localPreviewZoom / 100})` }}>
               {file?.type === "application/pdf" ? (

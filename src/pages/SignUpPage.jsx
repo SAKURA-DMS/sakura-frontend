@@ -19,11 +19,8 @@ export default function SignUpPage() {
   });
   const [departemenSelect, setDepartemenSelect] = useState("");
   const [departemenCustom, setDepartemenCustom] = useState("");
-
   const update = (key, val) => setFormData((p) => ({ ...p, [key]: val }));
-
-  // Saat pilihan dropdown berubah keluar dari "Lainnya", reset textbox custom
-  // supaya tidak ada sisa nilai lama yang ikut ke-submit.
+  
   const handleDepartemenSelectChange = (value) => {
     setDepartemenSelect(value);
     if (value !== "Lainnya") {
@@ -94,7 +91,7 @@ export default function SignUpPage() {
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row overflow-hidden">
-      {/* ── Left panel ── */}
+      {/* Left panel */}
       <div className="hidden lg:flex flex-col justify-center w-5/12 relative overflow-hidden">
         <div className="absolute inset-0" style={{ background: "hsl(340 73% 65%)" }} />
         <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${sakuraBg})`, opacity: 0.55 }} />
@@ -122,7 +119,7 @@ export default function SignUpPage() {
         </div>
       </div>
 
-      {/* ── Right panel ── */}
+      {/* Right panel */}
       <div className="flex-1 flex items-center justify-center px-4 sm:px-6 bg-background py-8 h-screen overflow-y-auto">
         <div className="w-full max-w-md my-auto">
           <button onClick={() => navigate("/")} className="lg:hidden flex items-center gap-3 mb-6">
@@ -132,7 +129,6 @@ export default function SignUpPage() {
             <span className="text-xl font-bold tracking-wider" style={{ color: "hsl(347 45% 38%)" }}>SAKURA</span>
           </button>
 
-          {/* Kembali */}
           <div className="mb-6">
             <button
               onClick={() => navigate(-1)}

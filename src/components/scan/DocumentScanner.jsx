@@ -1,18 +1,3 @@
-/**
- * DocumentScanner.jsx
- * Scanner dokumen lengkap mirip CamScanner:
- * - Auto detect document edge
- * - Perspective correction (4-point transform)
- * - Edge detection via canvas processing
- * - Brightness / Contrast adjustment
- * - Auto focus (native constraint)
- * - Sharpen text filter
- * - Compress hasil scan
- * - Preview hasil scan
- *
- * Library: hanya browser Canvas API bawaan (zero extra dependencies)
- */
-
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import {
   Camera, X, ZoomIn, ZoomOut, Sun, Contrast, Scan,
@@ -20,13 +5,9 @@ import {
   Focus, Maximize2, RefreshCw, Plus, Images,
 } from "lucide-react";
 
-// ─── Konstanta kualitas kompresi ────────────────────────────────────────────
-const COMPRESS_QUALITY = 0.82; // jpeg quality 0–1
-const MAX_SCAN_WIDTH = 2048;   // px max setelah capture
+const COMPRESS_QUALITY = 0.82;
+const MAX_SCAN_WIDTH = 2048;  
 
-// ─── Utilitas Canvas ─────────────────────────────────────────────────────────
-
-/** Resize canvas ke lebar maks sambil mempertahankan aspek rasio */
 function resizeCanvas(src, maxW = MAX_SCAN_WIDTH) {
   const scale = src.width > maxW ? maxW / src.width : 1;
   const dst = document.createElement("canvas");
@@ -36,7 +17,6 @@ function resizeCanvas(src, maxW = MAX_SCAN_WIDTH) {
   return dst;
 }
 
-/** Grayscale sederhana — dipakai sebagai basis edge detection */
 function toGrayscale(imageData) {
   const d = imageData.data;
   for (let i = 0; i < d.length; i += 4) {
@@ -46,7 +26,6 @@ function toGrayscale(imageData) {
   return imageData;
 }
 
-/** Sharpening kernel 3×3 (unsharp mask sederhana) */
 function applySharpen(ctx, w, h) {
   const src = ctx.getImageData(0, 0, w, h);
   const dst = ctx.createImageData(w, h);
@@ -71,27 +50,21 @@ function applySharpen(ctx, w, h) {
   ctx.putImageData(dst, 0, 0);
 }
 
-/** Brightness + Contrast adjustment (CSS filter fallback via canvas) */
 function applyBrightnessContrast(ctx, w, h, brightness, contrast) {
-  // brightness: -100..100, contrast: -100..100
   const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
   const imgData = ctx.getImageData(0, 0, w, h);
   const d = imgData.data;
   for (let i = 0; i < d.length; i += 4) {
     for (let c = 0; c < 3; c++) {
       let v = d[i + c];
-      v += brightness;                          // brightness
-      v = factor * (v - 128) + 128;            // contrast
+      v += brightness;             
+      v = factor * (v - 128) + 128;
       d[i + c] = Math.max(0, Math.min(255, v));
     }
   }
   ctx.putImageData(imgData, 0, 0);
 }
 
-/**
- * Sobel edge detection — mengembalikan array skor tepi per piksel (0–255).
- * Dipakai untuk auto-detect sudut dokumen.
- */
 function sobelEdgeMap(grayData, w, h) {
   const d = grayData.data;
   const edge = new Float32Array(w * h);
@@ -108,17 +81,10 @@ function sobelEdgeMap(grayData, w, h) {
   return edge;
 }
 
-/**
- * Heuristic auto-detect 4 sudut dokumen dari edge map.
- * Strateginya: sampel tepi-tepi gambar dari setiap kuadran dan cari titik
- * tepi terdekat dari setiap sudut.
- * Return: [{x,y}, {x,y}, {x,y}, {x,y}] (TL, TR, BR, BL) atau null.
- */
 function detectDocumentCorners(edgeMap, w, h) {
-  const MARGIN = 0.05; // 5% margin dari tepi frame
+  const MARGIN = 0.05;
   const threshold = 80;
 
-  // Untuk setiap kuadran, scan dari pojok menuju tengah
   const candidates = { tl: null, tr: null, br: null, bl: null };
   const maxDist = { tl: Infinity, tr: Infinity, br: Infinity, bl: Infinity };
 
@@ -126,7 +92,6 @@ function detectDocumentCorners(edgeMap, w, h) {
     for (let x = 0; x < w; x++) {
       if (edgeMap[y * w + x] < threshold) continue;
       const nx = x / w, ny = y / h;
-      // Ignore border pixels
       if (nx < MARGIN || nx > 1 - MARGIN || ny < MARGIN || ny > 1 - MARGIN) continue;
 
       const dTL = nx * nx + ny * ny;
@@ -144,7 +109,6 @@ function detectDocumentCorners(edgeMap, w, h) {
   const { tl, tr, br, bl } = candidates;
   if (!tl || !tr || !br || !bl) return null;
 
-  // Validasi: pastikan segiempat masuk akal (minimal 30% area gambar)
   const width1 = Math.hypot(tr.x - tl.x, tr.y - tl.y);
   const width2 = Math.hypot(br.x - bl.x, br.y - bl.y);
   const height1 = Math.hypot(bl.x - tl.x, bl.y - tl.y);
@@ -156,15 +120,8 @@ function detectDocumentCorners(edgeMap, w, h) {
   return [tl, tr, br, bl];
 }
 
-/**
- * Perspective correction (4-point to rectangular crop).
- * Menggunakan pendekatan bilinear transform yang diimplementasi manual
- * (tidak butuh library eksternal).
- */
 function perspectiveCorrect(srcCanvas, corners) {
   const [tl, tr, br, bl] = corners;
-
-  // Hitung dimensi output
   const outW = Math.round(Math.max(
     Math.hypot(tr.x - tl.x, tr.y - tl.y),
     Math.hypot(br.x - bl.x, br.y - bl.y)
@@ -184,13 +141,10 @@ function perspectiveCorrect(srcCanvas, corners) {
   const dstData = ctx.createImageData(outW, outH);
   const dd = dstData.data;
 
-  // Inverse bilinear interpolation: untuk setiap piksel output, cari piksel sumber
   for (let oy = 0; oy < outH; oy++) {
     for (let ox = 0; ox < outW; ox++) {
       const tx = ox / outW;
       const ty = oy / outH;
-
-      // Bilinear map dari output ke sumber
       const sx = (1 - ty) * ((1 - tx) * tl.x + tx * tr.x) + ty * ((1 - tx) * bl.x + tx * br.x);
       const sy = (1 - ty) * ((1 - tx) * tl.y + tx * tr.y) + ty * ((1 - tx) * bl.y + tx * br.y);
 
@@ -210,28 +164,25 @@ function perspectiveCorrect(srcCanvas, corners) {
 }
 
 /**
- * Pipeline lengkap post-processing setelah capture.
- * @param {string} dataUrl - jpeg dataUrl dari video capture
- * @param {object} opts - { brightness, contrast, sharpen, perspectiveCorners }
+ * @param {string} dataUrl 
+ * @param {object} opts 
  * @returns {Promise<{dataUrl: string, corners: Array|null}>}
  */
 async function processImage(dataUrl, opts = {}) {
   return new Promise((resolve) => {
     const img = new Image();
     img.onload = () => {
-      // Step 1: Buat canvas dari gambar asli
       let canvas = document.createElement("canvas");
       canvas.width = img.width;
       canvas.height = img.height;
       const ctx = canvas.getContext("2d");
       ctx.drawImage(img, 0, 0);
 
-      // Step 2: Resize ke maks
       canvas = resizeCanvas(canvas);
       const w = canvas.width, h = canvas.height;
       const pCtx = canvas.getContext("2d");
 
-      // Step 3: Auto-detect corners (gunakan grayscale + edge detection)
+      // Auto-detect corners
       let detectedCorners = opts.perspectiveCorners || null;
       if (!detectedCorners) {
         const grayData = pCtx.getImageData(0, 0, w, h);
@@ -240,30 +191,28 @@ async function processImage(dataUrl, opts = {}) {
         detectedCorners = detectDocumentCorners(edgeMap, w, h);
       }
 
-      // Step 4: Perspective correction jika corners tersedia
+      // Perspective correction
       if (detectedCorners && opts.applyPerspective !== false) {
         try {
           canvas = perspectiveCorrect(canvas, detectedCorners);
-        } catch {
-          // fallback: skip perspective
-        }
+        } catch { }
       }
 
       const finalCtx = canvas.getContext("2d");
 
-      // Step 5: Brightness / Contrast
+      // Brightness / Contrast
       const brightness = opts.brightness ?? 0;
       const contrast = opts.contrast ?? 0;
       if (brightness !== 0 || contrast !== 0) {
         applyBrightnessContrast(finalCtx, canvas.width, canvas.height, brightness, contrast);
       }
 
-      // Step 6: Sharpen
+      // Sharpen
       if (opts.sharpen) {
         applySharpen(finalCtx, canvas.width, canvas.height);
       }
 
-      // Step 7: Compress & return
+      // Compress & return
       const out = canvas.toDataURL("image/jpeg", COMPRESS_QUALITY);
       resolve({ dataUrl: out, corners: detectedCorners });
     };
@@ -271,7 +220,7 @@ async function processImage(dataUrl, opts = {}) {
   });
 }
 
-// ─── Corner Overlay (4-titik draggable) ──────────────────────────────────────
+// Corner Overlay
 function CornerHandle({ label, xPct, yPct, onChange, color = "#3b82f6" }) {
   const handleRef = useRef(null);
 
@@ -325,7 +274,6 @@ function CornerHandle({ label, xPct, yPct, onChange, color = "#3b82f6" }) {
   );
 }
 
-/** Gambar garis polygon dari 4 titik (dalam %) */
 function toPercent(value, base = 100) {
   if (typeof value === "string" && value.endsWith("%")) {
     return Number(value.replace("%", "")) || 0;
@@ -347,27 +295,27 @@ function PerspectiveOverlay({ corners, containerW, containerH }) {
   );
 }
 
-// ─── Main Component ──────────────────────────────────────────────────────────
+// Main Component
 export default function DocumentScanner({ onClose, onCapture, ocrMode = false }) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const [stream, setStream] = useState(null);
   const streamRef = useRef(null);
   const [cameraReady, setCameraReady] = useState(false);
-  const [capturedRaw, setCapturedRaw] = useState(null);       // raw dataUrl setelah foto
-  const [processedUrl, setProcessedUrl] = useState(null);     // setelah post-process
-  const [scannedPages, setScannedPages] = useState([]);       // halaman scan yang sudah disimpan
-  const [detectedCorners, setDetectedCorners] = useState(null); // [{x,y}×4] dalam piksel
-  const [adjustedCorners, setAdjustedCorners] = useState(null); // user-dragged corners
+  const [capturedRaw, setCapturedRaw] = useState(null);       
+  const [processedUrl, setProcessedUrl] = useState(null);     
+  const [scannedPages, setScannedPages] = useState([]);      
+  const [detectedCorners, setDetectedCorners] = useState(null); 
+  const [adjustedCorners, setAdjustedCorners] = useState(null); 
 
   // Kamera
   const [zoom, setZoom] = useState(1);
   const [zoomRange, setZoomRange] = useState([1, 1]);
   const [torchOn, setTorchOn] = useState(false);
-  const [videoSize, setVideoSize] = useState({ w: 1, h: 1 }); // actual video pixel size
+  const [videoSize, setVideoSize] = useState({ w: 1, h: 1 });
 
   // Mode
-  const [step, setStep] = useState("camera"); // camera | adjust | result
+  const [step, setStep] = useState("camera"); 
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Pengaturan
@@ -377,11 +325,7 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
   const [sharpen, setSharpen] = useState(true);
   const [autoPerspective, setAutoPerspective] = useState(false);
 
-  // ── Start kamera ────────────────────────────────────────────────────────
-  // Gunakan kamera belakang default milik browser (seperti versi awal yang
-  // framing-nya full), tetapi minta resolusi setinggi mungkin. Jangan paksa
-  // aspectRatio/deviceId tertentu karena pada beberapa Android hal itu justru
-  // dapat memilih physical lens yang berbeda atau membuat framing aneh.
+  // Start kamera
   const startCamera = useCallback(async () => {
     setCameraReady(false);
 
@@ -396,8 +340,6 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
 
       const cap = track.getCapabilities?.() || {};
 
-      // Pertahankan 1x sebagai default. Zoom hanya lewat hardware camera API,
-      // bukan CSS transform, supaya preview dan hasil capture tetap konsisten.
       if (cap.zoom) {
         const minZoom = Number(cap.zoom.min) || 1;
         const maxZoom = Number(cap.zoom.max) || 1;
@@ -420,8 +362,6 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
     };
 
     try {
-      // Pertama coba kamera belakang default dengan resolusi tinggi.
-      // Ini paling dekat dengan perilaku scanner versi awal di Android.
       const ms = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: "environment" },
@@ -473,7 +413,7 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
     }
   }, [stream]);
 
-  // ── Zoom ──
+  // Zoom
   const applyZoom = useCallback(
     async (val) => {
       setZoom(val);
@@ -481,22 +421,22 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
       if (!track) return;
       try {
         await track.applyConstraints({ advanced: [{ zoom: val }] });
-      } catch { /* tidak semua browser/device support zoom API */ }
+      } catch { }
     },
     [stream]
   );
 
-  // ── Torch ──
+  // Torch
   const toggleTorch = useCallback(async () => {
     const track = stream?.getVideoTracks()[0];
     if (!track) return;
     try {
       await track.applyConstraints({ advanced: [{ torch: !torchOn }] });
       setTorchOn((v) => !v);
-    } catch { /* torch tidak tersedia */ }
+    } catch { }
   }, [stream, torchOn]);
 
-  // ── Capture ──
+  // Capture
   const capture = useCallback(async () => {
     if (!videoRef.current || !canvasRef.current) return;
     setIsProcessing(true);
@@ -509,7 +449,6 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
     const rawUrl = c.toDataURL("image/jpeg", 0.95);
     setCapturedRaw(rawUrl);
 
-    // Post-process
     const { dataUrl, corners } = await processImage(rawUrl, {
       brightness,
       contrast,
@@ -522,14 +461,12 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
     setAdjustedCorners(corners);
     setIsProcessing(false);
 
-    // Hentikan kamera
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     setCameraReady(false);
     setStep(autoPerspective && corners ? "result" : "result");
   }, [brightness, contrast, sharpen, autoPerspective, stream]);
 
-  // ── Terapkan perspektif manual ──
   const applyManualPerspective = useCallback(async () => {
     if (!capturedRaw || !adjustedCorners) return;
     setIsProcessing(true);
@@ -547,7 +484,6 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
     setStep("result");
   }, [capturedRaw, adjustedCorners, brightness, contrast, sharpen]);
 
-  // ── Re-process saat settings berubah (hanya di step result) ──
   const reprocess = useCallback(async () => {
     if (!capturedRaw) return;
     setIsProcessing(true);
@@ -567,9 +503,6 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
     reprocess();
   }, [step, brightness, contrast, sharpen, autoPerspective, reprocess]);
 
-  // ── Helper: gabungkan seluruh halaman menjadi satu JPEG vertikal ──
-  // File gabungan ini tetap kompatibel dengan alur upload lama yang menerima 1 file,
-  // sedangkan pageImages tetap dikirim terpisah untuk preview per halaman.
   const buildMultiPageFile = useCallback(async (pages) => {
     const images = await Promise.all(
       pages.map((src) => new Promise((resolve, reject) => {
@@ -607,7 +540,7 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
     );
   }, []);
 
-  // ── Scan halaman berikutnya (KHUSUS camera biasa, bukan OCR) ──
+  // Scan halaman berikutnya 
   const scanAnotherPage = useCallback(() => {
     if (!processedUrl || ocrMode) return;
     setScannedPages((prev) => [...prev, processedUrl]);
@@ -619,7 +552,7 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
     startCamera();
   }, [processedUrl, ocrMode, startCamera]);
 
-  // ── Selesai / kirim seluruh halaman ke parent ──
+  // kirim seluruh halaman ke parent
   const handleDone = useCallback(async () => {
     if (!processedUrl) return;
     setIsProcessing(true);
@@ -632,7 +565,6 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
     }
   }, [processedUrl, scannedPages, ocrMode, buildMultiPageFile, onCapture]);
 
-  // ── Ulang scan halaman aktif saja ──
   const retake = useCallback(() => {
     setCapturedRaw(null);
     setProcessedUrl(null);
@@ -642,7 +574,6 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
     startCamera();
   }, [startCamera]);
 
-  // ── Corner drag handlers ──
   const updateCorner = (index, pos) => {
     if (!adjustedCorners) return;
     const next = [...adjustedCorners];
@@ -650,13 +581,10 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
     setAdjustedCorners(next);
   };
 
-  // ══════════════════════════════════════════════════════
   // RENDER
-  // ══════════════════════════════════════════════════════
-
   return (
     <div className="fixed inset-0 z-[200] flex flex-col bg-black">
-      {/* ── Header ── */}
+      {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 bg-black/80 shrink-0">
         <div className="flex items-center gap-2">
           <Scan size={18} className="text-blue-400" />
@@ -683,11 +611,10 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
         </div>
       </div>
 
-      {/* ── Settings Panel ── */}
+      {/* Settings Panel*/}
       {showSettings && (
         <div className="bg-gray-900 border-b border-gray-700 px-4 py-3 shrink-0 space-y-3">
           <div className="grid grid-cols-2 gap-3">
-            {/* Brightness */}
             <div>
               <label className="text-xs text-gray-400 flex items-center gap-1 mb-1">
                 <Sun size={12} /> Kecerahan: {brightness > 0 ? "+" : ""}{brightness}
@@ -739,9 +666,8 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
         </div>
       )}
 
-      {/* ── Main View ── */}
+      {/* Main View */}
       <div className="flex-1 relative overflow-hidden flex items-center justify-center bg-black">
-        {/* CAMERA STEP */}
         {step === "camera" && (
           <>
             <video
@@ -759,11 +685,9 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
               </div>
             )}
 
-            {/* Document boundary guide */}
             {cameraReady && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className="w-4/5 h-3/4 relative">
-                  {/* Corner brackets */}
                   {[
                     "top-0 left-0 border-t-2 border-l-2 rounded-tl-sm",
                     "top-0 right-0 border-t-2 border-r-2 rounded-tr-sm",
@@ -773,7 +697,6 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
                     <div key={i} className={`absolute border-blue-400 w-6 h-6 ${cls}`} />
                   ))}
                   <div className="absolute inset-0 border border-dashed border-blue-400/30 rounded" />
-                  {/* Auto focus indicator */}
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="w-12 h-12 border border-blue-400/50 rounded flex items-center justify-center">
                       <Focus size={16} className="text-blue-400/60" />
@@ -783,7 +706,6 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
               </div>
             )}
 
-            {/* Zoom control (jika kamera mendukung) */}
             {zoomRange[1] > 1 && (
               <div className="absolute right-3 top-1/2 -translate-y-1/2 flex flex-col items-center gap-2">
                 <button
@@ -806,7 +728,6 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
           </>
         )}
 
-        {/* ADJUST STEP — perspektif manual */}
         {step === "adjust" && capturedRaw && (
           <div className="relative w-full h-full flex items-center justify-center">
             <div className="relative" style={{ maxWidth: "100%", maxHeight: "100%" }}>
@@ -816,7 +737,6 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
                 className="block max-w-full max-h-[calc(100vh-200px)] object-contain"
                 draggable={false}
               />
-              {/* Overlay corners draggable */}
               {adjustedCorners && adjustedCorners.map((c, i) => (
                 <CornerHandle
                   key={i}
@@ -840,7 +760,6 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
           </div>
         )}
 
-        {/* RESULT STEP */}
         {step === "result" && processedUrl && (
           <div className="w-full h-full flex items-center justify-center p-4">
             <img
@@ -857,7 +776,6 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
           </div>
         )}
 
-        {/* Processing overlay */}
         {isProcessing && step === "camera" && (
           <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-3">
             <div className="w-10 h-10 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
@@ -868,12 +786,10 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
         <canvas ref={canvasRef} className="hidden" />
       </div>
 
-      {/* ── Bottom Controls ── */}
+      {/* Bottom Controls */}
       <div className="bg-black/90 px-4 py-4 shrink-0">
-        {/* CAMERA controls */}
         {step === "camera" && (
           <div className="flex items-center justify-center gap-6">
-            {/* Torch */}
             <button
               onClick={toggleTorch}
               className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors ${torchOn ? "bg-yellow-500 text-black" : "bg-white/10 text-white"}`}
@@ -917,7 +833,6 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
               </button>
               <button
                 onClick={() => {
-                  // Skip perspective: gunakan capturedRaw, proses tanpa perspektif
                   processImage(capturedRaw, { brightness, contrast, sharpen, applyPerspective: false })
                     .then(({ dataUrl }) => { setProcessedUrl(dataUrl); setStep("result"); });
                 }}

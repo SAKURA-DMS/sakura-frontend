@@ -5,7 +5,6 @@ import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// https://vitejs.dev/config/
 export default defineConfig({
   server: {
     host: "::",
@@ -14,12 +13,9 @@ export default defineConfig({
       overlay: false,
     },
     proxy: {
-      // Semua request ke /api/* diteruskan ke backend Express
       "/api": {
         target: "http://localhost:5000",
         changeOrigin: true,
-        // Tidak ada rewrite — path /api tetap dikirim ke backend
-        // sehingga cocok dengan route backend: app.use("/api/auth", ...)
       },
     },
   },

@@ -6,11 +6,6 @@ import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import UserAvatar from "@/components/shared/UserAvatar";
 
-// NOTE: Fallback avatar (inisial saat src tidak valid) + indikator Online
-// Status kini ditangani oleh komponen bersama <UserAvatar /> di
-// components/shared/UserAvatar.jsx. Wrapper onClick/title di bawah tetap
-// dipertahankan agar fitur "klik untuk memperbesar foto" tidak berubah.
-
 export default function ProfilePage() {
   const { currentUser, updateUserAvatar, updateProfile } = useApp();
   const { toast } = useToast();
@@ -60,10 +55,6 @@ export default function ProfilePage() {
     reader.readAsDataURL(file);
   };
 
-  /**
-   * FIX: savePhoto async — panggil updateUserAvatar yang kini hit API.
-   * Avatar tersimpan ke DB → persistent setelah logout/login.
-   */
   const savePhoto = async () => {
     if (!previewPhoto) return;
     setSavingPhoto(true);
@@ -121,7 +112,6 @@ export default function ProfilePage() {
     setShowCameraModal(false);
   };
 
-  // Cek apakah avatar yang tersimpan valid (untuk tombol "Lihat Foto")
   const hasValidAvatar =
     currentUser.avatar &&
     (currentUser.avatar.startsWith("data:image/") ||
@@ -136,7 +126,6 @@ export default function ProfilePage() {
           {/* Avatar section */}
           <div className="bg-card border border-border rounded-xl p-6 flex flex-col items-center gap-4">
             <div className="relative">
-              {/* Wrapper clickable agar fitur "klik untuk memperbesar foto" tetap berfungsi */}
               <div
                 onClick={() => !previewPhoto && hasValidAvatar && setViewImage(true)}
                 title={!previewPhoto && hasValidAvatar ? "Klik untuk memperbesar foto" : undefined}
@@ -286,7 +275,7 @@ export default function ProfilePage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Expand Full Image Overlay — hanya jika avatar valid */}
+      {/* Expand Full Image Overlay */}
       {viewImage && hasValidAvatar && (
         <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-6" onClick={() => setViewImage(false)}>
           <img src={currentUser.avatar} alt="Avatar" className="max-w-full max-h-[85vh] rounded-2xl shadow-2xl object-contain animate-in zoom-in-95 duration-200" onError={() => setViewImage(false)} />

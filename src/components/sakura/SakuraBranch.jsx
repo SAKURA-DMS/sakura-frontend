@@ -1,13 +1,11 @@
 import { useState, useMemo, useCallback } from "react";
 
-/* ── Flower positions — well-spaced, no overlap (viewBox 0 0 1200 800) ── */
+/* Flower positions */
 export const FLOWER_NODES = [
-  // Interactive flowers (large, 75-80px)
   { cx: 210, cy: 310, size: 78, rot: -10, section: "about", label: "Apa itu SAKURA?" },
   { cx: 370, cy: 225, size: 76, rot: 15, section: "why", label: "Arsip Digital" },
   { cx: 500, cy: 140, size: 78, rot: -5, section: "workflow", label: "Alur Persetujuan" },
   { cx: 505, cy: 460, size: 76, rot: -15, section: "school", label: "SMP Negeri 4" },
-  // Decorative flowers (small, 42-50px) — well spaced
   { cx: 150, cy: 370, size: 44, rot: 12, section: null, label: null },
   { cx: 290, cy: 280, size: 46, rot: 25, section: null, label: null },
   { cx: 435, cy: 185, size: 44, rot: -18, section: null, label: null },
@@ -46,9 +44,7 @@ function renderFlower(node, hoveredId, setHoveredId, onFlowerClick) {
   const svgSize = size;
 
   const handleClick = (e) => {
-    // Always trigger burst
     if (onFlowerClick) onFlowerClick(e);
-    // Scroll if interactive
     if (isInteractive) scrollToSection(section);
   };
 
@@ -116,7 +112,6 @@ function renderFlower(node, hoveredId, setHoveredId, onFlowerClick) {
         ))}
       </svg>
 
-      {/* Hover-only tooltip */}
       {isInteractive && label && (
         <foreignObject
           x={0} y={-32}
@@ -205,7 +200,7 @@ export default function SakuraBranch({ onFlowerClick }) {
         </linearGradient>
       </defs>
 
-      {/* ── MAIN TRUNK ── */}
+      {/* MAIN TRUNK */}
       <path
         d="M -60 420 C 40 400, 120 370, 200 340 C 280 310, 360 290, 440 270 C 520 250, 580 240, 650 235"
         fill="none" stroke="url(#branchMain)" strokeWidth="22" strokeLinecap="round"
@@ -217,13 +212,13 @@ export default function SakuraBranch({ onFlowerClick }) {
         style={branchDrawStyle(0.15)}
       />
 
-      {/* ── SUB-BRANCHES ── */}
+      {/* SUB-BRANCHES */}
       <path d="M 280 325 C 310 290, 340 250, 380 210 C 410 180, 440 160, 480 145" fill="none" stroke="url(#branchSub)" strokeWidth="12" strokeLinecap="round" style={branchDrawStyle(0.3)} />
       <path d="M 440 270 C 480 250, 520 230, 560 200 C 590 180, 620 165, 660 155" fill="none" stroke="url(#branchSub)" strokeWidth="10" strokeLinecap="round" style={branchDrawStyle(0.4)} />
       <path d="M 360 300 C 390 330, 420 360, 450 400 C 470 425, 490 445, 520 460" fill="none" stroke="url(#branchSub)" strokeWidth="11" strokeLinecap="round" style={branchDrawStyle(0.45)} />
       <path d="M 550 245 C 580 220, 610 195, 650 175" fill="none" stroke="url(#branchSub)" strokeWidth="8" strokeLinecap="round" style={branchDrawStyle(0.5)} />
 
-      {/* ── TWIGS ── */}
+      {/* TWIGS */}
       <path d="M 200 345 C 210 320, 225 300, 245 280" fill="none" stroke="url(#branchTwig)" strokeWidth="5" strokeLinecap="round" style={branchDrawStyle(0.55)} />
       <path d="M 320 305 C 330 280, 345 260, 365 245" fill="none" stroke="url(#branchTwig)" strokeWidth="4" strokeLinecap="round" style={branchDrawStyle(0.6)} />
       <path d="M 480 145 C 500 130, 520 120, 545 115" fill="none" stroke="url(#branchTwig)" strokeWidth="4" strokeLinecap="round" style={branchDrawStyle(0.65)} />
@@ -233,19 +228,14 @@ export default function SakuraBranch({ onFlowerClick }) {
       <path d="M 150 370 C 155 350, 165 335, 180 320" fill="none" stroke="url(#branchTwig)" strokeWidth="4" strokeLinecap="round" style={branchDrawStyle(0.85)} />
       <path d="M 600 210 C 615 195, 630 185, 650 178" fill="none" stroke="url(#branchTwig)" strokeWidth="3" strokeLinecap="round" style={branchDrawStyle(0.9)} />
 
-      {/* ── BUDS ── */}
       {BUD_POSITIONS.map((bud) => renderBud(bud))}
 
-      {/* ── FLOWERS ── */}
       {FLOWER_NODES.map((node) => renderFlower(node, hoveredId, setHoveredId, onFlowerClick))}
     </svg>
   );
 }
 
-/* ═══════════════════════════════════════
-   FloatingParticles (formerly FloatingParticles.jsx)
-   ═══════════════════════════════════════ */
-
+/* FloatingParticles */
 function rand(min, max) {
   return Math.random() * (max - min) + min;
 }
@@ -284,10 +274,7 @@ export function FloatingParticles({ count = 30 }) {
   );
 }
 
-/* ═══════════════════════════════════════
-   PetalBurst (formerly home/PetalBurst.jsx)
-   ═══════════════════════════════════════ */
-
+/* PetalBurst */
 const BURST_COLORS = ["#FFB7C5", "#FF9EB5", "#FFC8D5", "#FFD6E0"];
 
 function PetalSVG({ color, size }) {

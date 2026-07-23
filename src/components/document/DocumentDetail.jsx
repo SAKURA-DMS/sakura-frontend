@@ -1,14 +1,4 @@
-import {
-  X,
-  Eye,
-  Clock,
-  FileText,
-  CheckCircle,
-  XCircle,
-  Archive,
-  Folder,
-  MessageSquare,
-} from "lucide-react";
+import { X, Eye, Clock, FileText, CheckCircle, XCircle, Archive, Folder, MessageSquare } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { useState, useEffect } from "react";
@@ -52,15 +42,9 @@ export default function DocumentDetailModal({ document: doc, onClose }) {
   } = useApp();
 
   const navigate = useNavigate();
-
-  // Fetch audit trail langsung dari API berdasarkan document_id
   const [auditTrail, setAuditTrail] = useState(doc.auditTrail || []);
   const [trailLoading, setTrailLoading] = useState(false);
-
-  // Metadata detail dokumen dari backend
   const [documentMetadata, setDocumentMetadata] = useState(null);
-
-  // Popup "Komentar" untuk entri approve/reject yang punya catatan
   const [activeNote, setActiveNote] = useState(null);
 
   useEffect(() => {
@@ -75,7 +59,6 @@ export default function DocumentDetailModal({ document: doc, onClose }) {
         setDocumentMetadata(metadata || null);
       })
       .catch(() => {
-        // fallback ke data yang sudah ada
         setAuditTrail(doc.auditTrail || []);
         setDocumentMetadata(null);
       })
@@ -110,7 +93,6 @@ export default function DocumentDetailModal({ document: doc, onClose }) {
   const canArchive =
     hasPermission("documents.archive") && doc.status === "Disetujui";
 
-  // Ambil isi catatan approve/reject dari kolom new_value
   const getEntryNote = (entry) => {
     const nv = entry?.new_value;
 
@@ -123,7 +105,6 @@ export default function DocumentDetailModal({ document: doc, onClose }) {
       : null;
   };
 
-  // Field internal database yang tidak perlu ditampilkan ke user
   const HIDDEN_METADATA_FIELDS = [
     "id",
     "document_id",
@@ -131,7 +112,6 @@ export default function DocumentDetailModal({ document: doc, onClose }) {
     "updated_at",
   ];
 
-  // Label metadata agar nama field database tampil lebih manusiawi
   const METADATA_LABELS = {
     // Data siswa
     nama_siswa: "Nama Siswa",
@@ -331,7 +311,7 @@ export default function DocumentDetailModal({ document: doc, onClose }) {
               ))}
             </div>
 
-            {/* Data Detail Dokumen / Metadata */}
+            {/* Data Detail Dokumen */}
             {metadataEntries.length > 0 && (
               <div className="border border-border rounded-xl p-4 sm:p-5">
                 <div className="flex items-center gap-2 mb-4">
@@ -546,7 +526,6 @@ export default function DocumentDetailModal({ document: doc, onClose }) {
               </div>
             )}
 
-            {/* Lokasi File breadcrumb */}
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Folder size={16} className="text-primary" />
@@ -798,10 +777,6 @@ export default function DocumentDetailModal({ document: doc, onClose }) {
     </>
   );
 }
-
-/* ═══════════════════════════════════════
-   DocumentList (formerly DocumentListModal.jsx)
-   ═══════════════════════════════════════ */
 
 const LIST_STATUS_COLORS = {
   Menunggu: "bg-sakura-warning/20 text-sakura-warning",

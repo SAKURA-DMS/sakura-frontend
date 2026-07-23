@@ -1,10 +1,7 @@
 import { motion } from "framer-motion";
 import { FileText, Shield, Clock, Upload, CheckCircle, Archive } from "lucide-react";
 
-/* ═══════════════════════════════════════
-   Archive Section (formerly ArchiveSection.jsx)
-   ═══════════════════════════════════════ */
-
+/* Archive Section */
 const archiveStats = [
   { icon: FileText, number: "248", label: "Dokumen", desc: "Tersimpan aman secara digital" },
   { icon: Clock, number: "99.9%", label: "Uptime", desc: "Ketersediaan sistem 24/7" },
@@ -85,10 +82,7 @@ const ArchiveFeature = () => (
   </motion.div>
 );
 
-/* ═══════════════════════════════════════
-   Workflow Section (formerly WorkflowSection.jsx)
-   ═══════════════════════════════════════ */
-
+/* Workflow Section */
 const workflowSteps = [
   { icon: Upload, label: "Upload Dokumen", desc: "Operator/TU mengunggah dokumen" },
   { icon: Clock, label: "Menunggu Review", desc: "Kepala Sekolah memeriksa" },
@@ -152,10 +146,7 @@ const WorkflowFeature = () => (
   </motion.div>
 );
 
-/* ═══════════════════════════════════════
-   Combined FeaturesSection
-   ═══════════════════════════════════════ */
-
+/* Combined FeaturesSection */
 export default function FeaturesSection() {
   return (
     <>

@@ -38,15 +38,15 @@ export default function ApprovalPendingPage() {
       const sorted = [...raw].sort((a, b) => {
         const urgentFlagA = !!a.is_urgent;
         const urgentFlagB = !!b.is_urgent;
-        if (urgentFlagA !== urgentFlagB) return urgentFlagA ? -1 : 1; // ditandai Urgent saat upload -> paling atas
+        if (urgentFlagA !== urgentFlagB) return urgentFlagA ? -1 : 1; 
 
         const hoursA = differenceInHours(new Date(), new Date(a.requested_at));
         const hoursB = differenceInHours(new Date(), new Date(b.requested_at));
         const urgentA = hoursA >= 72;
         const urgentB = hoursB >= 72;
-        if (urgentA !== urgentB) return urgentA ? -1 : 1;       // urgent duluan
-        if (urgentA && urgentB)  return hoursA > hoursB ? -1 : 1; // sesama urgent: terlama dulu
-        return hoursB - hoursA;                                   // sesama non-urgent: terbaru dulu
+        if (urgentA !== urgentB) return urgentA ? -1 : 1;      
+        if (urgentA && urgentB)  return hoursA > hoursB ? -1 : 1; 
+        return hoursB - hoursA;                                   
       });
       setRequests(sorted);
     } catch (e) {
@@ -74,7 +74,6 @@ export default function ApprovalPendingPage() {
 
   const handleApprove = async (req) => {
     try {
-      // Gunakan approval request ID (req.id), bukan document_id
       await approveRequest(req.id, approveComment.trim() || undefined);
       setApproveId(null);
       setApproveComment("");
@@ -93,7 +92,6 @@ export default function ApprovalPendingPage() {
       <AppHeader title="Antrian Persetujuan" subtitle="Dokumen menunggu review dan persetujuan" />
       <div className="p-4 sm:p-8 space-y-6 animate-fade-in">
 
-        {/* Flow diagram */}
         <div className="bg-card border border-border rounded-xl p-4 sm:p-6">
           <div className="flex items-center justify-center gap-3 sm:gap-6 overflow-x-auto pb-2">
             {STEPS.map((step, i) => (

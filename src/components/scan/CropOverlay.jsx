@@ -115,7 +115,7 @@ export default function CropOverlay({ imageUrl, cropArea, onChange }) {
 
       {imgLoaded && (
         <div className="absolute inset-0">
-          {/* Dark overlay - 4 rects around crop */}
+          {/* Dark overlay */}
           <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 5 }}>
             <div className="absolute bg-foreground/50" style={{ top: 0, left: 0, right: 0, height: `${cropArea.y}%` }} />
             <div className="absolute bg-foreground/50" style={{ bottom: 0, left: 0, right: 0, height: `${Math.max(0, 100 - cropArea.y - cropArea.h)}%` }} />

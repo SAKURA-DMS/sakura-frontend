@@ -31,12 +31,11 @@ const fmtDisplay = (iso) => {
   return `${d}/${m}/${y}`;
 };
 
-// ── Smart Dual-Calendar Date Range Picker ─────────────────────────────────────
 function SmartDateRangePicker({ value, onChange, label }) {
   const today      = new Date();
   const todayStr   = fmt(today);
   const [open, setOpen]         = useState(false);
-  const [selecting, setSelecting] = useState("from"); // "from" | "to"
+  const [selecting, setSelecting] = useState("from"); 
   const [hovered,   setHovered]   = useState(null);
   const [draft,     setDraft]     = useState(value);
   const [viewYear,  setViewYear]  = useState(today.getFullYear());
@@ -67,7 +66,6 @@ function SmartDateRangePicker({ value, onChange, label }) {
     else setViewMonth((m) => m + 1);
   };
 
-  // Hitung hari dalam bulan
   const buildCalendar = (year, month) => {
     const first = new Date(year, month, 1).getDay();
     const total = new Date(year, month + 1, 0).getDate();
@@ -143,12 +141,10 @@ function SmartDateRangePicker({ value, onChange, label }) {
     ? `${fmtDisplay(value.from)} - ${fmtDisplay(value.to)}`
     : label || "Pilih rentang tanggal";
 
-  // ── Render satu grid kalender ────────────────────────────────────────────
   const renderCalendar = (year, month, showLeft, showRight) => {
     const cells = buildCalendar(year, month);
     return (
       <div>
-        {/* Bulan header */}
         <div className="flex items-center justify-between mb-3">
           {showLeft ? (
             <button
@@ -177,7 +173,6 @@ function SmartDateRangePicker({ value, onChange, label }) {
           ) : <span className="w-7" />}
         </div>
 
-        {/* Grid hari */}
         <div className="grid grid-cols-7 gap-0.5">
           {DAYS_HEADER.map((d) => (
             <div key={d} className="text-center text-[10px] font-semibold text-muted-foreground py-1">
@@ -223,7 +218,6 @@ function SmartDateRangePicker({ value, onChange, label }) {
 
   return (
     <>
-      {/* Trigger button */}
       <button
         ref={btnRef}
         onClick={openPicker}
@@ -236,7 +230,6 @@ function SmartDateRangePicker({ value, onChange, label }) {
         </svg>
       </button>
 
-      {/* Portal popup */}
       {open && (
         <div
           ref={popupRef}
@@ -249,18 +242,15 @@ function SmartDateRangePicker({ value, onChange, label }) {
           }}
           className="bg-card border border-border rounded-2xl shadow-2xl p-5"
         >
-          {/* Instruksi */}
           <p className="text-[10px] font-semibold text-muted-foreground mb-4 text-center uppercase tracking-widest">
             {selecting === "from" ? "Pilih Tanggal Mulai" : "Pilih Tanggal Akhir"}
           </p>
 
-          {/* Dual calendar */}
           <div className="grid grid-cols-2 gap-6">
             {renderCalendar(viewYear,  viewMonth,  true,  false)}
             {renderCalendar(rightYear, rightMonth, false, true)}
           </div>
 
-          {/* Footer actions */}
           <div className="flex items-center justify-end gap-3 mt-5 pt-4 border-t border-border">
             <button
               onClick={reset}
@@ -288,7 +278,7 @@ function SmartDateRangePicker({ value, onChange, label }) {
   );
 }
 
-// ── Month Range Picker (tetap list, tapi diperbaiki tampilannya) ───────────────
+// Month Range Picker 
 function MonthRangePicker({ monthFrom, monthTo, onApply }) {
   const today       = new Date();
   const currentYear = today.getFullYear();
@@ -307,7 +297,6 @@ function MonthRangePicker({ monthFrom, monthTo, onApply }) {
   const btnRef   = useRef(null);
   const popupRef = useRef(null);
 
-  // Konversi Date → "YYYY-MM-01"
   const toMonthStr = (d) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
 
@@ -390,7 +379,6 @@ function MonthRangePicker({ monthFrom, monthTo, onApply }) {
     const isNextYear = year === viewYear + 1;
     return (
       <div>
-        {/* Tahun header */}
         <div className="flex items-center justify-between mb-3">
           {isPrevYear ? (
             <button
@@ -512,7 +500,6 @@ function MonthRangePicker({ monthFrom, monthTo, onApply }) {
   );
 }
 
-// ── Main Component ────────────────────────────────────────────────────────────
 export default function ActivityChart({ onDateClick }) {
   const today = new Date();
 
@@ -595,11 +582,10 @@ export default function ActivityChart({ onDateClick }) {
 
   return (
     <div className="bg-card rounded-xl border border-border p-4 sm:p-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
         <div>
           <h3 className="text-base sm:text-lg font-bold text-foreground">
-            📈 Aktivitas {period === "weekly" ? "Mingguan" : "Bulanan"}
+            Aktivitas {period === "weekly" ? "Mingguan" : "Bulanan"}
           </h3>
           <p className="text-xs text-muted-foreground">
             Klik titik grafik untuk melihat dokumen, klik legend untuk toggle
@@ -607,7 +593,6 @@ export default function ActivityChart({ onDateClick }) {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* Period toggle */}
           <div className="flex gap-1 bg-muted rounded-lg p-1">
             <button
               onClick={() => setPeriod("weekly")}
@@ -636,7 +621,7 @@ export default function ActivityChart({ onDateClick }) {
             </button>
           )}
 
-          {/* Date pickers — SmartDateRangePicker (weekly) & MonthRangePicker (monthly) */}
+          {/* Date pickers */}
           {period === "weekly" ? (
             <SmartDateRangePicker
               value={weekRange}

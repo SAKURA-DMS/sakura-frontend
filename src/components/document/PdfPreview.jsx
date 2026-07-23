@@ -17,11 +17,6 @@ export default function PdfPreviewOverlay({ onClose, document: doc }) {
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState(null);
   const [downloading, setDownloading] = useState(false);
-
-  // ── Password confirmation sebelum download (BARU) ─────────────────────────
-  // Popup ini HANYA konfirmasi password, bukan login ulang: tidak pernah
-  // membuat session/token baru, hanya mencocokkan password ke backend
-  // sebelum file benar-benar diizinkan untuk diunduh.
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [password,          setPassword]          = useState("");
   const [showPasswordText,  setShowPasswordText]  = useState(false);
@@ -48,8 +43,6 @@ export default function PdfPreviewOverlay({ onClose, document: doc }) {
     fetchPreview();
     const handler = (e) => {
       if (e.key !== "Escape") return;
-      // Kalau popup password sedang terbuka, Esc menutup popup itu dulu saja
-      // (tidak langsung menutup overlay preview di belakangnya).
       if (showPasswordModal) {
         if (!verifying) closePasswordModal();
         return;
@@ -60,8 +53,6 @@ export default function PdfPreviewOverlay({ onClose, document: doc }) {
     return () => window.removeEventListener("keydown", handler);
   }, [doc.id, showPasswordModal, verifying]);
 
-  // Klik tombol Download hanya MEMBUKA popup konfirmasi password — file
-  // belum diunduh sama sekali di titik ini.
   const openPasswordModal = () => {
     setPassword("");
     setPasswordError(null);
@@ -70,16 +61,13 @@ export default function PdfPreviewOverlay({ onClose, document: doc }) {
   };
 
   const closePasswordModal = () => {
-    if (verifying) return; // jangan biarkan popup ditutup saat sedang proses
+    if (verifying) return;
     setShowPasswordModal(false);
     setPassword("");
     setPasswordError(null);
     setShowPasswordText(false);
   };
 
-  // Password baru benar-benar dikirim ke backend di sini, dan backend-lah
-  // yang mencocokkan hash-nya (lihat POST /api/documents/:id/download-stream).
-  // Frontend TIDAK PERNAH memvalidasi kebenaran password sendiri.
   const handleConfirmDownload = async () => {
     if (!password.trim()) {
       setPasswordError("Password wajib diisi");
@@ -105,14 +93,10 @@ export default function PdfPreviewOverlay({ onClose, document: doc }) {
       document.body.appendChild(a); a.click();
       document.body.removeChild(a); URL.revokeObjectURL(url);
 
-      // Sukses → tutup popup password
       setShowPasswordModal(false);
       setPassword("");
       setShowPasswordText(false);
     } catch (err) {
-      // PENTING: karena responseType di atas adalah "blob", pesan error dari
-      // backend (JSON) ikut terbungkus sebagai Blob juga — bukan object JSON
-      // biasa — jadi harus dibaca manual sebagai teks lalu di-parse di sini.
       let message = "Password salah";
       const rawData = err?.response?.data;
       if (rawData instanceof Blob) {
@@ -121,7 +105,6 @@ export default function PdfPreviewOverlay({ onClose, document: doc }) {
           const parsed = JSON.parse(text);
           if (parsed?.error) message = parsed.error;
         } catch {
-          // biarkan pesan default "Password salah" jika body gagal di-parse
         }
       } else if (err?.response?.data?.error) {
         message = err.response.data.error;
@@ -247,9 +230,7 @@ export default function PdfPreviewOverlay({ onClose, document: doc }) {
         )}
       </div>
 
-      {/* ── Popup Konfirmasi Password sebelum Download ──────────────────────
-          Tidak fullscreen, background blur, responsive, Esc menutup popup,
-          klik di luar popup menutup popup (selama tidak sedang verifying). */}
+      {/* Popup Konfirmasi Password sebelum Download */}
       {showPasswordModal && (
         <div
           className="fixed inset-0 z-[200] flex items-center justify-center bg-foreground/40 backdrop-blur-sm p-4 animate-fade-in"

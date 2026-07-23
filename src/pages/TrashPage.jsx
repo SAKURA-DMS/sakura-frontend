@@ -1,17 +1,7 @@
 import { useApp } from "@/contexts/AppContext";
 import { useEffect, useRef, useState } from "react";
 import AppHeader from "@/components/layout/AppHeader";
-import {
-  Trash2,
-  RefreshCcw,
-  AlertTriangle,
-  FileText,
-  CheckCircle2,
-  XCircle,
-  Loader2,
-  RotateCcw,
-} from "lucide-react";
-
+import { Trash2, RefreshCcw, AlertTriangle, FileText, CheckCircle2, XCircle, Loader2, RotateCcw } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 
@@ -29,7 +19,6 @@ export default function TrashPage() {
     action: null,
   });
 
-  // Confirmation popover sebelum aksi dijalankan
   const [confirmation, setConfirmation] = useState(null);
 
   // Feedback setelah aksi berhasil / gagal
@@ -38,7 +27,6 @@ export default function TrashPage() {
   const feedbackTimerRef = useRef(null);
   const confirmationRef = useRef(null);
 
-  // Load dokumen trash saat halaman dibuka
   useEffect(() => {
     loadTrashedDocuments();
   }, [loadTrashedDocuments]);
@@ -52,7 +40,6 @@ export default function TrashPage() {
     };
   }, []);
 
-  // Tutup confirmation jika klik di luar popup
   useEffect(() => {
     if (!confirmation) return;
 
@@ -80,7 +67,6 @@ export default function TrashPage() {
     };
   }, [confirmation]);
 
-  // Hitung posisi popup agar muncul dekat tombol yang diklik
   const getPopupPosition = (
     buttonElement,
     popupWidth = 330,
@@ -91,22 +77,18 @@ export default function TrashPage() {
     let top = rect.bottom + 10;
     let left = rect.right - popupWidth;
 
-    // Jangan keluar sisi kiri layar
     if (left < 16) {
       left = 16;
     }
 
-    // Jangan keluar sisi kanan layar
     if (left + popupWidth > window.innerWidth - 16) {
       left = window.innerWidth - popupWidth - 16;
     }
 
-    // Jika ruang bawah sempit, tampilkan di atas tombol
     if (top + estimatedHeight > window.innerHeight - 16) {
       top = rect.top - estimatedHeight - 10;
     }
 
-    // Pastikan tetap terlihat
     if (top < 16) {
       top = 16;
     }
@@ -118,7 +100,6 @@ export default function TrashPage() {
     };
   };
 
-  // Tampilkan konfirmasi Restore
   const askRestoreConfirmation = (doc, event) => {
     if (processing.id) return;
 
@@ -160,7 +141,7 @@ export default function TrashPage() {
     });
   };
 
-  // Menampilkan feedback sukses / gagal dekat tombol
+  // Menampilkan feedback sukses / gagal 
   const showActionFeedback = ({
     buttonElement,
     type,
@@ -218,12 +199,10 @@ export default function TrashPage() {
 
     const { doc, buttonRect } = confirmation;
 
-    // Simpan posisi tombol sebelum row hilang
     const buttonPosition = {
       getBoundingClientRect: () => buttonRect,
     };
 
-    // Tutup confirmation sebelum request
     setConfirmation(null);
 
     try {
@@ -262,19 +241,17 @@ export default function TrashPage() {
     }
   };
 
-  // Jalankan hapus permanen setelah user menekan "Hapus Permanen"
+  // Jalankan hapus permanen 
   const handlePermanentDelete = async () => {
     if (!confirmation || confirmation.type !== "delete") return;
     if (!permanentlyDeleteDocument) return;
 
     const { doc, buttonRect } = confirmation;
 
-    // Simpan posisi tombol sebelum row hilang
     const buttonPosition = {
       getBoundingClientRect: () => buttonRect,
     };
 
-    // Tutup confirmation sebelum request
     setConfirmation(null);
 
     try {
@@ -337,14 +314,12 @@ export default function TrashPage() {
 
         {/* Container */}
         <div className="bg-card border border-border rounded-xl overflow-hidden">
-          {/* Header */}
           <div className="p-4 border-b border-border bg-muted/30 flex items-center justify-between">
             <h3 className="font-bold text-foreground flex items-center gap-2">
               <Trash2
                 size={18}
                 className="text-muted-foreground"
               />
-
               Daftar Dokumen Dihapus ({trashedDocuments.length})
             </h3>
           </div>
@@ -390,7 +365,6 @@ export default function TrashPage() {
                     key={doc.id}
                     className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 hover:bg-muted/10"
                   >
-                    {/* Left */}
                     <div className="flex items-start gap-3 flex-1 min-w-0">
                       <div className="w-10 h-10 rounded-lg bg-destructive/10 flex items-center justify-center shrink-0 mt-0.5">
                         <FileText
@@ -486,10 +460,7 @@ export default function TrashPage() {
         </div>
       </div>
 
-      {/* =========================================================
-          CONFIRMATION POPOVER
-          Muncul SEBELUM restore / hapus permanen dijalankan
-          ========================================================= */}
+      {/* CONFIRMATION POPOVER */}
       {confirmation && (
         <div
           ref={confirmationRef}
@@ -636,10 +607,7 @@ export default function TrashPage() {
         </div>
       )}
 
-      {/* =========================================================
-          ACTION FEEDBACK
-          Tetap muncul SETELAH aksi berhasil / gagal
-          ========================================================= */}
+      {/* ACTION FEEDBACK */}
       {actionFeedback && (
         <div
           className="

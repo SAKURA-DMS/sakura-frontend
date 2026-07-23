@@ -1,9 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import {
-  X, Camera, RotateCcw, Plus, Crop, Download, FileText, Image,
-  Trash2, Check, Pencil, ZoomIn, ZoomOut, Maximize, ChevronUp,
-  ChevronDown, MoreVertical, ArrowUp, ArrowDown,
-} from "lucide-react";
+import { X, Camera, RotateCcw, Plus, Crop, Download, FileText, Image, Trash2, Check, Pencil, ZoomIn, ZoomOut, Maximize, ChevronUp, ChevronDown, MoreVertical, ArrowUp, ArrowDown } from "lucide-react";
 import CropOverlay from "./CropOverlay";
 
 export default function CameraScanModal({ onClose, onComplete }) {
@@ -13,14 +9,14 @@ export default function CameraScanModal({ onClose, onComplete }) {
   const [pages, setPages] = useState([]);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [outputFormat, setOutputFormat] = useState("pdf");
-  const [step, setStep] = useState("camera"); // camera | crop | review
+  const [step, setStep] = useState("camera"); 
   const [cropPageIndex, setCropPageIndex] = useState(0);
   const [cropArea, setCropArea] = useState({ x: 10, y: 10, w: 80, h: 80 });
   const [zoomLevel, setZoomLevel] = useState(100);
   const [activePageMenu, setActivePageMenu] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
 
-  // ── Camera ──
+  // Camera
   const startCamera = useCallback(async () => {
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({
@@ -53,7 +49,7 @@ export default function CameraScanModal({ onClose, onComplete }) {
     setPages((p) => [...p, { id: Date.now(), imageData: c.toDataURL("image/jpeg", 0.92) }]);
   };
 
-  // ── Crop ──
+  // Crop
   const applyCrop = () => {
     const page = pages[cropPageIndex];
     if (!page) return;
@@ -73,7 +69,7 @@ export default function CameraScanModal({ onClose, onComplete }) {
     img.src = page.imageData;
   };
 
-  // ── Page management ──
+  // Page management
   const confirmDelete = (index) => setDeleteConfirm(index);
   const executeDelete = (index) => {
     setPages((prev) => {
@@ -103,7 +99,7 @@ export default function CameraScanModal({ onClose, onComplete }) {
     setActivePageMenu(null);
   };
 
-  // ── Convert ──
+  // Convert
   const handleConvert = async () => {
     if (pages.length === 0) return;
     const pageImages = pages.map((p) => p.cropped || p.imageData);
@@ -111,7 +107,6 @@ export default function CameraScanModal({ onClose, onComplete }) {
     const mimeType = outputFormat === "png" ? "image/png" : outputFormat === "jpg" ? "image/jpeg" : "application/pdf";
 
     if (outputFormat === "pdf" || pages.length > 1) {
-      // Combine all pages into one vertical canvas
       const imgs = await Promise.all(pageImages.map((src) => new Promise((resolve) => {
         const img = new Image();
         img.onload = () => resolve(img);
@@ -134,7 +129,6 @@ export default function CameraScanModal({ onClose, onComplete }) {
         onComplete(file, pageImages);
       }, outputFormat === "png" ? "image/png" : "image/jpeg", 0.92);
     } else {
-      // Single page — export directly
       const data = pageImages[0];
       const byteString = atob(data.split(",")[1]);
       const ab = new ArrayBuffer(byteString.length);
@@ -146,14 +140,12 @@ export default function CameraScanModal({ onClose, onComplete }) {
     }
   };
 
-  // ── Zoom ──
+  // Zoom
   const zoomIn = () => setZoomLevel((z) => Math.min(z + 25, 300));
   const zoomOut = () => setZoomLevel((z) => Math.max(z - 25, 50));
   const fitWidth = () => setZoomLevel(100);
 
-  // ═══════════════════════════════════════════
   // CAMERA STEP
-  // ═══════════════════════════════════════════
   const renderCamera = () => (
     <>
       <div className="relative bg-muted/20 rounded-xl overflow-hidden" style={{ aspectRatio: "4/3" }}>
@@ -193,9 +185,7 @@ export default function CameraScanModal({ onClose, onComplete }) {
     </>
   );
 
-  // ═══════════════════════════════════════════
   // CROP STEP
-  // ═══════════════════════════════════════════
   const renderCrop = () => {
     const page = pages[cropPageIndex];
     if (!page) return null;
@@ -243,16 +233,14 @@ export default function CameraScanModal({ onClose, onComplete }) {
     );
   };
 
-  // ═══════════════════════════════════════════
-  // REVIEW STEP — Validation Preview
-  // ═══════════════════════════════════════════
+  // REVIEW STEP
   const renderReview = () => {
     const isPdf = outputFormat === "pdf";
-    const estimatedSize = pages.length * 0.3; // rough MB estimate
+    const estimatedSize = pages.length * 0.3;
 
     return (
       <div className="flex flex-col gap-3 min-h-0">
-        {/* Toolbar — zoom & page nav only, NO print/download */}
+        {/* Toolbar */}
         <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-muted/30 border border-border shrink-0">
           <div className="flex items-center gap-1">
             <button onClick={zoomOut} className="p-1.5 rounded-md hover:bg-muted transition-colors" title="Perkecil">
@@ -272,13 +260,11 @@ export default function CameraScanModal({ onClose, onComplete }) {
           </span>
         </div>
 
-        {/* Main content: split layout */}
+        {/* Main content */}
         <div className="flex flex-col sm:flex-row gap-4 min-h-0 flex-1">
-          {/* Left: scrollable page previews */}
           <div className="flex-1 min-h-0 overflow-y-auto space-y-4 pr-1" style={{ maxHeight: "58vh" }}>
             {pages.map((page, i) => (
               <div key={page.id} className="relative group">
-                {/* Page container */}
                 <div
                   className={`relative bg-background border rounded-lg overflow-hidden transition-all ${
                     isPdf ? "border-border shadow-md" : "border-border shadow-sm"
@@ -301,7 +287,6 @@ export default function CameraScanModal({ onClose, onComplete }) {
                     />
                   </div>
 
-                  {/* Per-page overlay controls — visible on hover / tap */}
                   <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
                     <div className="relative">
                       <button
@@ -354,7 +339,6 @@ export default function CameraScanModal({ onClose, onComplete }) {
                   </div>
                 </div>
 
-                {/* Quick action bar below page */}
                 <div className="flex items-center justify-between mt-1.5 px-1">
                   <span className="text-xs font-medium text-muted-foreground">
                     Halaman {i + 1}
@@ -369,7 +353,6 @@ export default function CameraScanModal({ onClose, onComplete }) {
                   </div>
                 </div>
 
-                {/* Delete confirmation inline */}
                 {deleteConfirm === i && (
                   <div className="mt-2 p-3 rounded-lg border border-destructive/30 bg-destructive/5">
                     <p className="text-xs text-foreground mb-2">Hapus halaman ini?</p>
@@ -387,9 +370,8 @@ export default function CameraScanModal({ onClose, onComplete }) {
             ))}
           </div>
 
-          {/* Right: settings panel */}
+          {/* settings panel */}
           <div className="sm:w-52 shrink-0 space-y-3">
-            {/* Format selection */}
             <div className="p-3 rounded-xl border border-border bg-muted/30 space-y-3">
               <h4 className="text-xs font-semibold text-foreground uppercase tracking-wide">Simpan Sebagai</h4>
               <div className="flex flex-row sm:flex-col gap-2">
@@ -445,9 +427,7 @@ export default function CameraScanModal({ onClose, onComplete }) {
     );
   };
 
-  // ═══════════════════════════════════════════
   // MODAL SHELL
-  // ═══════════════════════════════════════════
   const subtitle = step === "camera"
     ? "Ambil foto dokumen"
     : step === "crop"

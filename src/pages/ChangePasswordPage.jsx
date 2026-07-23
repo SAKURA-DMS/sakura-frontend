@@ -9,11 +9,6 @@ export default function ChangePasswordPage() {
   const { changePassword, currentUser } = useApp();
   const { toast } = useToast();
   const navigate = useNavigate();
-  // Halaman ini bisa diakses lewat 2 jalur: (1) dipaksa oleh ProtectedRoute
-  // karena akun masih memakai password default/awal, atau (2) dibuka manual
-  // dari menu Pengaturan Akun. Simpan status "forced" di awal render supaya
-  // tetap konsisten selama proses submit, walau flag di context sudah
-  // di-reset ke false segera setelah password berhasil diganti.
   const [forcedFlow] = useState(!!currentUser?.mustChangePassword);
   const [currentPw, setCurrentPw] = useState("");
   const [newPw, setNewPw] = useState("");
@@ -44,9 +39,6 @@ export default function ChangePasswordPage() {
       setCurrentPw("");
       setNewPw("");
       setConfirmPw("");
-      // Alur wajib-ganti-password pertama kali: setelah berhasil, langsung
-      // masuk ke Dashboard. Alur ganti password biasa (dari menu Pengaturan
-      // Akun) tetap di halaman ini seperti sebelumnya.
       if (forcedFlow) {
         navigate("/dashboard", { replace: true });
       }

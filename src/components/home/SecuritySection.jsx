@@ -17,9 +17,7 @@ function QRMockup() {
         boxShadow: "0 0 30px rgba(232,96,122,0.5)",
       }}
     >
-      {/* Stylized QR */}
       <svg viewBox="0 0 100 100" width="120" height="120">
-        {/* QR pattern */}
         {[0, 1, 2, 3, 4, 5, 6].map((row) =>
           [0, 1, 2, 3, 4, 5, 6].map((col) => {
             const isCorner =
@@ -39,7 +37,6 @@ function QRMockup() {
             ) : null;
           })
         )}
-        {/* Center sakura */}
         {[0, 72, 144, 216, 288].map((a) => (
           <g key={a} transform={`rotate(${a}, 50, 50)`}>
             <path d="M50,50 C46,46 44,40 50,36 C56,40 54,46 50,50Z" fill="#FFB7C5" opacity="0.9" />
@@ -47,7 +44,6 @@ function QRMockup() {
         ))}
         <circle cx="50" cy="50" r="3" fill="#FFD700" />
       </svg>
-      {/* Scan line */}
       <div
         className="absolute left-0 right-0 h-[2px]"
         style={{

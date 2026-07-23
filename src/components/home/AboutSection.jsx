@@ -52,7 +52,6 @@ const FEATURE_PILLS = [
 function Slide1() {
   return (
     <div className="flex flex-col md:flex-row items-center gap-10 w-full">
-      {/* LEFT — Logo */}
       <div className="flex flex-col items-center gap-4 md:w-[45%] flex-shrink-0">
         <div
           className="flex items-center justify-center rounded-full bg-white overflow-hidden"
@@ -78,7 +77,6 @@ function Slide1() {
         </p>
       </div>
 
-      {/* RIGHT — Text */}
       <div className="flex-1 min-w-0">
         <h2
           className="text-3xl md:text-[32px] font-bold mb-2"
@@ -197,9 +195,7 @@ export default function AboutSection() {
   const prev = useCallback(() => {
     setDirection(-1);
     setActiveSlide((p) => (p - 1 + TOTAL) % TOTAL);
-  }, []);
-
-  // Auto-advance
+  }, [])
   useEffect(() => {
     const timer = setInterval(next, 6000);
     return () => clearInterval(timer);
@@ -225,7 +221,6 @@ export default function AboutSection() {
         minHeight: 480,
       }}
     >
-      {/* Arrow buttons */}
       <button
         onClick={prev}
         className="absolute left-3 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center w-10 h-10 rounded-full bg-white transition-colors duration-200 hover:bg-secondary"
@@ -243,7 +238,6 @@ export default function AboutSection() {
         <ChevronRight size={18} className="text-primary" />
       </button>
 
-      {/* Slide content */}
       <div className="relative overflow-hidden" style={{ minHeight: 360 }}>
         <motion.div
           key={activeSlide}
@@ -259,7 +253,6 @@ export default function AboutSection() {
         </motion.div>
       </div>
 
-      {/* Dots */}
       <div className="flex items-center justify-center gap-2 mt-6">
         {Array.from({ length: TOTAL }).map((_, i) => (
           <button

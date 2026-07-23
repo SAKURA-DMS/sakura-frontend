@@ -2,7 +2,6 @@ import { useState, useRef, useMemo, useCallback } from "react";
 import { Upload, Camera, X, Eye, FileText, CalendarIcon, ChevronDown, Maximize, ZoomIn, ZoomOut, ChevronLeft, ChevronRight, RotateCw, AlertTriangle, Lock, Search } from "lucide-react";
 import CameraScanModal from "@/components/shared/CameraScan";
 import { useApp } from "@/contexts/AppContext";
-
 import PdfPreviewOverlay from "@/components/document/PdfPreview";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -28,8 +27,6 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
   const [fullPreviewZoom, setFullPreviewZoom] = useState(100);
   const [fullPreviewPage, setFullPreviewPage] = useState(0);
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
-
-  // Rotate a scanned page by 90° CW using canvas (modifies actual image data)
   const rotatePage = useCallback((pageIndex) => {
     const src = scanPageImages[pageIndex];
     if (!src) return;
@@ -54,8 +51,6 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
   const [ownerNIPs, setOwnerNIPs] = useState(lockedNip ? [lockedNip] : []);
   const [nipSearch, setNipSearch] = useState("");
   const [nipDropdownOpen, setNipDropdownOpen] = useState(false);
-
-  // Users with NIP for multi-select
   const nipUsers = useMemo(() => {
     return users.filter((u) => u.nip && u.nip.length > 0);
   }, [users]);
@@ -73,7 +68,7 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
   };
 
   const removeNip = (nip) => {
-    if (guruUploadOwn) return; // locked
+    if (guruUploadOwn) return;
     setOwnerNIPs((prev) => prev.filter((n) => n !== nip));
   };
 
@@ -86,22 +81,16 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
     tanggalUpload: new Date(),
   });
 
-  // Dynamic metadata fields state (category-specific data)
   const [metaData, setMetaData] = useState({});
-
   const dynamicFields = useMemo(() => {
     if (!selectedCategoryId || !selectedTypeId) return [];
-    // Surat Menyurat has type-specific fields
     if (selectedCategoryId === 4) {
       return SURAT_TYPE_FORM_FIELDS[selectedTypeId] || [];
     }
     return CATEGORY_FORM_FIELDS[selectedCategoryId] || [];
   }, [selectedCategoryId, selectedTypeId]);
 
-  // Check if both category and type are selected
   const hasSelection = selectedCategoryId && selectedTypeId;
-
-  // Auto folder display
   const autoFolderDisplay = useMemo(() => {
     if (!selectedCategoryId || !selectedTypeId) return "";
     const tahun = metaData.tahunAjaran || "";
@@ -205,8 +194,6 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
 
   const update = (key, val) => setForm((p) => ({ ...p, [key]: val }));
   const updateMeta = (key, val) => setMetaData((p) => ({ ...p, [key]: val }));
-
-  // Render a single dynamic field
   const renderField = (field) => {
     if (field.type === "tahun_ajaran") {
       return (
@@ -249,7 +236,6 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
         </div>
       );
     }
-    // Default: text input
     return (
       <div key={field.key}>
         <label className="block text-sm font-medium text-foreground mb-1">{field.label}{field.required ? " *" : ""}</label>
@@ -258,7 +244,6 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
     );
   };
 
-  // Get category-specific section title
   const getCategorySectionTitle = () => {
     if (selectedCategoryId === 1) return "Data Siswa";
     if (selectedCategoryId === 2) return "Data Guru";
@@ -276,7 +261,7 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
         <div className="space-y-6">
           {/* Urgent toggle */}
           <div className="bg-card border border-border rounded-xl p-4 sm:p-6">
-            <div className="flex items-center justify-between">
+            <div className="flex items-centr justify-between">
               <span className="text-sm font-medium text-foreground">Tandai sebagai Urgent</span>
               <button type="button" onClick={() => setIsUrgent(!isUrgent)} className={`relative w-11 h-6 rounded-full transition-colors ${isUrgent ? "bg-sakura-warning" : "bg-input"}`}>
                 <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-background shadow transition-transform ${isUrgent ? "translate-x-5" : ""}`} />
@@ -306,7 +291,6 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-1">NIP Pemilik Dokumen *</label>
-                  {/* Selected NIPs as pills */}
                   {ownerNIPs.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 mb-2">
                       {ownerNIPs.map((nip) => {
@@ -324,7 +308,6 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
                       })}
                     </div>
                   )}
-                  {/* Searchable dropdown */}
                   {!guruUploadOwn && (
                     <div className="relative">
                       <div className="relative">
@@ -366,7 +349,6 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
               <span className="text-muted-foreground"> (auto-mapping)</span>
             </div>
           )}
-          {/* OCR scanner removed per requirements */}
 
           <div className="bg-card border border-border rounded-xl p-4 sm:p-6">
             <h3 className="font-bold text-foreground mb-4 flex items-center gap-2"><FileText size={18} className="text-primary" /> File Dokumen</h3>
@@ -403,7 +385,6 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
             <div className="bg-card border border-border rounded-xl p-4 sm:p-6">
               <h3 className="font-bold text-foreground mb-4 flex items-center gap-2"><Eye size={18} className="text-primary" /> Pratinjau File</h3>
               {scanPageImages.length > 0 ? (
-                /* Validation preview for scanned pages — NO PDF viewer, NO print/download */
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground font-medium">
@@ -506,7 +487,6 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
         </div>
 
         <div className="space-y-6">
-          {/* Core document fields - always visible */}
           <div className="bg-card border border-border rounded-xl p-4 sm:p-6">
             <h3 className="font-bold text-foreground mb-4">Data Dokumen</h3>
             <div className="space-y-4">
@@ -550,7 +530,7 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
                 </select>
               </div>
 
-              {/* Folder auto-mapping - only after both selected */}
+              {/* Folder auto-mapping */}
               {hasSelection && (
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-1">Masukkan ke Folder</label>
@@ -558,7 +538,6 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
                 </div>
               )}
 
-              {/* Tanggal Upload - always visible */}
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1">Tanggal Upload</label>
                 <div className="relative">
@@ -579,7 +558,6 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
             </div>
           </div>
 
-          {/* Dynamic category-specific fields - only after both category and type selected */}
           {hasSelection && dynamicFields.length > 0 && (
             <div className="bg-card border border-border rounded-xl p-4 sm:p-6 animate-fade-in">
               <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
@@ -592,7 +570,6 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
             </div>
           )}
 
-          {/* Restricted access fields for sensitive docs */}
           {hasSelection && (selectedCategoryId === 2 || selectedTypeId === 12) && (
             <div className="bg-destructive/5 border border-destructive/20 rounded-xl p-4 sm:p-6 animate-fade-in">
               <h3 className="font-bold text-foreground mb-1 flex items-center gap-2">
@@ -613,7 +590,6 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
             </div>
           )}
 
-          {/* Submit button */}
           <div className="flex gap-3">
             {onCancel && (
               <button type="button" onClick={onCancel} className="flex-1 py-3 rounded-lg border border-input text-sm font-semibold hover:bg-muted transition-colors">Batal</button>

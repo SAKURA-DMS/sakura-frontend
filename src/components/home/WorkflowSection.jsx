@@ -25,9 +25,7 @@ export default function WorkflowSection() {
         </p>
       </div>
 
-      {/* Timeline */}
       <div className="relative flex flex-col md:flex-row items-start md:items-center justify-between gap-6 md:gap-0">
-        {/* Connecting line (desktop) */}
         <div
           className="hidden md:block absolute top-8 left-[12%] right-[12%] h-[2px]"
           style={{
@@ -52,7 +50,6 @@ export default function WorkflowSection() {
               }}
             >
               <step.icon size={24} color="white" />
-              {/* Pulse ring */}
               <div
                 className="absolute inset-0 rounded-full"
                 style={{

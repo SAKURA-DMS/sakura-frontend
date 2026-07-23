@@ -1,9 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import {
-  CheckCircle, XCircle, Clock, Eye, FileText,
-  ArrowRight, AlertTriangle, RefreshCw, ScrollText,
-  ChevronDown, ChevronUp, Loader2
-} from "lucide-react";
+import { CheckCircle, XCircle, Clock, Eye, FileText, ArrowRight, AlertTriangle, RefreshCw, ScrollText, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import AppHeader from "@/components/layout/AppHeader";
 import { useApp } from "@/contexts/AppContext";
 import DocumentDetailModal from "@/components/modals/DocumentDetailModal";
@@ -11,14 +7,12 @@ import UserAvatar from "@/components/shared/UserAvatar";
 import * as documentService from "@/services/documentService";
 import { format, differenceInHours } from "date-fns";
 
-// ── Workflow steps ────────────────────────────────────────────────────────────
 const STEPS = [
   { label: "Upload Dokumen",      icon: FileText },
   { label: "Antrian Persetujuan", icon: Clock },
   { label: "Disetujui / Ditolak", icon: CheckCircle },
 ];
 
-// ── Komponen: Badge status ────────────────────────────────────────────────────
 function StatusBadge({ status }) {
   const MAP = {
     pending:   "bg-sakura-warning/20 text-sakura-warning",
@@ -34,7 +28,7 @@ function StatusBadge({ status }) {
   );
 }
 
-// ── Komponen: Urgency badge ───────────────────────────────────────────────────
+// Urgency badge
 function UrgencyBadge({ requestedAt }) {
   const hours = differenceInHours(new Date(), new Date(requestedAt));
   if (hours > 72) return (
@@ -54,7 +48,7 @@ function UrgencyBadge({ requestedAt }) {
   );
 }
 
-// ── Komponen: Audit Trail mini ────────────────────────────────────────────────
+// Audit Trail 
 function AuditTrailPanel({ requestId, onClose }) {
   const [logs, setLogs]     = useState([]);
   const [loading, setLoading] = useState(true);
@@ -110,7 +104,7 @@ function AuditTrailPanel({ requestId, onClose }) {
   );
 }
 
-// ── Main Component ────────────────────────────────────────────────────────────
+// Main Component 
 export default function ApprovalPage() {
   const { currentUser, hasPermission, documents, loadDocuments } = useApp();
 
@@ -119,7 +113,6 @@ export default function ApprovalPage() {
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState(null);
 
-  // Modal state
   const [detailDoc,   setDetailDoc]   = useState(null);
   const [auditId,     setAuditId]     = useState(null); 
   const [approveReq,  setApproveReq]  = useState(null); 
@@ -132,7 +125,7 @@ export default function ApprovalPage() {
   const canReject  = hasPermission("documents.reject");
   const canView    = hasPermission("approvals.view");
 
-  // ── Load approvals dari API ─────────────────────────────────────────────────
+  // Load approvals 
   const loadApprovals = useCallback(async () => {
     if (!canView) return;
     setLoading(true);
@@ -164,7 +157,7 @@ export default function ApprovalPage() {
     loadDocuments();
   }, [loadApprovals, loadDocuments]);
 
-  // ── Approve ─────────────────────────────────────────────────────────────────
+  // Approve
   const handleApprove = async () => {
     if (!approveReq) return;
     setSubmitting(true);
@@ -181,7 +174,7 @@ export default function ApprovalPage() {
     }
   };
 
-  // ── Reject ──────────────────────────────────────────────────────────────────
+  // Reject
   const handleReject = async () => {
     if (!rejectReq || !rejectReason.trim()) return;
     setSubmitting(true);
@@ -200,7 +193,7 @@ export default function ApprovalPage() {
 
   const getDocById = (docId) => documents.find((d) => d.id === docId) || null;
 
-  // ── Render ──────────────────────────────────────────────────────────────────
+  // Render
   return (
     <>
       <AppHeader
@@ -356,7 +349,7 @@ export default function ApprovalPage() {
           </div>
         )}
 
-        {/* ── Riwayat Keputusan ─────────────────────────────────────── */}
+        {/* Riwayat Keputusan */}
         {!loading && decided.length > 0 && (
           <div className="bg-card border border-border rounded-xl p-4 sm:p-6">
             <h3 className="font-bold text-foreground mb-4">Riwayat Keputusan</h3>
@@ -401,7 +394,7 @@ export default function ApprovalPage() {
         )}
       </div>
 
-      {/* ── Modal: Approve Konfirmasi ───────────────────────────────────── */}
+      {/* Modal: Approve Konfirmasi */}
       {approveReq && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 backdrop-blur-sm"
@@ -455,7 +448,7 @@ export default function ApprovalPage() {
         </div>
       )}
 
-      {/* ── Modal: Reject ───────────────────────────────────────────────── */}
+      {/* Modal: Reject */}
       {rejectReq && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 backdrop-blur-sm"
@@ -502,12 +495,12 @@ export default function ApprovalPage() {
         </div>
       )}
 
-      {/* ── Modal: Audit Trail ──────────────────────────────────────────── */}
+      {/* Modal: Audit Trail */}
       {auditId && (
         <AuditTrailPanel requestId={auditId} onClose={() => setAuditId(null)} />
       )}
 
-      {/* ── Modal: Document Detail ──────────────────────────────────────── */}
+      {/* Modal: Document Detail */}
       {detailDoc && (
         <DocumentDetailModal document={detailDoc} onClose={() => setDetailDoc(null)} />
       )}

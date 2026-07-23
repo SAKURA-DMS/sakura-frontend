@@ -1,14 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import {
-  FileText,
-  Clock,
-  CheckCircle,
-  Archive,
-  XCircle,
-  Eye,
-  RefreshCw,
-  AlertCircle,
-} from "lucide-react";
+import { FileText, Clock, CheckCircle, Archive, XCircle, Eye, RefreshCw, AlertCircle } from "lucide-react";
 import AppHeader from "@/components/layout/AppHeader";
 import DashboardCard from "@/components/dashboard/DashboardCard";
 import ActivityChart from "@/components/dashboard/ActivityChart";
@@ -19,10 +10,7 @@ import UserAvatar from "@/components/shared/UserAvatar";
 import { format, differenceInHours } from "date-fns";
 import { getStats, getActivity } from "@/services/dashboardService";
 import api from "@/lib/apiClient";
-import {
-  approveRequest,
-  rejectRequest,
-} from "@/services/documentService";
+import { approveRequest, rejectRequest } from "@/services/documentService";
 
 const TABS = [
   { key: "ringkasan", label: "Ringkasan", icon: Archive },
@@ -43,12 +31,11 @@ export default function DashboardPage() {
   const [listModal, setListModal] = useState(null);
   const [detailDoc, setDetailDoc] = useState(null);
 
-  // Load dokumen saat mount agar cards & list modal berfungsi
   useEffect(() => {
     if (currentUser) loadDocuments();
   }, [currentUser, loadDocuments]);
 
-  // ── Dashboard stats dari API ───────────────────────────────────────────────
+  // Dashboard stats
   const [dashboardStats, setDashboardStats] = useState(null);
   const [statsLoading, setStatsLoading] = useState(false);
   const [statsError, setStatsError] = useState(null);
@@ -71,10 +58,7 @@ export default function DashboardPage() {
     if (currentUser) loadStats();
   }, [currentUser, loadStats]);
 
-  // ── Dokumen yang visible untuk user ini ──────────────────────────────────
-  // Disamakan dengan hak akses di ArchivePage:
-  // Operator/TU & Kepala Sekolah melihat semua dokumen.
-  // Guru melihat semua dokumen umum; dokumen sensitif hanya miliknya/terkait dirinya.
+  // Dokumen yang visible untuk user
   const visibleDocs = documents.filter((doc) => {
     if (currentUser?.role === "Operator/TU") return true;
     if (currentUser?.role === "Kepala Sekolah") return true;
@@ -94,7 +78,7 @@ export default function DashboardPage() {
     return false;
   });
 
-  // ── Stats: API jika tersedia, fallback ke count lokal ────────────────────
+  // Stats
   const counts = dashboardStats ?? {
     total: visibleDocs.length,
     menunggu: visibleDocs.filter((d) => d.status === "Menunggu").length,
@@ -102,7 +86,7 @@ export default function DashboardPage() {
     ditolak: visibleDocs.filter((d) => d.status === "Ditolak").length,
   };
 
-  // ── Chart click handlers ──────────────────────────────────────────────────
+  // Chart click handlers
   const handleChartDateClick = (date, status) => {
     let matched = visibleDocs.filter((d) =>
       d.tanggalUpload?.startsWith(date)
@@ -136,7 +120,7 @@ export default function DashboardPage() {
     }
   };
 
-  // ── Greeting ──────────────────────────────────────────────────────────────
+  // Greeting 
   const getGreeting = () => {
     const h = new Date().getHours();
 
@@ -411,19 +395,8 @@ export default function DashboardPage() {
   );
 }
 
-// ── OverviewTab ───────────────────────────────────────────────────────────────
-
-function OverviewTab({
-  counts,
-  statsLoading,
-  statsError,
-  onRetryStats,
-  visibleDocs,
-  onOpenList,
-  onSelectDoc,
-  onChartDateClick,
-  onChartStatusClick,
-}) {
+// OverviewTab 
+function OverviewTab({ counts, statsLoading, statsError, onRetryStats, visibleDocs, onOpenList, onSelectDoc, onChartDateClick, onChartStatusClick }) {
   const [activity, setActivity] = useState([]);
   const [activityLoading, setActivityLoading] = useState(false);
   const [activityError, setActivityError] = useState(null);
@@ -686,16 +659,8 @@ function OverviewTab({
   );
 }
 
-// ── PersetujuanTab ───────────────────────────────────────────────────────────
-
-function PersetujuanTab({
-  currentUser,
-  canApprove,
-  approveDocument,
-  rejectDocument,
-  onSelectDoc,
-  onDocUpdated,
-}) {
+// PersetujuanTab
+function PersetujuanTab({ currentUser, canApprove, approveDocument, rejectDocument, onSelectDoc, onDocUpdated}) {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);

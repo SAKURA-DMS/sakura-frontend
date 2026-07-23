@@ -1,50 +1,16 @@
 import { useState, useMemo } from "react";
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
-import {
-  LayoutDashboard,
-  Upload,
-  Archive,
-  Users,
-  Shield,
-  FileText,
-  Settings,
-  PanelLeftClose,
-  PanelLeft,
-  ChevronDown,
-  Clock,
-  CheckCircle,
-  GitBranch,
-  Folder,
-  FolderOpen,
-  Trash2,
-  X,
-  ShieldCheck,
-} from "lucide-react";
-
+import { LayoutDashboard, Upload, Archive, Users, Shield, FileText, Settings, PanelLeftClose, PanelLeft, ChevronDown, Clock, CheckCircle, GitBranch, Folder, FolderOpen, Trash2, X, ShieldCheck } from "lucide-react";
 import logoSakura from "@/assets/logo_notransparan.png";
 import { useApp } from "@/contexts/AppContext";
-import {
-  SIDEBAR_FOLDERS,
-  MODULE_DEFINITIONS,
-  canViewModule,
-} from "@/data/mockData";
+import { SIDEBAR_FOLDERS, MODULE_DEFINITIONS, canViewModule } from "@/data/mockData";
 
 export default function AppSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
-
-  const {
-    hasPermission,
-    documents,
-    currentUser,
-    mobileSidebarOpen,
-    setMobileSidebarOpen,
-  } = useApp();
-
+  const { hasPermission, documents, currentUser, mobileSidebarOpen, setMobileSidebarOpen } = useApp();
   const [collapsed, setCollapsed] = useState(false);
-
-  // Hanya Arsip & Persetujuan yang punya dropdown
   const [approvalOpen, setApprovalOpen] = useState(
     location.pathname.startsWith("/approval")
   );
@@ -64,7 +30,6 @@ export default function AppSidebar() {
   const showApproval =
     hasPermission("documents.approve") || isOperator;
 
-  // Count docs per folder
   const folderCounts = useMemo(() => {
     const counts = {};
 
@@ -135,9 +100,6 @@ export default function AppSidebar() {
     }
 
     navigate(path);
-
-    // Di layar HP, sidebar berupa drawer overlay.
-    // Tutup otomatis setelah memilih menu.
     setMobileSidebarOpen(false);
   };
 
@@ -168,7 +130,6 @@ export default function AppSidebar() {
     },
   ].filter(Boolean);
 
-  // ── NavButton: item tanpa dropdown ──────────────────────────
   const NavButton = ({
     active,
     icon: Icon,
@@ -214,7 +175,6 @@ export default function AppSidebar() {
     </button>
   );
 
-  // ── DropdownGroup: item dengan sub-menu ─────────────────────
   const DropdownGroup = ({
     open,
     onToggle,
@@ -292,7 +252,6 @@ export default function AppSidebar() {
 
   return (
     <>
-      {/* Backdrop — hanya tampil di layar HP/tablet saat drawer terbuka */}
       {mobileSidebarOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/50 lg:hidden"
@@ -318,10 +277,7 @@ export default function AppSidebar() {
               : "lg:w-[260px]"
           }`}
       >
-        {/* ===================================================== */}
-        {/* HEADER / BRANDING SAKURA                              */}
-        {/* ===================================================== */}
-
+        {/* HEADER */}
         <div className="px-3 pt-5 pb-3">
           {collapsed ? (
             <div className="flex flex-col items-center gap-3">
@@ -401,7 +357,7 @@ export default function AppSidebar() {
                 </div>
               </button>
 
-              {/* Tombol collapse — hanya layar besar */}
+              {/* Tombol collapse */}
               <button
                 tabIndex={-1}
                 onMouseDown={(e) =>
@@ -415,7 +371,6 @@ export default function AppSidebar() {
                 <PanelLeftClose size={18} />
               </button>
 
-              {/* Tombol tutup drawer — HP/tablet */}
               <button
                 tabIndex={-1}
                 onMouseDown={(e) =>
@@ -444,7 +399,7 @@ export default function AppSidebar() {
             scrollBehavior: "auto",
           }}
         >
-          {/* 1. DASHBOARD */}
+          {/* DASHBOARD */}
           <NavButton
             active={dashActive}
             icon={LayoutDashboard}
@@ -457,7 +412,7 @@ export default function AppSidebar() {
             }
           />
 
-          {/* 2. PERSETUJUAN */}
+          {/* PERSETUJUAN */}
           {showApproval && (
             <DropdownGroup
               open={approvalOpen}
@@ -535,7 +490,7 @@ export default function AppSidebar() {
             </DropdownGroup>
           )}
 
-          {/* 3. ARSIP */}
+          {/* ARSIP */}
           <DropdownGroup
             open={arsipOpen}
             onToggle={() =>
@@ -651,7 +606,7 @@ export default function AppSidebar() {
             )}
           </DropdownGroup>
 
-          {/* 4. Simple items */}
+          {/* Simple items */}
           {simpleItems.map(
             (item) => (
               <NavButton
@@ -674,7 +629,7 @@ export default function AppSidebar() {
 
           <div className="!my-4 mx-2 h-px bg-sidebar-border" />
 
-          {/* 5. Sampah & Pengaturan */}
+          {/* Sampah & Pengaturan */}
           <NavButton
             active={
               location.pathname ===

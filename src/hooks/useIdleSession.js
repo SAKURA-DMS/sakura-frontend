@@ -2,12 +2,8 @@ import { useEffect, useRef } from "react";
 import { onApiActivity } from "@/lib/apiClient";
 import { refreshSession } from "@/services/authService";
 
-// Idle 12 jam → auto logout
 const IDLE_TIMEOUT_MS = 12 * 60 * 60 * 1000;
-
-// Refresh session maksimal setiap 5 menit selama user aktif
 const REFRESH_THROTTLE_MS = 5 * 60 * 1000;
-
 const ACTIVITY_EVENTS = ["click", "mousemove", "keydown", "scroll"];
 
 export function useIdleSession(enabled, onIdle) {
@@ -49,7 +45,6 @@ export function useIdleSession(enabled, onIdle) {
         lastRefreshRef.current = now;
 
         refreshSession().catch(() => {
-          // Tidak mengganggu sesi aktif jika refresh gagal.
         });
       }
     };

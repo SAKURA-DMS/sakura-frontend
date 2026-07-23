@@ -7,7 +7,6 @@ import {
   Navigation,
 } from "lucide-react";
 
-// Auto import semua aset school_* dari /src/assets
 const schoolImages = import.meta.glob(
   "/src/assets/school_*.(jpg|jpeg|png|webp)",
   { eager: true, as: "url" }
@@ -85,10 +84,7 @@ export default function SchoolSection() {
       }}
       className="space-y-10"
     >
-      {/* =====================================================
-          SCHOOL HEADER
-      ===================================================== */}
-
+      {/* SCHOOL HEADER */}
       <div className="text-center">
         <h3 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
           SMP Negeri 4 Cikarang Barat
@@ -98,10 +94,6 @@ export default function SchoolSection() {
           Selamat datang di sekolah kami
         </p>
       </div>
-
-      {/* =====================================================
-          INFO STRIP
-      ===================================================== */}
 
       <div className="flex flex-wrap justify-center gap-6">
         {infos.map((info) => (
@@ -118,10 +110,6 @@ export default function SchoolSection() {
           </div>
         ))}
       </div>
-
-      {/* =====================================================
-          BENTO PHOTO GRID
-      ===================================================== */}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 auto-rows-[140px] md:auto-rows-[160px]">
         {photos.map((photo, i) => {
@@ -168,10 +156,6 @@ export default function SchoolSection() {
         })}
       </div>
 
-      {/* =====================================================
-          SCHOOL LOCATION / GOOGLE MAPS
-      ===================================================== */}
-
       <motion.div
         initial={{
           opacity: 0,
@@ -191,7 +175,6 @@ export default function SchoolSection() {
         className="overflow-hidden rounded-2xl border border-border bg-background shadow-sm"
       >
         {/* MAP HEADER */}
-
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-5 md:px-6 py-4 border-b border-border bg-background">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-[#C23A57]/10 flex items-center justify-center shrink-0">
@@ -225,7 +208,6 @@ export default function SchoolSection() {
         </div>
 
         {/* GOOGLE MAP */}
-
         <div className="relative w-full h-[280px] md:h-[360px] bg-muted">
           <iframe
             title="Lokasi SMP Negeri 4 Cikarang Barat"
@@ -240,7 +222,6 @@ export default function SchoolSection() {
         </div>
 
         {/* MAP FOOTER */}
-
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 px-5 md:px-6 py-3 border-t border-border bg-background">
           <p className="text-[11px] text-muted-foreground">
             Koordinat lokasi berdasarkan data referensi sekolah

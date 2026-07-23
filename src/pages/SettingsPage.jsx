@@ -1,27 +1,6 @@
 import { useState, useEffect } from "react";
 import * as authService from "@/services/authService";
-import {
-  Sun,
-  Moon,
-  Monitor,
-  Bell,
-  Camera,
-  Shield,
-  ChevronRight,
-  Mail,
-  CheckCircle2,
-  Lock,
-  Send,
-  KeyRound,
-  Smartphone,
-  Info,
-  AlertTriangle,
-  RefreshCw,
-  Eye,
-  EyeOff,
-  X,
-} from "lucide-react";
-
+import { Sun, Moon, Monitor, Bell, Camera, Shield, ChevronRight, Mail, CheckCircle2, Lock, Send, KeyRound, Smartphone, Info, AlertTriangle, RefreshCw, Eye, EyeOff, X } from "lucide-react";
 import AppHeader from "@/components/layout/AppHeader";
 import { useSettings } from "@/contexts/SettingsContext";
 import { useApp } from "@/contexts/AppContext";
@@ -34,7 +13,7 @@ const SECTIONS = [
   { id: "security", label: "Privacy & Security", icon: Shield },
 ];
 
-/* ── Step indicator untuk tutorial 2FA ── */
+/* Step indicator */
 function StepBadge({ number, active, done }) {
   return (
     <div
@@ -51,7 +30,7 @@ function StepBadge({ number, active, done }) {
   );
 }
 
-/* ── Panduan langkah aktivasi ── */
+/* Panduan langkah aktivasi */
 function ActivationTutorial({ currentStep, email }) {
   const steps = [
     {
@@ -153,7 +132,7 @@ function ActivationTutorial({ currentStep, email }) {
   );
 }
 
-/* ── Countdown OTP: 60 detik ── */
+/* Countdown OTP */
 function CountdownTimer({ seconds = 60, onResend }) {
   const [remaining, setRemaining] = useState(seconds);
   const [canResend, setCanResend] = useState(false);
@@ -228,7 +207,7 @@ export default function SettingsPage() {
 
   const [activeSection, setActiveSection] = useState("tema");
 
-  /* ── 2FA state ── */
+  /* 2FA state */
   const enabled = !!currentUser?.twoFactorEnabled;
 
   const [otpSent, setOtpSent] = useState(false);
@@ -238,7 +217,7 @@ export default function SettingsPage() {
   const [isSending, setIsSending] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
 
-  /* ── Disable 2FA modal ── */
+  /* Disable 2FA modal */
   const [disableModalOpen, setDisableModalOpen] = useState(false);
   const [disablePassword, setDisablePassword] = useState("");
   const [showDisablePassword, setShowDisablePassword] = useState(false);
@@ -282,7 +261,7 @@ export default function SettingsPage() {
     </div>
   );
 
-  /* ── Toggle 2FA ── */
+  /* Toggle 2FA */
   const handleToggle2FA = (value) => {
     if (value) {
       setEnabling2FA(true);
@@ -348,7 +327,7 @@ export default function SettingsPage() {
     }
   };
 
-  /* ── Send OTP ── */
+  /* Send OTP */
   const handleSendOtp = async () => {
     setIsSending(true);
 
@@ -378,7 +357,7 @@ export default function SettingsPage() {
     }
   };
 
-  /* ── OTP input ── */
+  /* OTP input */
   const fillOtp = (rawValue) => {
     const digits = rawValue.replace(/\D/g, "").slice(0, 6);
 
@@ -406,7 +385,6 @@ export default function SettingsPage() {
   const handleOtpChange = (value, index) => {
     const digits = value.replace(/\D/g, "");
 
-    /* Browser/password manager/autofill bisa memasukkan 6 digit sekaligus */
     if (digits.length > 1) {
       fillOtp(digits);
       return;
@@ -453,7 +431,7 @@ export default function SettingsPage() {
     }
   };
 
-  /* ── Verify OTP ── */
+  /* Verify OTP */
   const handleVerify = async () => {
     const code = otp.join("");
 
@@ -1132,9 +1110,7 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* ─────────────────────────────────────────────
-          MODAL KONFIRMASI NONAKTIFKAN 2FA
-         ───────────────────────────────────────────── */}
+      {/* MODAL KONFIRMASI NONAKTIFKAN 2FA */}
       {disableModalOpen && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"

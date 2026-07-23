@@ -1,7 +1,7 @@
 import api, { setToken, clearToken } from "@/lib/apiClient";
 
 /**
- * Login user — mendukung identifier berupa email ATAU nama.
+ * Login user 
  *
  * @param {string} identifier - email atau nama user
  * @param {string} password
@@ -15,26 +15,16 @@ export async function login(identifier, password) {
   return data;
 }
 
-// Timeout default axios (lihat lib/apiClient.js) adalah 15 detik — cukup
-// untuk kebanyakan request, tapi terlalu ketat untuk endpoint yang di
-// baliknya menunggu SMTP mengirim email. Endpoint OTP diberi timeout lebih
-// longgar supaya proses kirim email yang wajar (tapi sedikit lebih lambat)
-// tidak keburu dibatalkan Axios sebelum backend sempat merespons dengan
-// error yang sebenarnya. Endpoint /auth/login TIDAK disentuh.
 const OTP_REQUEST_TIMEOUT_MS = 30_000;
 
-/**
- * Kirim / resend OTP.
- */
+/* Kirim / resend OTP */
 export async function sendOtp(email) {
   const body = email ? { email } : {};
   const { data } = await api.post("/auth/send-otp", body, { timeout: OTP_REQUEST_TIMEOUT_MS });
   return data;
 }
 
-/**
- * Verifikasi OTP saat login 2FA.
- */
+/* Verifikasi OTP saat login 2FA */
 export async function verifyOtpLogin(email, otp) {
   const { data } = await api.post("/auth/verify-otp", { email, otp }, { timeout: OTP_REQUEST_TIMEOUT_MS });
   if (data.token) {
@@ -63,10 +53,6 @@ export async function getMe() {
   return data;
 }
 
-/**
- * Perpanjang sesi (dipanggil berkala oleh useIdleSession selama user aktif).
- * Backend menerbitkan token baru dengan masa berlaku penuh lagi.
- */
 export async function refreshSession() {
   const { data } = await api.post("/auth/refresh-session");
   if (data.token) {
@@ -80,19 +66,11 @@ export async function changePassword(oldPassword, newPassword) {
   return data;
 }
 
-/**
- * Logout — memberitahu backend agar status online user ini langsung
- * ditandai offline, lalu menghapus token lokal.
- *
- * Dibuat best-effort: jika request ke backend gagal (mis. token sudah
- * kedaluwarsa/koneksi putus), token lokal tetap dihapus supaya user tidak
- * terjebak dalam state "logged in" di sisi frontend.
- */
+/* Logout */
 export async function logout() {
   try {
     await api.post("/auth/logout");
   } catch {
-    // Diabaikan — yang penting token lokal tetap dibersihkan di bawah.
   } finally {
     clearToken();
   }

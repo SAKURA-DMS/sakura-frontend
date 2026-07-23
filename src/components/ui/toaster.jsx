@@ -1,18 +1,6 @@
-import {
-  Toast,
-  ToastClose,
-  ToastDescription,
-  ToastProvider,
-  ToastTitle,
-  ToastViewport,
-} from "@/components/ui/toast";
+import { Toast, ToastClose, ToastDescription, ToastProvider, ToastTitle, ToastViewport } from "@/components/ui/toast";
 import { useToast } from "@/components/ui/use-toast";
-import {
-  CheckCircle2,
-  AlertTriangle,
-  Info,
-  XCircle,
-} from "lucide-react";
+import { CheckCircle2, AlertTriangle, Info, XCircle } from "lucide-react";
 
 export function Toaster() {
   const { toasts } = useToast();
@@ -29,16 +17,6 @@ export function Toaster() {
         className,
         ...props
       }) {
-        /*
-         * Penentuan jenis toast.
-         *
-         * destructive = error
-         * type bisa digunakan halaman tertentu:
-         * success | warning | info | error
-         *
-         * Default dibuat success agar kompatibel
-         * dengan pemanggilan toast lama.
-         */
         const toastType =
           variant === "destructive"
             ? "error"

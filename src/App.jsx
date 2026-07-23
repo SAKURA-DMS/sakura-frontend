@@ -2,14 +2,7 @@ import { Toaster } from "@/components/ui/toaster.jsx";
 import { Toaster as Sonner } from "@/components/ui/sonner.jsx";
 import { TooltipProvider } from "@/components/ui/tooltip.jsx";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import {
-  BrowserRouter,
-  Routes,
-  Route,
-  Navigate,
-  useLocation,
-} from "react-router-dom";
-
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AppProvider, useApp } from "@/contexts/AppContext.jsx";
 import { SettingsProvider } from "@/contexts/SettingsContext.jsx";
 import AppLayout from "@/components/layout/Layout.jsx";
@@ -84,13 +77,7 @@ function AppRoutes() {
 
   return (
     <Routes>
-      {/* =========================================================
-          PUBLIC ROUTES
-
-          "/" = Home / Landing Page SAKURA dengan Sakura petals.
-          Ini adalah "Home Page" sebelum user masuk ke sistem.
-      ========================================================= */}
-
+      {/* PUBLIC ROUTES */}
       <Route
         path="/"
         element={
@@ -124,10 +111,7 @@ function AppRoutes() {
         }
       />
 
-      {/* =========================================================
-          PROTECTED ROUTES
-      ========================================================= */}
-
+      {/* PROTECTED ROUTES */}
       <Route
         element={
           <ProtectedRoute>
@@ -135,19 +119,16 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       >
-        {/* Dashboard utama setelah login */}
         <Route
           path="/dashboard"
           element={<DashboardPage />}
         />
 
-        {/* Tentang SAKURA / informasi sistem dan sekolah */}
         <Route
           path="/about"
           element={<HomeDashboardPage />}
         />
 
-        {/* Redirect URL lama agar tidak error */}
         <Route
           path="/home"
           element={<Navigate to="/about" replace />}

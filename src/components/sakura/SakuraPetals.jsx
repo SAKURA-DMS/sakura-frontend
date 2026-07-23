@@ -1,13 +1,6 @@
 import { useMemo } from "react";
 
-const PETAL_COLORS = [
-  "hsl(340 65% 82%)",
-  "hsl(345 55% 78%)",
-  "hsl(335 50% 85%)",
-  "hsl(350 60% 80%)",
-  "hsl(330 45% 83%)",
-  "hsl(338 58% 76%)",
-];
+const PETAL_COLORS = [ "hsl(340 65% 82%)", "hsl(345 55% 78%)", "hsl(335 50% 85%)", "hsl(350 60% 80%)", "hsl(330 45% 83%)", "hsl(338 58% 76%)" ];
 
 function randomBetween(min, max) {
   return Math.random() * (max - min) + min;
@@ -25,7 +18,6 @@ export default function SakuraPetals({ count = 14, blossomPositions }) {
         ? blossomPositions[i % blossomPositions.length]
         : null;
 
-      // cluster around blossom with small random offset, or random if no positions
       const left = blossom
         ? `${blossom.x + randomBetween(-4, 4)}%`
         : `${randomBetween(0, 100)}%`;

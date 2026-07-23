@@ -25,7 +25,6 @@ export default function SakuraPetals({ count = 14, blossomPositions }) {
         ? blossomPositions[i % blossomPositions.length]
         : null;
 
-      // cluster around blossom with small random offset, or random if no positions
       const left = blossom
         ? `${blossom.x + randomBetween(-4, 4)}%`
         : `${randomBetween(0, 100)}%`;

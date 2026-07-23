@@ -1,31 +1,6 @@
-/**
- * OCRFillModal.jsx
- *
- * Modal hasil OCR dokumen. Dipanggil setelah user menekan tombol "Scan OCR"
- * pada hasil scan (lihat DocumentScanner/CameraScanModal). Begitu modal ini
- * terbuka, ia langsung mengirim gambar ke backend (/api/ocr/scan) yang
- * memanggil Gemini Vision API — tidak perlu memilih kategori/jenis dokumen
- * terlebih dahulu, karena jenis dokumen ditentukan langsung oleh Gemini.
- *
- * Alur:
- * 1. Modal terbuka → tampilkan loading → panggil scanDocumentOCR(scanImageUrl).
- * 2. Jika dokumen didukung → tampilkan document_type + field hasil OCR,
- *    semua bisa diedit sebelum dikonfirmasi.
- * 3. Jika dokumen tidak didukung / gagal dibaca → tampilkan pesan dan opsi
- *    untuk mengisi manual atau mengambil ulang foto.
- */
-
 import { useState, useEffect, useCallback } from "react";
-import {
-  X, FileText, Scan, Loader2, CheckCircle, AlertTriangle,
-  RotateCcw, Camera,
-} from "lucide-react";
-import {
-  scanDocumentOCR,
-  DOCUMENT_TYPE_LABELS,
-  OCR_FIELD_LABELS,
-  OCR_FIELD_ORDER,
-} from "@/services/ocrService";
+import { X, FileText, Scan, Loader2, CheckCircle, AlertTriangle, RotateCcw, Camera } from "lucide-react";
+import { scanDocumentOCR, DOCUMENT_TYPE_LABELS, OCR_FIELD_LABELS, OCR_FIELD_ORDER } from "@/services/ocrService";
 
 const SUPPORTED_DOC_LIST = [
   "Ijazah SMP",
@@ -35,7 +10,6 @@ const SUPPORTED_DOC_LIST = [
 ];
 
 export default function OCRFillModal({ onClose, onConfirm, onRetake, scanImageUrl }) {
-  // idle | loading | done | unsupported | error
   const [step, setStep] = useState("idle");
   const [documentType, setDocumentType] = useState(null);
   const [confidence, setConfidence] = useState(null);
@@ -74,15 +48,12 @@ export default function OCRFillModal({ onClose, onConfirm, onRetake, scanImageUr
     }
   }, [scanImageUrl]);
 
-  // Jalankan OCR otomatis begitu modal terbuka dengan gambar yang valid.
   useEffect(() => {
     runOCR();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scanImageUrl]);
 
   const handleConfirm = () => {
-    // documentType disertakan agar parent (UploadForm) tahu template field
-    // OCR mana yang harus ditampilkan di form (mis. "ijazah", "skl", dst).
     onConfirm({ mode: "ocr", documentType, fields });
   };
 
@@ -93,7 +64,7 @@ export default function OCRFillModal({ onClose, onConfirm, onRetake, scanImageUr
   const fieldOrder = documentType ? OCR_FIELD_ORDER[documentType] || Object.keys(fields) : [];
   const detectedCount = Object.keys(fields).filter((k) => fields[k]).length;
 
-  // ── Loading ────────────────────────────────────────────────────────────────
+  // Loading 
   const renderLoading = () => (
     <div className="p-10 flex flex-col items-center gap-4">
       <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center">
@@ -108,7 +79,7 @@ export default function OCRFillModal({ onClose, onConfirm, onRetake, scanImageUr
     </div>
   );
 
-  // ── Error ──────────────────────────────────────────────────────────────────
+  // Error 
   const renderError = () => (
     <div className="p-8 flex flex-col items-center gap-4">
       <div className="w-14 h-14 rounded-2xl bg-destructive/10 flex items-center justify-center">
@@ -143,7 +114,7 @@ export default function OCRFillModal({ onClose, onConfirm, onRetake, scanImageUr
     </div>
   );
 
-  // ── Unsupported document ─────────────────────────────────────────────────
+  // Unsupported document
   const renderUnsupported = () => (
     <div className="p-8 flex flex-col items-center gap-4">
       <div className="w-14 h-14 rounded-2xl bg-amber-100 dark:bg-amber-950/30 flex items-center justify-center">
@@ -179,7 +150,7 @@ export default function OCRFillModal({ onClose, onConfirm, onRetake, scanImageUr
     </div>
   );
 
-  // ── OCR result (editable) ─────────────────────────────────────────────────
+  // OCR result
   const renderResult = () => (
     <div className="p-5 space-y-4">
       {/* Status */}

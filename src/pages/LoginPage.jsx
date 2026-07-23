@@ -2,27 +2,11 @@
 import { verifyOtpLogin, sendOtp } from "@/services/authService";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "@/contexts/AppContext";
-import {
-  Mail,
-  Lock,
-  User,
-  Eye,
-  EyeOff,
-  ArrowRight,
-  ArrowLeft,
-  Shield,
-  FileCheck,
-  Users,
-  ScanLine,
-  RefreshCw,
-  CheckCircle,
-  KeyRound,
-} from "lucide-react";
+import { Mail, Lock, User, Eye, EyeOff, ArrowRight, ArrowLeft, Shield, FileCheck, Users, ScanLine, RefreshCw, CheckCircle, KeyRound } from "lucide-react";
 import logoSakura from "@/assets/logo_sakura.png";
 import SakuraPetals from "@/components/sakura/SakuraPetals";
 import sakuraBg from "@/assets/sakura_branch.png";
 
-/* ── Floating orbs ── */
 function FloatingOrbs() {
   const orbs = useMemo(
     () => [
@@ -52,7 +36,7 @@ function FloatingOrbs() {
   );
 }
 
-/* ── Animated feature cards ── */
+/* Animated feature cards */
 const FEATURES = [
   {
     icon: FileCheck,
@@ -136,7 +120,7 @@ function FeatureCards() {
   );
 }
 
-/* ── Animated input ── */
+/* Animated input */
 function AnimatedInput({
   icon: Icon,
   label,
@@ -213,7 +197,7 @@ function AnimatedInput({
   );
 }
 
-/* ── Typing heading ── */
+/* Typing heading */
 function TypedHeading() {
   const text = "Masuk ke Sistem";
   const [chars, setChars] = useState(0);
@@ -233,15 +217,7 @@ function TypedHeading() {
   );
 }
 
-/* ── Countdown for OTP resend ── */
-/*
- * Countdown diubah menjadi 60 detik.
- *
- * Catatan:
- * Ini mengatur kapan tombol "Kirim ulang" tersedia.
- * Masa berlaku OTP sebenarnya juga harus disamakan menjadi
- * 1 menit di backend agar benar-benar expired setelah 60 detik.
- */
+/* Countdown for OTP resend */
 function OtpCountdown({
   onResend,
   initialSeconds = 60,
@@ -339,9 +315,7 @@ function OtpCountdown({
   );
 }
 
-/* ════════════════════════════════════════════════════
-   2FA VERIFICATION SCREEN
-   ════════════════════════════════════════════════════ */
+/* 2FA VERIFICATION SCREEN */
 function TwoFAScreen({
   email,
   onVerify,
@@ -358,12 +332,6 @@ function TwoFAScreen({
 
   const displayError = error || externalError;
 
-  /*
-   * Bisa menangani:
-   * - ketik satu digit
-   * - autofill OTP 6 digit dari browser
-   * - paste OTP langsung ke input
-   */
   const handleChange = (value, idx) => {
     const digits = value.replace(/\D/g, "");
 
@@ -377,10 +345,6 @@ function TwoFAScreen({
       return;
     }
 
-    /*
-     * Jika browser memasukkan seluruh OTP sekaligus
-     * ke satu input, isi semua kotak.
-     */
     if (digits.length > 1) {
       const code = digits.slice(0, 6);
       const next = ["", "", "", "", "", ""];
@@ -449,12 +413,6 @@ function TwoFAScreen({
     }
   };
 
-  /*
-   * Ctrl+V / paste:
-   * contoh clipboard = 497451
-   * hasil:
-   * [4] [9] [7] [4] [5] [1]
-   */
   const handlePaste = (e) => {
     e.preventDefault();
 
@@ -529,12 +487,8 @@ function TwoFAScreen({
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row overflow-hidden">
-      {/* ─────────────────────────────
-          LEFT PANEL
-          Tema disamakan dengan Login
-         ───────────────────────────── */}
+      {/* LEFT PANEL */}
       <div className="hidden lg:flex flex-col justify-center w-1/2 relative overflow-hidden">
-        {/* Base color sama dengan Login */}
         <div
           className="absolute inset-0"
           style={{
@@ -542,7 +496,6 @@ function TwoFAScreen({
           }}
         />
 
-        {/* Sakura branch sama dengan Login */}
         <div
           className="absolute inset-0 bg-cover bg-center"
           style={{
@@ -551,7 +504,6 @@ function TwoFAScreen({
           }}
         />
 
-        {/* Gradient sama persis dengan Login */}
         <div
           className="absolute inset-0"
           style={{
@@ -683,11 +635,8 @@ function TwoFAScreen({
         </div>
       </div>
 
-      {/* ─────────────────────────────
-          RIGHT PANEL
-         ───────────────────────────── */}
+      {/* RIGHT PANEL */}
       <div className="flex-1 flex items-center justify-center px-4 sm:px-6 bg-background relative">
-        {/* Background decoration */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div
             className="absolute w-[500px] h-[500px] rounded-full opacity-[0.03]"
@@ -932,9 +881,7 @@ function TwoFAScreen({
   );
 }
 
-/* ════════════════════════════════════════════════════
-   MAIN LOGIN PAGE
-   ════════════════════════════════════════════════════ */
+/* MAIN LOGIN PAGE */
 export default function LoginPage() {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
@@ -1068,9 +1015,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row overflow-hidden">
-      {/* ─────────────────────────────
-          LEFT PANEL
-         ───────────────────────────── */}
+      {/* LEFT PANEL */}
       <div className="hidden lg:flex flex-col justify-center w-1/2 relative overflow-hidden">
         <div
           className="absolute inset-0"
@@ -1146,9 +1091,7 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* ─────────────────────────────
-          RIGHT PANEL
-         ───────────────────────────── */}
+      {/* RIGHT PANEL */}
       <div className="flex-1 flex items-center justify-center px-4 sm:px-6 bg-background relative">
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div

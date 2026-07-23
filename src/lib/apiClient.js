@@ -16,12 +16,7 @@ export const clearToken = () => {
   localStorage.removeItem(USER_KEY);
 };
 
-// ── Activity pub/sub (dipakai untuk idle-session tracking, Task 2) ──────────
-// Setiap request API yang berhasil dianggap sebagai "aktivitas" user, selain
-// event DOM (click, mousemove, keyboard, scroll) yang didengarkan langsung
-// oleh hook useIdleSession.
-//
-// Dipisah di sini supaya apiClient.js tidak perlu mengetahui React/hooks.
+// Activity sub 
 const activityListeners = new Set();
 
 export function onApiActivity(listener) {
@@ -40,17 +35,15 @@ function notifyApiActivity() {
   activityListeners.forEach((fn) => {
     try {
       fn();
-    } catch {
-      // Listener yang bermasalah tidak boleh mengganggu request API.
-    }
+    } catch { }
   });
 }
 
-// ── Base URL ────────────────────────────────────────────────────────────────
+// Base URL
 const BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "/api";
 
-// ── API client umum ────────────────────────────────────────────────────────
+// API client umum
 const api = axios.create({
   baseURL: BASE_URL,
 
@@ -64,31 +57,18 @@ const api = axios.create({
   },
 });
 
-// ── API client khusus upload ───────────────────────────────────────────────
-// Timeout lebih panjang karena proses upload dokumen dapat membutuhkan waktu.
+// API client khusus upload 
 export const uploadApi = axios.create({
   baseURL: BASE_URL,
 
-  timeout: 5 * 60 * 1000, // 5 menit
+  timeout: 5 * 60 * 1000, 
 
   headers: {
     Accept: "application/json",
   },
 });
 
-// ── Helper: cek endpoint pre-authentication ────────────────────────────────
-//
-// Endpoint berikut digunakan sebelum proses login benar-benar selesai.
-//
-// Response 401 dari endpoint ini TIDAK BOLEH langsung:
-// - menghapus token
-// - menghapus user
-// - redirect paksa ke /login
-//
-// Contoh:
-// /auth/verify-otp dapat mengembalikan 401 ketika OTP salah atau expired.
-// Error tersebut harus dikembalikan ke LoginPage agar dapat ditampilkan
-// kepada user.
+// Helper
 function isPreAuthRequest(url = "") {
   const requestUrl = String(url);
 
@@ -100,7 +80,6 @@ function isPreAuthRequest(url = "") {
   );
 }
 
-// ── Helper: normalisasi pesan error ────────────────────────────────────────
 function getErrorMessage(error) {
   let message =
     error?.response?.data?.error ||
@@ -135,9 +114,8 @@ function getErrorMessage(error) {
   }
 }
 
-// ── Interceptors ───────────────────────────────────────────────────────────
+// Interceptors
 function attachInterceptors(instance) {
-  // REQUEST INTERCEPTOR
   instance.interceptors.request.use(
     (config) => {
       const token = getToken();
@@ -161,7 +139,6 @@ function attachInterceptors(instance) {
   // RESPONSE INTERCEPTOR
   instance.interceptors.response.use(
     (response) => {
-      // Request API berhasil dianggap sebagai aktivitas user.
       notifyApiActivity();
 
       return response;
@@ -177,39 +154,6 @@ function attachInterceptors(instance) {
       const message =
         getErrorMessage(error);
 
-      /*
-       * ==========================================================
-       * PENANGANAN 401
-       * ==========================================================
-       *
-       * Sebelumnya:
-       *
-       * Semua response 401 selain /auth/login langsung:
-       *
-       * clearToken()
-       * window.location.href = "/login"
-       *
-       * Masalahnya:
-       *
-       * /auth/verify-otp juga dapat mengembalikan 401 jika:
-       * - OTP salah
-       * - OTP expired
-       * - OTP sudah digunakan
-       *
-       * Jika langsung redirect, LoginPage tidak sempat menerima
-       * dan menampilkan error tersebut.
-       *
-       * Sekarang:
-       *
-       * Endpoint pre-authentication dibiarkan mengembalikan error
-       * ke LoginPage.
-       *
-       * Endpoint protected lainnya tetap menggunakan behavior lama:
-       *
-       * 401
-       * → clear token
-       * → kembali ke halaman login
-       */
       if (
         status === 401 &&
         !isPreAuthRequest(requestUrl)
@@ -223,18 +167,6 @@ function attachInterceptors(instance) {
           window.location.href = "/login";
         }
       }
-
-      /*
-       * Simpan pesan error yang sudah dinormalisasi.
-       *
-       * LoginPage dapat membaca:
-       *
-       * err.message
-       *
-       * sedangkan response asli tetap tersedia melalui:
-       *
-       * err.response.data
-       */
       error.message = message;
 
       return Promise.reject(error);
@@ -242,9 +174,7 @@ function attachInterceptors(instance) {
   );
 }
 
-// Pasang interceptor pada kedua axios instance.
 attachInterceptors(api);
 attachInterceptors(uploadApi);
 
-// ── Export ─────────────────────────────────────────────────────────────────
 export default api;

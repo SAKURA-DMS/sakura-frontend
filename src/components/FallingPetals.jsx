@@ -1,6 +1,5 @@
 import { useEffect, useRef } from "react";
 
-// Spawn positions matching branch flower locations (% of viewport)
 const FLOWERS = [
   { x: 10, y: 37 }, { x: 15, y: 31 }, { x: 20, y: 26 },
   { x: 26, y: 22 }, { x: 31, y: 18 }, { x: 37, y: 15 },
@@ -21,10 +20,10 @@ function makePetal(ox, oy) {
   return {
     xPct,
     yPct,
-    x: 0, // will be set on first frame
+    x: 0,
     y: 0,
     size: 8 + Math.random() * 12,
-    speed: 0.4 + Math.random() * 0.5, // px per frame at 60fps
+    speed: 0.4 + Math.random() * 0.5,
     swayAmp: 30 + Math.random() * 60,
     swayFreq: 0.005 + Math.random() * 0.008,
     rot: 0,
@@ -32,7 +31,7 @@ function makePetal(ox, oy) {
     color: COLORS[Math.floor(Math.random() * COLORS.length)],
     opacity: 0.5 + Math.random() * 0.4,
     age: 0,
-    life: 500 + Math.random() * 500, // frames
+    life: 500 + Math.random() * 500,
     phase: Math.random() * Math.PI * 2,
     needsInit: true,
   };
@@ -59,7 +58,6 @@ export default function FallingPetals() {
     resize();
     window.addEventListener("resize", resize);
 
-    // Draw a single petal shape
     function drawPetal(x, y, size, rot, color, opacity) {
       ctx.save();
       ctx.translate(x, y);
@@ -73,7 +71,6 @@ export default function FallingPetals() {
       ctx.bezierCurveTo(-w / 2, h / 3, -w / 2, -h / 3, 0, -h / 2);
       ctx.fillStyle = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
       ctx.fill();
-      // Vein
       ctx.beginPath();
       ctx.moveTo(0, -h / 2 + 2);
       ctx.lineTo(0, h / 2 - 2);
@@ -93,7 +90,6 @@ export default function FallingPetals() {
       for (let i = petals.length - 1; i >= 0; i--) {
         const p = petals[i];
 
-        // Initialize position from viewport percentages
         if (p.needsInit) {
           p.x = (p.xPct / 100) * w;
           p.y = (p.yPct / 100) * h;
@@ -105,7 +101,6 @@ export default function FallingPetals() {
         p.x += Math.sin(p.age * p.swayFreq + p.phase) * 0.8;
         p.rot += p.rotSpeed;
 
-        // Fade out in last 25% of life
         let alpha = p.opacity;
         const fadeStart = p.life * 0.75;
         if (p.age > fadeStart) {
@@ -123,21 +118,18 @@ export default function FallingPetals() {
       rafRef.current = requestAnimationFrame(animate);
     }
 
-    // Spawn initial batch
     for (let i = 0; i < 30; i++) {
       const p = makePetal();
-      p.age = Math.floor(Math.random() * 300); // stagger ages
+      p.age = Math.floor(Math.random() * 300); 
       petalsRef.current.push(p);
     }
 
-    // Continuous spawning every 380ms
     spawnTimerRef.current = setInterval(() => {
       if (petalsRef.current.length < 150) {
         petalsRef.current.push(makePetal());
       }
     }, 380);
 
-    // Flower click burst
     const onBurst = (e) => {
       const { x, y } = e.detail;
       for (let i = 0; i < 20; i++) {

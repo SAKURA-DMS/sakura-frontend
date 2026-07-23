@@ -1,29 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
-import {
-  Search,
-  RotateCcw,
-  Clock,
-  ChevronDown,
-  ChevronRight,
-  RefreshCw,
-  AlertCircle,
-  ClipboardList,
-  CalendarDays,
-  Calendar as CalendarIcon,
-  Users,
-  Lock,
-  LogOut,
-  Eye,
-  Download,
-  Upload,
-  XCircle,
-  CheckCircle2,
-  PencilLine,
-  Archive,
-  FileSpreadsheet,
-  Check,
-  Info,
-} from "lucide-react";
+import { Search, RotateCcw, Clock, ChevronDown, ChevronRight, RefreshCw, AlertCircle, ClipboardList, CalendarDays, Calendar as CalendarIcon, Users, Lock, LogOut, Eye, Download, Upload, XCircle, CheckCircle2, PencilLine, Archive, FileSpreadsheet, Check, Info } from "lucide-react";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import * as XLSX from "xlsx";
@@ -31,16 +7,8 @@ import AppHeader from "@/components/layout/AppHeader";
 import { useApp } from "@/contexts/AppContext";
 import UserAvatar from "@/components/shared/UserAvatar";
 import api from "@/lib/apiClient";
-import {
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
-} from "@/components/ui/popover";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-
-/* =========================================================
-   ACTIVITY VISUALS
-========================================================= */
 
 const ACTIVITY_VISUALS = [
   {
@@ -158,10 +126,7 @@ const QUICK_RANGES = [
   { label: "Semua Waktu", days: null },
 ];
 
-/* =========================================================
-   QUICK RANGE DROPDOWN
-========================================================= */
-
+/* QUICK RANGE DROPDOWN */
 function ViewRangeDropdown({ onSelect }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -218,10 +183,7 @@ function ViewRangeDropdown({ onSelect }) {
   );
 }
 
-/* =========================================================
-   TRUNCATE ACTIVITIES
-========================================================= */
-
+/* TRUNCATE ACTIVITIES */
 function getTruncatedSections(sections, limit) {
   const result = [];
   let count = 0;
@@ -244,10 +206,7 @@ function getTruncatedSections(sections, limit) {
   return result;
 }
 
-/* =========================================================
-   LOG PAGE
-========================================================= */
-
+/* LOG PAGE */
 export default function LogPage() {
   const { currentUser } = useApp();
 
@@ -274,10 +233,7 @@ export default function LogPage() {
   const [exportState, setExportState] = useState(null);
   const [showExportConfirm, setShowExportConfirm] = useState(false);
 
-  /* =========================================================
-     FETCH LOGS
-  ========================================================= */
-
+  /* FETCH LOGS */
   const fetchLogs = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -314,10 +270,6 @@ export default function LogPage() {
 
         action: t.action,
 
-        /*
-         * Hash tetap tersedia dari backend/database,
-         * tetapi TIDAK pernah ditampilkan pada interface.
-         */
         previousHash: t.previous_hash,
         currentHash: t.current_hash,
         integrityStatus: t.integrity_status,
@@ -342,10 +294,7 @@ export default function LogPage() {
     fetchLogs();
   }, [fetchLogs]);
 
-  /* =========================================================
-     USERS
-  ========================================================= */
-
+  /* USERS */
   const allUsers = useMemo(() => {
     const map = new Map();
 
@@ -369,10 +318,7 @@ export default function LogPage() {
     );
   }, [logs]);
 
-  /* =========================================================
-     LATEST ACTIVITY
-  ========================================================= */
-
+  /* LATEST ACTIVITY */
   const latestActivityLabel = useMemo(() => {
     if (logs.length === 0) return "—";
 
@@ -391,10 +337,7 @@ export default function LogPage() {
       : "—";
   }, [logs]);
 
-  /* =========================================================
-     FILTER
-  ========================================================= */
-
+  /* FILTER */
   const filtered = useMemo(() => {
     return logs.filter((log) => {
       if (
@@ -478,10 +421,7 @@ export default function LogPage() {
     selectedUserKey,
   ]);
 
-  /* =========================================================
-     GROUP BY USER -> DATE
-  ========================================================= */
-
+  /* GROUP BY USER */
   const groupedLogs = useMemo(() => {
     const byUser = new Map();
 
@@ -582,10 +522,7 @@ export default function LogPage() {
     return users;
   }, [filtered]);
 
-  /* =========================================================
-     USER EXPAND
-  ========================================================= */
-
+  /* USER EXPAND */
   const toggleUser = (key) => {
     setExpandedUsers((prev) => {
       const next = new Set(prev);
@@ -600,13 +537,6 @@ export default function LogPage() {
     });
   };
 
-  /*
-   * Detail activity dibuka inline.
-   *
-   * Tidak ada lagi navigate() ke halaman Archive.
-   * Jadi klik "Melihat dokumen", download, upload, dll
-   * tidak memindahkan user ke halaman lain.
-   */
   const handleRowClick = (rowKey) => {
     setExpandedLogRows((prev) => {
       const next = new Set(prev);
@@ -631,10 +561,7 @@ export default function LogPage() {
     }
   };
 
-  /* =========================================================
-     QUICK DATE
-  ========================================================= */
-
+  /* QUICK DATE */
   const handleQuickRange = (preset) => {
     if (preset.days === null) {
       setDateRange({});
@@ -654,10 +581,7 @@ export default function LogPage() {
     });
   };
 
-  /* =========================================================
-     RESET
-  ========================================================= */
-
+  /* RESET */
   const handleReset = () => {
     setSearch("");
     setFilterAction("Semua");
@@ -666,10 +590,7 @@ export default function LogPage() {
     setSelectedUserKey(null);
   };
 
-  /* =========================================================
-     LOAD MORE
-  ========================================================= */
-
+  /* LOAD MORE */
   const getVisibleCount = (key) =>
     visibleCounts[key] ?? INITIAL_VISIBLE;
 
@@ -683,10 +604,7 @@ export default function LogPage() {
     }));
   };
 
-  /* =========================================================
-     DATE LABEL
-  ========================================================= */
-
+  /* DATE LABEL */
   const dateRangeLabel = useMemo(() => {
     if (!dateRange?.from) {
       return "Semua Tanggal";
@@ -704,10 +622,7 @@ export default function LogPage() {
     return `${from} - ${to}`;
   }, [dateRange]);
 
-  /* =========================================================
-     EXPORT EXCEL
-  ========================================================= */
-
+  /* EXPORT EXCEL */
   const handleExportExcel = () => {
     if (filtered.length === 0) {
       setShowExportConfirm(false);
@@ -771,10 +686,7 @@ export default function LogPage() {
     setTimeout(() => setExportState(null), 3500);
   };
 
-  /* =========================================================
-     RENDER
-  ========================================================= */
-
+  /* RENDER */
   return (
     <>
       <AppHeader
@@ -783,11 +695,7 @@ export default function LogPage() {
       />
 
       <div className="p-8 space-y-5">
-
-        {/* ============================
-            TITLE + SUMMARY
-        ============================ */}
-
+        {/* TITLE + SUMMARY */}
         <div className="flex flex-wrap items-center justify-between gap-4">
 
           <div className="flex items-center gap-2">
@@ -806,13 +714,9 @@ export default function LogPage() {
           <div className="flex flex-wrap items-center gap-3">
 
             {/* TOTAL */}
-
             <div className="flex items-center gap-2.5 bg-card border border-border rounded-xl px-4 py-2 shadow-soft">
-
               <span className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-
                 <ClipboardList size={16} />
-
               </span>
 
               <div className="leading-tight">
@@ -830,7 +734,6 @@ export default function LogPage() {
             </div>
 
             {/* LATEST */}
-
             <div className="flex items-center gap-2.5 bg-card border border-border rounded-xl px-4 py-2 shadow-soft">
 
               <span className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
@@ -880,18 +783,11 @@ export default function LogPage() {
 
         </div>
 
-        {/* ============================
-            FILTER
-        ============================ */}
-
+        {/* FILTER */}
         <div className="bg-card border border-border rounded-xl shadow-soft p-4 space-y-3">
-
           <div className="flex flex-wrap items-center gap-3">
-
             {/* SEARCH */}
-
             <div className="relative flex-1 min-w-[260px]">
-
               <Search
                 size={16}
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
@@ -963,7 +859,6 @@ export default function LogPage() {
             </select>
 
             {/* STATUS */}
-
             <select
               value={filterStatus}
               onChange={(e) =>
@@ -993,11 +888,8 @@ export default function LogPage() {
             </select>
 
             {/* DATE */}
-
             <Popover>
-
               <PopoverTrigger asChild>
-
                 <button
                   type="button"
                   className="flex items-center gap-2 px-3 py-2 rounded-lg border border-input bg-background text-sm hover:bg-muted transition-colors"
@@ -1036,7 +928,6 @@ export default function LogPage() {
             </Popover>
 
             {/* EXPORT EXCEL WITH CONFIRMATION */}
-
             <div className="relative">
               <div className="relative group">
                 <button
@@ -1110,7 +1001,6 @@ export default function LogPage() {
             </div>
 
             {/* RESET */}
-
             <button
               onClick={handleReset}
               className="flex items-center gap-1 px-3 py-2 rounded-lg border border-input text-sm hover:bg-muted transition-colors"
@@ -1125,15 +1015,10 @@ export default function LogPage() {
           </div>
 
           {/* USER FILTER */}
-
           <div className="pt-3 border-t border-border/60">
-
             <label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground mb-1.5">
-
               <Users size={13} />
-
               Pilih User
-
             </label>
 
             <div className="relative">
@@ -1181,10 +1066,7 @@ export default function LogPage() {
 
         </div>
 
-        {/* ============================
-            EXPORT TOAST
-        ============================ */}
-
+        {/* EXPORT TOAST */}
         {exportState && (
 
           <div className="fixed top-24 right-8 z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
@@ -1261,111 +1143,75 @@ export default function LogPage() {
 
         )}
 
-        {/* ============================
-            LOADING
-        ============================ */}
-
+        {/* LOADING */}
         {loading && (
-
           <div className="flex flex-col items-center gap-3 py-16 bg-card border border-border rounded-xl shadow-soft">
-
             <div className="w-8 h-8 border-[3px] border-primary border-t-transparent rounded-full animate-spin" />
-
             <p className="text-sm text-muted-foreground">
               Memuat log aktivitas...
             </p>
-
           </div>
-
         )}
 
-        {/* ============================
-            ERROR
-        ============================ */}
-
+        {/* ERROR */}
         {!loading && error && (
-
           <div className="flex flex-col items-center gap-3 py-16 bg-card border border-border rounded-xl shadow-soft">
-
             <AlertCircle
               size={32}
               className="text-destructive"
             />
-
             <p className="text-sm text-destructive font-medium">
               {error}
             </p>
-
             <button
               onClick={fetchLogs}
               className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90"
             >
               Coba Lagi
             </button>
-
           </div>
-
         )}
 
-        {/* ============================
-            EMPTY
-        ============================ */}
-
+        {/* EMPTY */}
         {!loading &&
           !error &&
           groupedLogs.length === 0 && (
-
             <div className="bg-card border border-border rounded-xl shadow-soft">
-
               <p className="text-center text-muted-foreground py-12">
                 Tidak ada log ditemukan.
               </p>
-
             </div>
-
           )}
 
-        {/* ============================
-            USER CARDS
-        ============================ */}
-
+        {/* USER CARDS */}
         {!loading &&
           !error &&
           groupedLogs.length > 0 && (
-
             <div className="space-y-3">
-
               {groupedLogs.map((user) => {
-
                 const isOpen =
                   expandedUsers.has(
                     user.key
                   );
-
                 const visibleCount =
                   getVisibleCount(
                     user.key
                   );
-
                 const truncatedSections =
                   getTruncatedSections(
                     user.sections,
                     visibleCount
                   );
-
                 const hasMore =
                   visibleCount <
                   user.activities.length;
-
                 return (
-
                   <div
                     key={user.key}
                     className="bg-card border border-border rounded-xl shadow-soft overflow-hidden"
                   >
 
                     {/* USER HEADER */}
-
                     <button
                       type="button"
                       onClick={() =>
@@ -1420,22 +1266,14 @@ export default function LogPage() {
                     </button>
 
                     {/* ACTIVITY LIST */}
-
                     {isOpen && (
-
                       <div className="border-t border-border/60 px-4 py-4">
-
                         <div className="text-sm font-bold text-foreground mb-4">
-
                           Aktivitas Terbaru
-
                         </div>
-
                         <div>
-
                           {truncatedSections.map(
                             (section) => (
-
                               <div
                                 key={
                                   section.dateKey
@@ -1444,17 +1282,12 @@ export default function LogPage() {
                               >
 
                                 {/* DATE */}
-
                                 <div className="text-[11px] font-bold text-primary tracking-wide mb-1.5">
-
                                   {section.label}
-
                                 </div>
 
                                 {/* TIMELINE */}
-
                                 <div>
-
                                   {section.items.map(
                                     (
                                       log,
@@ -1495,7 +1328,6 @@ export default function LogPage() {
                                         >
 
                                           {/* TIMELINE LINE */}
-
                                           {index <
                                             section
                                               .items
@@ -1507,7 +1339,6 @@ export default function LogPage() {
                                           )}
 
                                           {/* ROW */}
-
                                           <button
                                             type="button"
                                             onClick={() =>
@@ -1519,15 +1350,12 @@ export default function LogPage() {
                                           >
 
                                             {/* DOT */}
-
                                             <span
                                               className={`w-2 h-2 rounded-full ${visual.dot}`}
                                             />
 
                                             {/* TIME */}
-
                                             <span className="text-[11px] font-mono text-muted-foreground">
-
                                               {log.time
                                                 ? format(
                                                     new Date(
@@ -1540,23 +1368,18 @@ export default function LogPage() {
                                             </span>
 
                                             {/* ICON */}
-
                                             <span
                                               className={`w-8 h-8 rounded-lg flex items-center justify-center ${visual.iconBg} ${visual.iconText}`}
                                             >
-
                                               <Icon
                                                 size={
                                                   15
                                                 }
                                               />
-
                                             </span>
 
                                             {/* ACTIVITY */}
-
                                             <div className="min-w-0">
-
                                               <div
                                                 className={`text-sm font-semibold truncate ${
                                                   log.action.startsWith(
@@ -1566,11 +1389,9 @@ export default function LogPage() {
                                                     : "text-foreground"
                                                 }`}
                                               >
-
                                                 {
                                                   log.action
                                                 }
-
                                               </div>
 
                                               {subtitle && (
@@ -1588,20 +1409,14 @@ export default function LogPage() {
                                             </div>
 
                                             {/* DOCUMENT NUMBER / STATUS */}
-
                                             {log.docId &&
                                             log.docNomor ? (
-
                                               <span className="font-mono bg-muted px-2 py-1 rounded text-[10px] text-muted-foreground shrink-0">
-
                                                 {
                                                   log.docNomor
                                                 }
-
                                               </span>
-
                                             ) : visual.status ? (
-
                                               <span
                                                 className={`text-[10px] font-bold px-2 py-1 rounded-full shrink-0 ${
                                                   STATUS_STYLES[
@@ -1610,21 +1425,15 @@ export default function LogPage() {
                                                   ]
                                                 }`}
                                               >
-
                                                 {
                                                   visual.status
                                                 }
-
                                               </span>
-
                                             ) : (
-
                                               <span />
-
                                             )}
 
                                             {/* CHEVRON */}
-
                                             <ChevronRight
                                               size={15}
                                               className={`text-muted-foreground transition-transform ${
@@ -1633,31 +1442,20 @@ export default function LogPage() {
                                                   : ""
                                               }`}
                                             />
-
                                           </button>
 
-                                          {/* INLINE DETAIL
-                                              NO HASH
-                                              NO NAVIGATION
-                                          */}
-
+                                          {/* INLINE DETAIL */}
                                           {isRowOpen && (
-
                                             <div className="ml-[106px] mr-6 mb-2 rounded-lg border border-border/60 bg-muted/30 px-3 py-2.5">
-
                                               <div className="flex items-start gap-2">
-
                                                 <Info
                                                   size={
                                                     14
                                                   }
                                                   className="text-muted-foreground mt-0.5 shrink-0"
                                                 />
-
                                                 <div className="space-y-1 text-xs">
-
                                                   <div className="text-muted-foreground">
-
                                                     {log.time
                                                       ? format(
                                                           new Date(
@@ -1670,70 +1468,44 @@ export default function LogPage() {
                                                           }
                                                         )
                                                       : "Waktu tidak diketahui"}
-
                                                   </div>
-
                                                   {log.docTitle && (
-
                                                     <div className="text-foreground">
-
                                                       <span className="text-muted-foreground">
                                                         Dokumen:{" "}
                                                       </span>
-
                                                       {
                                                         log.docTitle
                                                       }
-
                                                     </div>
-
                                                   )}
-
                                                   {log.docNomor && (
-
                                                     <div className="text-foreground">
-
                                                       <span className="text-muted-foreground">
                                                         Nomor:{" "}
                                                       </span>
-
                                                       {
                                                         log.docNomor
                                                       }
-
                                                     </div>
-
                                                   )}
-
                                                 </div>
-
                                               </div>
-
                                             </div>
-
                                           )}
-
                                         </div>
-
                                       );
                                     }
                                   )}
-
                                 </div>
-
                               </div>
-
                             )
                           )}
-
                         </div>
 
                         {/* LOAD MORE AFTER 7 */}
-
                         {hasMore && (
-
                           <div className="flex justify-center mt-4">
-
                             <button
                               type="button"
                               onClick={() =>
@@ -1743,32 +1515,20 @@ export default function LogPage() {
                               }
                               className="flex items-center gap-2 px-5 py-2 rounded-lg border border-primary/30 text-primary text-sm font-medium hover:bg-primary/5 transition-colors"
                             >
-
                               Muat lebih banyak
-
                               <ChevronDown
                                 size={14}
                               />
-
                             </button>
-
                           </div>
-
                         )}
-
                       </div>
-
                     )}
-
                   </div>
-
                 );
               })}
-
             </div>
-
           )}
-
       </div>
     </>
   );

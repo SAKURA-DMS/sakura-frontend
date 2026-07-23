@@ -108,7 +108,7 @@ export default function DocumentDetailModal({ document: doc, onClose }) {
             {showApproveForm && (<div className="p-4 rounded-lg border border-sakura-success/30 bg-sakura-success/5 space-y-3"><h4 className="font-semibold text-sm text-sakura-success">Konfirmasi Persetujuan</h4><p className="text-sm text-foreground">Apakah Anda yakin ingin menyetujui dokumen ini?</p><textarea value={approveComment} onChange={(e) => setApproveComment(e.target.value)} placeholder="Komentar (opsional)..." rows={2} className="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring resize-none" /><div className="flex gap-2"><button onClick={handleApprove} className="px-4 py-2 rounded-lg bg-sakura-success text-white text-sm font-semibold hover:opacity-90">Setujui</button><button onClick={() => { setShowApproveForm(false); setApproveComment(""); }} className="px-4 py-2 rounded-lg border border-input text-sm">Batal</button></div></div>)}
             {showArchiveConfirm && (<div className="p-4 rounded-lg border border-primary/30 bg-primary/5 space-y-3"><h4 className="font-semibold text-sm text-primary">Konfirmasi Pengarsipan Dokumen</h4><p className="text-sm text-foreground">Apakah Anda yakin ingin memasukkan dokumen ini ke Arsip Dokumen?</p><div className="flex gap-2"><button onClick={handleArchive} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90">Arsipkan Dokumen</button><button onClick={() => setShowArchiveConfirm(false)} className="px-4 py-2 rounded-lg border border-input text-sm">Batal</button></div></div>)}
             {showRejectForm && (<div className="p-4 rounded-lg border border-destructive/30 bg-destructive/5 space-y-3"><h4 className="font-semibold text-sm text-destructive">Alasan Penolakan</h4><textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} placeholder="Masukkan alasan penolakan..." rows={2} className="w-full px-3 py-2 text-sm rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring resize-none" /><div className="flex gap-2"><button onClick={handleReject} className="px-4 py-2 rounded-lg bg-destructive text-destructive-foreground text-sm font-semibold hover:opacity-90">Tolak</button><button onClick={() => setShowRejectForm(false)} className="px-4 py-2 rounded-lg border border-input text-sm">Batal</button></div></div>)}
-            {/* Lokasi File breadcrumb */}
+            {/* Lokasi File */}
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Folder size={16} className="text-primary" />
@@ -148,11 +148,9 @@ export default function DocumentDetailModal({ document: doc, onClose }) {
                 <p className="text-sm text-muted-foreground text-center py-6">Belum ada aktivitas tercatat.</p>
               ) : (
                 <div className="relative space-y-0">
-                  {/* vertical line */}
                   <div className="absolute left-[18px] top-0 bottom-0 w-px bg-border" />
                   {doc.auditTrail.map((entry, i) => (
                     <div key={i} className="flex gap-3 pb-5 last:pb-0 animate-slide-in" style={{ animationDelay: `${i * 40}ms` }}>
-                      {/* icon circle */}
                       <div className={`relative z-10 w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${getActivityIconBg(entry.action)}`}>
                         {getActivityIcon(entry.action)}
                       </div>

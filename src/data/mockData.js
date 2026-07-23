@@ -9,9 +9,6 @@ export const USERS = [
   { id: 3, nama: "Ahmad Fauzi", email: "teacher@sakura.sch.id", role: "Guru", avatar: avatarTeacher, departemen: "Guru Mata Pelajaran", nip: "198723450001" },
 ];
 
-// ===== Schema-aligned tables (mirrors MySQL) =====
-
-// Mirror of `categories` table
 export const CATEGORIES = [
   { category_id: 1, category_name: "Data Siswa" },
   { category_id: 2, category_name: "Data Guru" },
@@ -20,7 +17,6 @@ export const CATEGORIES = [
   { category_id: 5, category_name: "Administrasi" },
 ];
 
-// Mirror of `document_types` table
 export const DOCUMENT_TYPES = [
   { type_id: 1, category_id: 1, type_name: "Buku Klapper", code_prefix: "BKL" },
   { type_id: 2, category_id: 1, type_name: "Buku Induk Register Peserta Didik", code_prefix: "BIR" },
@@ -35,9 +31,7 @@ export const DOCUMENT_TYPES = [
   { type_id: 11, category_id: 4, type_name: "Buku Agenda Surat Keluar", code_prefix: "ASK" },
   { type_id: 12, category_id: 4, type_name: "Kumpulan Surat Keputusan (SK)", code_prefix: "KSK" },
   { type_id: 13, category_id: 4, type_name: "Lainnya", code_prefix: "LNR" },
-  // ── Dokumen milik Guru (category_id 5 = Administrasi) ──────────────────
-  // Lihat migration_guru_document_types.sql — harus disinkronkan manual
-  // di sini karena categoryList/typeList tidak di-fetch dari API /categories.
+  // Dokumen milik Guru 
   { type_id: 19, category_id: 5, type_name: "Modul Ajar", code_prefix: "MDA" },
   { type_id: 20, category_id: 5, type_name: "RPP", code_prefix: "RPP" },
   { type_id: 21, category_id: 5, type_name: "Silabus", code_prefix: "SIL" },
@@ -58,10 +52,8 @@ export const DOCUMENT_TYPES = [
   { type_id: 36, category_id: 5, type_name: "Portofolio Guru", code_prefix: "PFG" },
 ];
 
-// Mirror of `document_counters` table (mutable state managed in AppContext)
 export const INITIAL_DOCUMENT_COUNTERS = [];
 
-// Mirror of `folders` table — hierarchical: categories → document types (→ tahun_ajaran for Data Siswa)
 export const FOLDERS = [
   // Root category folders
   { folder_id: 1, folder_name: "Data Siswa", parent_id: null, category_id: 1, type_id: null, description: "Berisi dokumen administrasi siswa seperti buku klapper, buku induk, ijazah, dan SKHU." },
@@ -87,13 +79,9 @@ export const FOLDERS = [
   { folder_id: 43, folder_name: "Lainnya", parent_id: 4, category_id: 4, type_id: 13, description: "Folder untuk dokumen lain-lain yang belum terklasifikasi." },
 ];
 
-// Backward-compatible derived exports
 export const KATEGORI_OPTIONS = CATEGORIES.map((c) => c.category_name);
 
-// Dynamic form field definitions per category (maps to separate DB tables)
-// category_id → fields definition
 export const CATEGORY_FORM_FIELDS = {
-  // Data Siswa → student_records table
   1: [
     { key: "namaSiswa", label: "Nama Siswa", placeholder: "Nama lengkap siswa", required: true },
     { key: "nis", label: "NIS", placeholder: "Nomor Induk Siswa" },
@@ -106,7 +94,6 @@ export const CATEGORY_FORM_FIELDS = {
     { key: "namaOrangTua", label: "Nama Orang Tua", placeholder: "Nama lengkap orang tua/wali" },
     { key: "noHpOrangTua", label: "No HP Orang Tua", placeholder: "08xxxxxxxxxx" },
   ],
-  // Data Guru → teacher_records table
   2: [
     { key: "namaGuru", label: "Nama Guru", placeholder: "Nama lengkap guru", required: true },
     { key: "nip", label: "NIP", placeholder: "Nomor Induk Pegawai" },
@@ -115,7 +102,6 @@ export const CATEGORY_FORM_FIELDS = {
     { key: "pendidikanTerakhir", label: "Pendidikan Terakhir", placeholder: "Contoh: S1 Pendidikan" },
     { key: "statusKepegawaian", label: "Status Kepegawaian", type: "select", options: ["PNS", "PPPK", "Honorer", "GTT"] },
   ],
-  // Sarana Prasarana → inventory_items table
   3: [
     { key: "kodeBarang", label: "Kode Barang", placeholder: "Contoh: INV-001", required: true },
     { key: "namaBarang", label: "Nama Barang", placeholder: "Contoh: Meja Guru" },
@@ -126,9 +112,7 @@ export const CATEGORY_FORM_FIELDS = {
   ],
 };
 
-// Surat Menyurat has sub-type specific fields (maps to different tables per type)
 export const SURAT_TYPE_FORM_FIELDS = {
-  // Buku Agenda Surat Masuk (type_id: 10) → incoming_letters table
   10: [
     { key: "nomorAgenda", label: "Nomor Agenda", placeholder: "Contoh: 001/SM/2026", required: true },
     { key: "nomorSurat", label: "Nomor Surat", placeholder: "Nomor surat masuk" },
@@ -137,7 +121,6 @@ export const SURAT_TYPE_FORM_FIELDS = {
     { key: "pengirim", label: "Pengirim", placeholder: "Contoh: Dinas Pendidikan" },
     { key: "perihal", label: "Perihal", placeholder: "Perihal surat" },
   ],
-  // Buku Agenda Surat Keluar (type_id: 11) → outgoing_letters table
   11: [
     { key: "nomorAgenda", label: "Nomor Agenda", placeholder: "Contoh: 001/SK/2026", required: true },
     { key: "nomorSurat", label: "Nomor Surat", placeholder: "Nomor surat keluar" },
@@ -146,7 +129,6 @@ export const SURAT_TYPE_FORM_FIELDS = {
     { key: "perihal", label: "Perihal", placeholder: "Perihal surat" },
     { key: "penandatangan", label: "Penandatangan", placeholder: "Nama penandatangan" },
   ],
-  // Kumpulan Surat Keputusan (type_id: 12) → sk_records table
   12: [
     { key: "nomorSK", label: "Nomor SK", placeholder: "Contoh: 001/SK/2026", required: true },
     { key: "tanggalSK", label: "Tanggal SK", placeholder: "DD/MM/YYYY", type: "date" },
@@ -155,12 +137,10 @@ export const SURAT_TYPE_FORM_FIELDS = {
   ],
 };
 
-// Keep backward compat
 export const KATEGORI_DETAIL_FIELDS = {};
 
 export const TAHUN_AJARAN_OPTIONS = ["2023/2024", "2024/2025", "2025/2026"];
 
-// Mock documents with schema-aligned fields
 export const DOCUMENTS = [
   {
     id: 1, nomorDokumen: "IJZ/2024/001", judul: "Ijazah - Ahmad Rizki",
@@ -293,12 +273,7 @@ export const ROLE_PERMISSIONS = {
   "Guru": ["dashboard.view", "documents.upload", "documents.archive", "profile.edit"],
 };
 
-// ── Role-Based Folder Access ────────────────────────────────────────────────
-// Satu sumber kebenaran untuk permission per-modul (mirip Google Drive Shared
-// Folder): viewRoles = role yang boleh MELIHAT modul ini, manageRoles = role
-// yang boleh upload/edit/delete dokumen di dalamnya. Tidak mengubah skema DB
-// atau struktur folder yang ada — hanya lapisan permission di frontend,
-// dipetakan dari category_id/type_id yang sudah ada.
+// Role-Based Folder Access 
 export const MODULE_DEFINITIONS = [
   {
     id: "kesiswaan",
@@ -315,8 +290,6 @@ export const MODULE_DEFINITIONS = [
     type_ids: [5, 6, 7],
     viewRoles: ["Operator/TU", "Kepala Sekolah", "Guru"],
     manageRoles: ["Operator/TU"],
-    // Guru tetap "view" tapi dibatasi ke dokumen relevan/miliknya sendiri —
-    // filtering per-dokumen sudah ditangani accessibleDocuments di ArchivePage.jsx.
     guruViewOwnOnly: true,
   },
   {
@@ -369,7 +342,6 @@ export const MODULE_DEFINITIONS = [
   },
 ];
 
-// Cari definisi modul dari path folder terstruktur ("cat:X/type:Y" atau "cat:X")
 export function getModuleByPath(folderPath) {
   if (!folderPath) return null;
   const catMatch  = folderPath.match(/cat:(\d+)/);
@@ -383,7 +355,6 @@ export function getModuleByPath(folderPath) {
   );
 }
 
-// Cari definisi modul dari sebuah dokumen (category_id/type_id)
 export function getModuleByDoc(doc) {
   if (!doc) return null;
   return (
@@ -393,19 +364,16 @@ export function getModuleByDoc(doc) {
   );
 }
 
-// Tidak ada definisi modul (mis. "Semua Dokumen") → default terlihat.
 export function canViewModule(role, mod) {
   if (!mod) return true;
   return mod.viewRoles.includes(role);
 }
 
-// Tidak ada definisi modul → default tidak boleh kelola (aman/fail-closed).
 export function canManageModule(role, mod) {
   if (!mod) return false;
   return mod.manageRoles.includes(role);
 }
 
-// Sidebar folder structure for archive navigation
 export const SIDEBAR_FOLDERS = [
   { label: "Semua Dokumen", path: null, icon: "all" },
   {
@@ -436,13 +404,6 @@ export const SIDEBAR_FOLDERS = [
       { label: "SK & Edaran", folder: "sk", path: "cat:4/type:12" },
     ],
   },
-  // NOTE (Task 1 - Sidebar Arsip): seluruh menu dummy "Administrasi
-  // Pembelajaran", "Penilaian", "Administrasi Kelas", dan "Pengembangan
-  // Profesi" (folder cat:5/type:19 s/d type:36) sudah dihapus karena tidak
-  // lagi dipakai. Struktur folder yang benar-benar aktif sekarang hanya
-  // Data Siswa, Data Guru, Sarana Prasarana, dan Surat Menyurat di atas,
-  // ditambah folder custom yang dibuat lewat fitur "Buat Folder" (tersimpan
-  // di database, lihat FOLDERS/buildFolderTree).
 ];
 
 export const CHART_MONTHS = [
@@ -493,19 +454,6 @@ export function getChartData(period, monthStr) {
   return period === "weekly" ? generateWeeklyData(monthStr) : generateMonthlyData(monthStr);
 }
 
-// Build folder tree from the `folders` table (schema folders + custom folders
-// dibuat lewat fitur "Buat Folder") + academic year nodes untuk Data Siswa.
-//
-// `folders` di sini adalah data ASLI dari database (lihat AppContext.jsx →
-// loadFolders() → GET /api/folders), bukan lagi hardcode. Parameter kedua
-// tetap default ke FOLDERS (mock) supaya pemanggil lama yang belum sempat
-// diupdate tetap jalan seperti sebelumnya.
-//
-// Path folder schema-aligned (cat:X, cat:X/type:Y) dipertahankan persis
-// seperti sebelumnya agar docMatchesFolder & fitur lain yang bergantung pada
-// format path tersebut tidak berubah. Folder custom (is_custom = 1), pada
-// kedalaman berapa pun, memakai segmen tambahan `folder:<id>` di akhir path
-// sehingga sub-folder custom bisa dibuat berlapis-lapis.
 export function buildFolderTree(documents, folders = FOLDERS) {
   const childrenByParent = {};
   folders.forEach((f) => {
@@ -517,25 +465,18 @@ export function buildFolderTree(documents, folders = FOLDERS) {
   const buildNode = (folder, parentPath) => {
     let path;
     if (!folder.is_custom && folder.type_id != null) {
-      // Folder schema level-2 (mis. cat:1/type:1) — selalu tahu category_id-nya
-      // sendiri, jadi path bisa dibangun langsung tanpa bergantung parentPath.
       path = `cat:${folder.category_id}/type:${folder.type_id}`;
     } else if (!folder.is_custom && folder.category_id != null && !parentPath) {
-      // Folder schema level-1 (root kategori, mis. cat:1)
       path = `cat:${folder.category_id}`;
     } else if (parentPath) {
-      // Folder custom di dalam folder lain (sub-folder), berapa pun kedalamannya.
       path = `${parentPath}/folder:${folder.folder_id}`;
     } else {
-      // Folder custom di root arsip (tidak menumpang kategori manapun).
       path = `folder:${folder.folder_id}`;
     }
 
     const childFolders = childrenByParent[folder.folder_id] || [];
     let children = childFolders.map((child) => buildNode(child, path));
 
-    // Tahun ajaran sub-folder hanya untuk folder schema Data Siswa (category 1)
-    // yang belum punya anak folder custom.
     if (folder.category_id === 1 && folder.type_id != null && !folder.is_custom && children.length === 0) {
       const yearSet = new Set();
       documents.forEach((doc) => {
@@ -572,11 +513,7 @@ export function buildFolderTree(documents, folders = FOLDERS) {
   return rootFolders.map((root) => buildNode(root, null));
 }
 
-// Match document to folder path using schema-aligned path format
-// If strict=true, only match docs at the exact leaf level (not parent folders that have children)
 export function docMatchesFolder(doc, folderPath, strict = false) {
-  // Parse the structured path: cat:X, cat:X/type:Y, cat:X/type:Y/year:Z,
-  // dan segmen tambahan folder:ID untuk folder custom (lihat buildFolderTree).
   const parts = folderPath.split("/");
   const catPart = parts.find((p) => p.startsWith("cat:"));
   const typePart = parts.find((p) => p.startsWith("type:"));
@@ -588,9 +525,6 @@ export function docMatchesFolder(doc, folderPath, strict = false) {
   const year = yearPart ? yearPart.split(":")[1] : null;
   const folderId = folderPart ? Number(folderPart.split(":")[1]) : null;
 
-  // Folder custom (baik root maupun sub-folder): dokumen dicocokkan lewat
-  // doc.folder_id, bukan cat/type, supaya folder custom tanpa kategori tidak
-  // keliru mencocokkan SEMUA dokumen.
   if (folderId) {
     return doc.folder_id === folderId;
   }
@@ -599,36 +533,28 @@ export function docMatchesFolder(doc, folderPath, strict = false) {
   if (typeId && doc.type_id !== typeId) return false;
   if (year && doc.tahunAjaran !== year) return false;
 
-  // If only category specified, match all docs in that category
   if (catId && !typeId) return doc.category_id === catId;
-  // If category+type, match docs with that type
   if (catId && typeId && !year) return doc.category_id === catId && doc.type_id === typeId;
-  // If all three, exact match
   return true;
 }
 
-// Strict matching: only show docs at leaf folder level
-// For Data Siswa (cat 1) with type selected but no year: don't show docs (they belong in year sub-folders)
 export function docMatchesFolderStrict(doc, folderPath, folderHasChildren) {
-  if (folderHasChildren) return false; // docs only in leaf folders
+  if (folderHasChildren) return false;
   return docMatchesFolder(doc, folderPath);
 }
 
-// Helper: get auto-mapped folder path for upload
 export function getAutoFolderPath(categoryId, typeId, tahunAjaran) {
   const cat = CATEGORIES.find((c) => c.category_id === categoryId);
   const docType = DOCUMENT_TYPES.find((t) => t.type_id === typeId);
   if (!cat || !docType) return "";
 
   let path = `${cat.category_name} / ${docType.type_name}`;
-  // For Data Siswa, include tahun ajaran
   if (categoryId === 1 && tahunAjaran) {
     path += ` / ${tahunAjaran}`;
   }
   return path;
 }
 
-// Helper: get folder_id for a document based on category and type
 export function getFolderIdForDocument(categoryId, typeId) {
   const folder = FOLDERS.find((f) => f.category_id === categoryId && f.type_id === typeId);
   return folder ? folder.folder_id : null;

@@ -1,79 +1,19 @@
 import { useState, useMemo, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import {
-  Search,
-  RotateCcw,
-  Folder,
-  FolderOpen,
-  Star,
-  FileText as FileIcon,
-  ChevronRight,
-  ChevronDown,
-  X,
-  Pencil,
-  Trash2,
-  MoreVertical,
-  FolderPlus,
-  ArrowRightLeft,
-  Grid2X2,
-  Grid3X3,
-  LayoutGrid,
-  Home,
-  PanelLeftClose,
-  Maximize2,
-  Minimize2,
-  Menu,
-  Loader2,
-} from "lucide-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-  TooltipProvider,
-} from "@/components/ui/tooltip";
-import {
-  ResizablePanelGroup,
-  ResizablePanel,
-  ResizableHandle,
-} from "@/components/ui/resizable";
+import { Search, RotateCcw, Folder, FolderOpen, Star, FileText as FileIcon, ChevronRight, ChevronDown, X, Pencil, Trash2, MoreVertical, FolderPlus, ArrowRightLeft,
+  Grid2X2, Grid3X3, LayoutGrid, Home, PanelLeftClose, Maximize2, Minimize2, Menu, Loader2 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import AppHeader from "@/components/layout/AppHeader";
-import DocumentDetailModal from "@/components/document/DocumentDetail"; // ← FIX: ganti dari modals/
-
+import DocumentDetailModal from "@/components/document/DocumentDetail"; 
 import { useApp } from "@/contexts/AppContext";
 import { useSettings } from "@/contexts/SettingsContext";
 import UserAvatar from "@/components/shared/UserAvatar";
-import {
-  buildFolderTree,
-  docMatchesFolder,
-  docMatchesFolderStrict,
-  KATEGORI_OPTIONS,
-  SIDEBAR_FOLDERS,
-  CATEGORIES,
-  DOCUMENT_TYPES,
-  TAHUN_AJARAN_OPTIONS,
-  getModuleByDoc,
-  canManageModule,
-} from "@/data/mockData";
+import { buildFolderTree, docMatchesFolder, docMatchesFolderStrict, KATEGORI_OPTIONS, SIDEBAR_FOLDERS, CATEGORIES, DOCUMENT_TYPES, TAHUN_AJARAN_OPTIONS, getModuleByDoc, canManageModule } from "@/data/mockData";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogDescription,
-} from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogAction,
-  AlertDialogCancel,
-} from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -186,7 +126,6 @@ export default function ArchivePage() {
   const [previewMode, setPreviewMode] = useState("inline");
   const [showRecycleBin, setShowRecycleBin] = useState(false);
 
-  // State untuk modal folder di HP
   const [showMobileFolderDialog, setShowMobileFolderDialog] = useState(false);
 
   const [showCreateFolderModal, setShowCreateFolderModal] = useState(false);
@@ -218,10 +157,6 @@ export default function ArchivePage() {
 
   const isAdmin = currentUser?.role === "Operator/TU";
 
-  // Role-Based Folder Access: upload/edit/delete dokumen ditentukan per-modul
-  // (lihat MODULE_DEFINITIONS di data/mockData.js), bukan lagi "isAdmin" saja.
-  // Manajemen struktur folder (buat/ubah nama/hapus folder) tetap khusus
-  // Operator/TU — tidak berubah dari sebelumnya.
   const canManageDoc = (doc) => canManageModule(currentUser?.role, getModuleByDoc(doc));
 
   const accessibleDocuments = useMemo(() => {
@@ -350,9 +285,6 @@ export default function ArchivePage() {
     const fromTree = findPath(folderTree, selectedFolder);
     if (fromTree) return fromTree;
 
-    // Fallback untuk folder yang tidak ada di folderTree (mis. modul milik
-    // Guru di category_id 5) — ambil label asli dari SIDEBAR_FOLDERS supaya
-    // breadcrumb tidak pernah menampilkan path mentah seperti "cat:5/type:19".
     for (const item of SIDEBAR_FOLDERS) {
       if (!item.children) continue;
       const match = item.children.find((c) => c.path === selectedFolder);
@@ -685,7 +617,6 @@ export default function ArchivePage() {
     return findFolderNode(folderTree, selectedFolder);
   }, [selectedFolder, folderTree]);
 
-  // Phase 4: load trash saat Recycle Bin dibuka
   const handleOpenRecycleBin = () => {
     loadTrashedDocuments();
     setShowRecycleBin(true);
@@ -1244,8 +1175,6 @@ export default function ArchivePage() {
             className="h-full min-h-0 overflow-hidden"
           >
             <div className="h-full overflow-y-auto p-4 lg:p-9 space-y-5">
-
-              {/* TOMBOL NAVIGASI FOLDER KHUSUS MOBILE */}
               {isMobile && (
                 <div className="flex lg:hidden mb-2">
                   <Button
@@ -1428,7 +1357,7 @@ export default function ArchivePage() {
                 </div>
               )}
 
-              {/* FILTER BAR RESPONSIVE */}
+              {/* FILTER BAR */}
               <div className="grid grid-cols-1 sm:flex sm:flex-wrap items-center gap-3 bg-card p-3 lg:p-4 rounded-xl border border-border">
                 <div className="relative w-full sm:flex-1 sm:min-w-[200px]">
                   <Search
@@ -1677,7 +1606,7 @@ export default function ArchivePage() {
         </div>
       )}
 
-      {/* MODAL FOLDER UNTUK MOBILE */}
+      {/* MODAL FOLDER */}
       <Dialog open={showMobileFolderDialog} onOpenChange={setShowMobileFolderDialog}>
         <DialogContent className="max-h-[85vh] p-0 overflow-hidden flex flex-col rounded-2xl w-[90vw]">
           <DialogHeader className="p-4 border-b border-border shrink-0">
@@ -2097,7 +2026,7 @@ export default function ArchivePage() {
         </div>
       )}
 
-      {/* POPUP DETAIL DOCUMENT UNTUK HP */}
+      {/* POPUP DETAIL DOCUMENT */}
       {previewDoc && previewMode === "popup" && isMobile && (
         <div className="fixed inset-0 z-[100] flex flex-col justify-end">
           <div

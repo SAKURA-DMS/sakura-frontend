@@ -28,7 +28,6 @@ function applyTheme(theme) {
 
 export const SettingsProvider = ({ children }) => {
   const { currentUser } = useApp();
-  // Guard: currentUser bisa null saat authLoading belum selesai
   const storageKey = `sakura_prefs_${currentUser?.id ?? "guest"}`;
 
   const [settings, setSettings] = useState(() => {

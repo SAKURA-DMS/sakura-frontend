@@ -16,7 +16,6 @@ export default function ApprovalApprovedPage() {
     setLoading(true);
     setError(null);
     try {
-      // Ambil semua approval_requests yang sudah diputuskan (approved atau rejected)
       const [approvedRes, rejectedRes] = await Promise.all([
         api.get("/approvals", { params: { status: "approved", limit: 200 } }),
         api.get("/approvals", { params: { status: "rejected", limit: 200 } }),

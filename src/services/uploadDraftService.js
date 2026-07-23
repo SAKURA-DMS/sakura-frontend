@@ -1,13 +1,6 @@
-/**
- * uploadDraftService.js
- * Menyimpan dan memulihkan draft upload dokumen ke/dari localStorage.
- * File (binary) tidak bisa disimpan di localStorage — hanya metadata-nya.
- * Thumbnail disimpan sebagai base64 dataURL (maks ~5MB preview).
- */
-
 const DRAFT_KEY = "sakura_upload_draft";
 
-/** Simpan draft (semua state form, kecuali objek File asli) */
+/* Simpan draft */
 export function saveDraft(data) {
   try {
     const payload = {
@@ -19,7 +12,6 @@ export function saveDraft(data) {
       form: data.form
         ? {
             ...data.form,
-            // Date tidak JSON-serializable: simpan sebagai ISO string
             tanggalUpload: data.form.tanggalUpload
               ? new Date(data.form.tanggalUpload).toISOString()
               : null,
@@ -30,19 +22,15 @@ export function saveDraft(data) {
       selectedTypeId: data.selectedTypeId ?? null,
       kategoriValue: data.kategoriValue ?? "",
       jenisValue: data.jenisValue ?? "",
-      // Thumbnail: simpan dataURL (bisa null)
       filePreview: data.filePreview ?? null,
-      // Nama & ukuran file untuk info (file asli tidak bisa disimpan)
       fileName: data.fileName ?? null,
       fileSize: data.fileSize ?? null,
       fileType: data.fileType ?? null,
-      // Scan pages (array of dataURL)
       scanPageImages: data.scanPageImages ?? [],
     };
     localStorage.setItem(DRAFT_KEY, JSON.stringify(payload));
     return true;
   } catch (e) {
-    // QuotaExceededError (preview terlalu besar) – simpan tanpa preview
     try {
       const fallback = { ...data, filePreview: null, scanPageImages: [] };
       saveDraft(fallback);
@@ -53,13 +41,12 @@ export function saveDraft(data) {
   }
 }
 
-/** Baca draft. Kembalikan null jika tidak ada atau parsing gagal. */
+/* Baca draft */
 export function loadDraft() {
   try {
     const raw = localStorage.getItem(DRAFT_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    // Pulihkan Date dari string
     if (parsed.form?.tanggalUpload) {
       parsed.form.tanggalUpload = new Date(parsed.form.tanggalUpload);
     }
@@ -69,12 +56,11 @@ export function loadDraft() {
   }
 }
 
-/** Hapus draft */
+/* Hapus draft */
 export function clearDraft() {
   localStorage.removeItem(DRAFT_KEY);
 }
 
-/** Apakah ada draft tersimpan? */
 export function hasDraft() {
   return !!localStorage.getItem(DRAFT_KEY);
 }

@@ -1,8 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
-import {
-  ROLE_PERMISSIONS,
-  FOLDERS,
-} from "@/data/mockData.js";
+import { ROLE_PERMISSIONS, FOLDERS } from "@/data/mockData.js";
 import * as authService from "@/services/authService";
 import * as userService from "@/services/userService";
 import * as documentService from "@/services/documentService";
@@ -22,48 +19,32 @@ export const useApp = () => {
 
 const NOTIF_POLL_INTERVAL = 60_000;
 
-// ── Online Status (Fitur Online Status) ──────────────────────────────────────
-// Tidak ada WebSocket di proyek ini, jadi dipakai solusi paling ringan:
-// heartbeat + polling interval pendek (jauh lebih jarang dibanding "polling
-// tiap beberapa detik"), dikombinasikan dengan event login/logout/visibility/
-// unload supaya status berubah secepat mungkin tanpa membebani server.
-const HEARTBEAT_INTERVAL_MS = 20_000; // kirim "saya online" setiap 20 detik
-const PRESENCE_POLL_INTERVAL_MS = 20_000; // tarik status user lain setiap 20 detik
+// Online Status 
+const HEARTBEAT_INTERVAL_MS = 20_000; 
+const PRESENCE_POLL_INTERVAL_MS = 20_000;
 
 export const AppProvider = ({ children }) => {
-  // ── Auth State ────────────────────────────────────────────────────────────
   const [currentUser, setCurrentUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
-
-  // Mobile off-canvas sidebar toggle (dipakai oleh AppSidebar + AppHeader
-  // agar drawer sidebar bisa dibuka/ditutup dari luar komponen sidebar itu sendiri)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-
-  // ── Document State ────────────────────────────────────────────────────────
   const [documents, setDocuments] = useState([]);
   const [trashedDocuments, setTrashedDocuments] = useState([]);
   const [documentsLoading, setDocumentsLoading] = useState(false);
-
-  // ── Non-document state ────────────────────────────────────────────────────
   const [rolePermissions, setRolePermissions] = useState(ROLE_PERMISSIONS);
-
-  // ── Notification State — Phase 7: dari API, bukan mock ───────────────────
   const [notifications, setNotifications] = useState([]);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const pollingRef = useRef(null);
 
-  // ── Online Status State ───────────────────────────────────────────────────
-  // Map { [userId]: boolean } — dipakai oleh komponen UserAvatar di seluruh
-  // aplikasi (Header, Approval, Timeline, System Log, Komentar, User Management, dst).
+  // Online Status State 
   const [onlineStatuses, setOnlineStatuses] = useState({});
   const heartbeatRef = useRef(null);
   const presencePollRef = useRef(null);
 
-  // ── Folders (sinkron dengan database lewat /api/folders) ────────────────
+  // Folders 
   const [folders, setFolders] = useState([]);
   const [foldersLoading, setFoldersLoading] = useState(false);
 
-  // ── Users State ───────────────────────────────────────────────────────────
+  // Users State
   const [users, setUsers] = useState([]);
   const [pendingUsersState, setPendingUsersState] = useState([]);
   const [usersLoading, setUsersLoading] = useState(false);
@@ -72,7 +53,7 @@ export const AppProvider = ({ children }) => {
 
   const isLoggedIn = !!currentUser;
 
-  // ── Restore Session ───────────────────────────────────────────────────────
+  // Restore Session
   useEffect(() => {
     const restore = async () => {
       const token = getToken();
@@ -89,7 +70,7 @@ export const AppProvider = ({ children }) => {
     restore();
   }, []);
 
-  // ── Load Notifications dari API ───────────────────────────────────────────
+  // Load Notifications 
   const loadNotifications = useCallback(async () => {
     setNotificationsLoading(true);
     try {
@@ -102,7 +83,6 @@ export const AppProvider = ({ children }) => {
     }
   }, []);
 
-  // ── Auto-load + Polling saat user login ───────────────────────────────────
   useEffect(() => {
     if (!currentUser) {
       setNotifications([]);
@@ -125,7 +105,6 @@ export const AppProvider = ({ children }) => {
     };
   }, [currentUser, loadNotifications]);
 
-  // ── Online Status: load status semua user (polling ringan) ───────────────
   const loadOnlineStatuses = useCallback(async () => {
     try {
       const statuses = await presenceService.getStatuses();
@@ -135,15 +114,11 @@ export const AppProvider = ({ children }) => {
       }
       setOnlineStatuses(map);
     } catch (err) {
-      // Gagal diam-diam — status online bersifat "nice to have", tidak boleh
-      // mengganggu fungsi utama aplikasi jika request ini gagal.
       console.error("Gagal memuat status online:", err);
     }
   }, []);
 
-  // ── Online Status: heartbeat + polling + deteksi tab ditutup ─────────────
   useEffect(() => {
-    // Hentikan timer lama setiap kali efek ini re-run (mis. user berubah).
     const clearTimers = () => {
       if (heartbeatRef.current) { clearInterval(heartbeatRef.current); heartbeatRef.current = null; }
       if (presencePollRef.current) { clearInterval(presencePollRef.current); presencePollRef.current = null; }
@@ -155,14 +130,10 @@ export const AppProvider = ({ children }) => {
       return;
     }
 
-    // Kirim heartbeat pertama langsung (tidak menunggu interval pertama).
     presenceService.sendHeartbeat().catch(() => {});
     loadOnlineStatuses();
 
     heartbeatRef.current = setInterval(() => {
-      // Tidak perlu heartbeat jika tab sedang disembunyikan (hemat request);
-      // saat tab aktif lagi, listener visibilitychange di bawah akan
-      // langsung mengirim heartbeat + refresh status.
       if (document.visibilityState === "visible") {
         presenceService.sendHeartbeat().catch(() => {});
       }
@@ -170,8 +141,6 @@ export const AppProvider = ({ children }) => {
 
     presencePollRef.current = setInterval(loadOnlineStatuses, PRESENCE_POLL_INTERVAL_MS);
 
-    // Saat user kembali ke tab ini (mis. setelah pindah tab/aplikasi lain),
-    // langsung kirim heartbeat + refresh status agar terasa realtime.
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
         presenceService.sendHeartbeat().catch(() => {});
@@ -180,9 +149,6 @@ export const AppProvider = ({ children }) => {
     };
     document.addEventListener("visibilitychange", handleVisibility);
 
-    // Saat browser/tab ditutup: kirim sinyal offline lewat sendBeacon, yang
-    // tetap terkirim di background walau halaman sudah dalam proses ditutup
-    // (berbeda dari fetch/XHR biasa yang bisa dibatalkan browser).
     const handlePageHide = () => {
       presenceService.markOfflineBeacon(getToken());
     };
@@ -195,7 +161,7 @@ export const AppProvider = ({ children }) => {
     };
   }, [currentUser, loadOnlineStatuses]);
 
-  // ── Load Documents dari API ───────────────────────────────────────────────
+  // Load Documents 
   const loadDocuments = useCallback(async (params = {}) => {
     setDocumentsLoading(true);
     try {
@@ -217,7 +183,7 @@ export const AppProvider = ({ children }) => {
     }
   }, []);
 
-  // ── Load Users dari API ───────────────────────────────────────────────────
+  // Load Users 
   const loadUsers = useCallback(async () => {
     setUsersLoading(true);
     setUsersError(null);
@@ -243,7 +209,7 @@ export const AppProvider = ({ children }) => {
     }
   }, []);
 
-  // ── LOGIN ─────────────────────────────────────────────────────────────────
+  // LOGIN
   const login = async (identifier, password) => {
     try {
       const data = await authService.login(identifier, password);
@@ -263,15 +229,9 @@ export const AppProvider = ({ children }) => {
     setCurrentUser(user);
   };
 
-  // ── LOGOUT ────────────────────────────────────────────────────────────────
+  // LOGOUT 
   const logout = () => {
-    // Jalankan logout backend tanpa menahan UI.
-    // Dengan begitu user langsung keluar tanpa harus menunggu respons server.
     const logoutRequest = authService.logout();
-
-    // Bersihkan state frontend langsung.
-    // isLoggedIn otomatis menjadi false karena currentUser = null,
-    // sehingga ProtectedRoute langsung mengarahkan ke halaman login.
     setCurrentUser(null);
     setUsers([]);
     setPendingUsersState([]);
@@ -282,23 +242,15 @@ export const AppProvider = ({ children }) => {
     setOnlineStatuses({});
     setMobileSidebarOpen(false);
 
-    // Biarkan request logout backend selesai di background.
     Promise.resolve(logoutRequest).catch((err) => {
       console.warn("Logout backend gagal:", err);
     });
   };
 
-  // ── Idle Session (Task 2): logout otomatis setelah 12 jam tanpa aktivitas.
-  // Aktivitas = click, mousemove, keyboard, scroll, atau request API apa pun.
-  // Selama user aktif, sesi diperpanjang otomatis (lihat useIdleSession.js).
-  // Hook ini sengaja diletakkan setelah `logout` didefinisikan supaya bisa
-  // dipakai langsung sebagai callback saat idle tercapai.
+  // Idle Session
   useIdleSession(!!currentUser, logout);
 
-  // ── Folder CRUD — sekarang benar-benar tersimpan di database ──────────────
-  // Setiap aksi (create/rename/move/delete) memanggil API lalu me-refresh
-  // `folders` dari server, sehingga UI otomatis ter-update tanpa perlu
-  // reload halaman, dan folder tidak akan "hilang" lagi setelah dibuat.
+  // Folder CRUD 
   const loadFolders = useCallback(async () => {
     setFoldersLoading(true);
     try {
@@ -362,7 +314,7 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  // ── Document CRUD ──────────────────────
+  // Document CRUD
   const uploadDocument = async (docOrFormData, onProgress) => {
     if (!hasPermission("documents.upload")) return { ok: false, error: "Akses ditolak" };
     try {
@@ -536,7 +488,7 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  // ── Approval Workflow ───────────────────────────────────────────
+  // Approval Workflow 
   const createApprovalRequest = async (docId, requesterNote = "") => {
     const result = await documentService.createApprovalRequest(docId, requesterNote);
     setDocuments((prev) =>
@@ -557,7 +509,6 @@ export const AppProvider = ({ children }) => {
         )
       );
     }
-    // Requester mendapat notif → refresh
     await loadNotifications();
     return result;
   };
@@ -591,7 +542,7 @@ export const AppProvider = ({ children }) => {
     return documentService.listApprovals(params);
   };
 
-  // ── Users & Auth ──────────────────────────────────────────────────────────
+  // Users & Auth 
   const registerUser = async (userData) => authService.register(userData);
 
   const activateUser = async (userId) => {
@@ -688,10 +639,6 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  // Setelah password berhasil diganti, hapus penanda "masih pakai password
-  // awal" di state lokal juga — supaya ProtectedRoute berhenti memaksa user
-  // kembali ke halaman Ganti Password pada navigasi berikutnya, tanpa perlu
-  // refresh/refetch /auth/me.
   const changePassword = async (currentPw, newPw) => {
     const data = await authService.changePassword(currentPw, newPw);
     setCurrentUser((prev) => (prev ? { ...prev, mustChangePassword: false } : prev));
@@ -733,7 +680,7 @@ export const AppProvider = ({ children }) => {
     );
   };
 
-  // ── Notifications ──────────────────────────────────
+  // Notifications 
   const markNotificationRead = async (notifId) => {
     setNotifications((prev) =>
       prev.map((n) => (n.id === notifId ? { ...n, read: true } : n))
@@ -755,7 +702,7 @@ export const AppProvider = ({ children }) => {
       await notificationService.markAllRead();
     } catch (err) {
       console.error("Gagal mark all notif read:", err);
-      setNotifications(prev); // rollback
+      setNotifications(prev); 
     }
   };
 
@@ -766,11 +713,11 @@ export const AppProvider = ({ children }) => {
       await notificationService.deleteNotification(notifId);
     } catch (err) {
       console.error("Gagal dismiss notif:", err);
-      setNotifications(prev); // rollback
+      setNotifications(prev); 
     }
   };
 
-  // ── Derived ───────────────────────────────────────────────────────────────
+  // Derived 
   const activeDocuments = documents;
 
   const visibleNotifications = notifications;
@@ -778,7 +725,7 @@ export const AppProvider = ({ children }) => {
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   /**
-   * Cek apakah seorang user sedang online.
+   * Cek user yang sedang online.
    * @param {number|string|null|undefined} userId
    * @returns {boolean}
    */
@@ -818,7 +765,7 @@ export const AppProvider = ({ children }) => {
         loadTrashedDocuments,
         // Data non-document
         rolePermissions,
-        // Notifications — Phase 7
+        // Notifications
         notifications,
         visibleNotifications,
         notificationsLoading,
@@ -864,7 +811,7 @@ export const AppProvider = ({ children }) => {
         deleteDocument,
         restoreDocument,
         permanentlyDeleteDocument,
-        // Notification actions — Phase 7
+        // Notification actions 
         markNotificationRead,
         markAllNotificationsRead,
         dismissNotification,

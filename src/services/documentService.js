@@ -1,6 +1,6 @@
 import api, { uploadApi } from "@/lib/apiClient";
 
-// ── Field Normalizer ──────────────────────────────────────────────────────────
+// Field Normalizer
 export function normalizeDocument(d) {
   if (!d) return null;
   return {
@@ -37,15 +37,12 @@ export function normalizeDocument(d) {
       avatar: d.uploader_avatar || null,
     },
 
-    // Raw fields untuk backward compat
     uploaded_by:       d.uploaded_by,
     nomor_dokumen:     d.nomor_dokumen,
     created_at:        d.created_at,
     updated_at:        d.updated_at,
     deleted_at:        d.deleted_at,
 
-    // Approval Kepsek (Task 1) & Dokumen Sensitive (Task 2) — field baru,
-    // aman diabaikan oleh komponen lama yang belum memakainya.
     approvalRequired: d.approval_required !== undefined ? !!d.approval_required : true,
     approvalStatus:   d.approval_status || null,
     approvedBy:       d.approved_by ?? null,
@@ -67,9 +64,6 @@ export function normalizeAuditTrail(trail = []) {
   return trail.map((t) => ({
     time:   t.created_at,
     action: t.action,
-    // BARU: sertakan new_value (JSON dari kolom audit_trail.new_value) —
-    // dipakai untuk menampilkan catatan approve/reject di popup "Komentar"
-    // pada Jejak Aktivitas. Data asli dari database, bukan hardcode.
     new_value: t.new_value || null,
     user: {
       id:     t.user_id,
@@ -80,12 +74,7 @@ export function normalizeAuditTrail(trail = []) {
   }));
 }
 
-// ── API Functions ─────────────────────────────────────────────────────────────
-
-// Preview nomor dokumen berikutnya untuk kategori + jenis tertentu.
-// Digunakan agar field "Nomor Dokumen" bisa ditampilkan readonly di form
-// SEBELUM dokumen disimpan. Ini tidak mengunci counter sehingga nomor final
-// (saat submit) dijamin urut meski ada preview bersamaan.
+// API Functions 
 export async function previewDocumentNumber(category_id, type_id) {
   const { data } = await api.get("/documents/meta/next-number", {
     params: { category_id, type_id },
@@ -112,7 +101,7 @@ export async function getDocument(id) {
 }
 
 /**
- * Dapatkan URL Supabase Storage (bertoken, sementara) untuk mengunduh/membuka file.
+ * 
  * @param {number|string} id         
  * @param {number}        expiryMin  
  * @returns {Promise<{ url, expiresInSec, filename, mimeType }>}
@@ -123,7 +112,7 @@ export async function getDownloadUrl(id, expiryMin = 60) {
 }
 
 /**
- * Upload dokumen baru ke server (multipart/form-data).
+ * Upload dokumen baru 
  * @param {FormData}  formData   
  * @param {Function}  onProgress 
  * @returns {Promise<{ id, nomor_dokumen, file_url, file_blob_name, file_size, mime_type }>}
@@ -141,7 +130,7 @@ export async function uploadDocument(formData, onProgress) {
 }
 
 /**
- * Replace file dokumen (PATCH /:id/file).
+ * Replace file dokumen 
  * @param {number|string}  id     
  * @param {File}           file   
  * @param {Function}       onProgress 
@@ -189,8 +178,7 @@ export async function permanentDeleteDocument(id) {
   return data;
 }
 
-// ── Approval Workflow — Phase 6 ──────────────────────────────────────────────
-
+// Approval Workflow
 export async function listApprovals(params = {}) {
   const { data } = await api.get("/approvals", { params });
   return data;

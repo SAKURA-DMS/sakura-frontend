@@ -1,25 +1,9 @@
-﻿/**
- * ocrService.js
- *
- * OCR dokumen — dipindahkan dari Tesseract.js (client-side, heuristic regex
- * parser) ke Gemini Vision API (backend, /api/ocr/scan). Gemini membaca
- * gambar dokumen secara langsung dan mengembalikan jenis dokumen + metadata
- * terstruktur, jauh lebih akurat dibanding OCR teks mentah + regex.
- *
- * Dokumen yang didukung: Ijazah SMP, Surat Keterangan Lulus (SKL/SKHU),
- * Sertifikat, Transkrip/Rekap Nilai. Selain itu backend mengembalikan
- * document_type: "unsupported".
- */
+﻿import { uploadApi } from "@/lib/apiClient";
 
-import { uploadApi } from "@/lib/apiClient";
-
-// Mapping field hasil Gemini (snake_case, sesuai template dokumen sekolah)
-// → key metaData yang dipakai form upload (camelCase, konsisten dengan
-// CATEGORY_FORM_FIELDS di src/data/mockData.js).
 const FIELD_KEY_MAP = {
   ijazah: {
     nama: "namaSiswa",
-    tempat_tanggal_lahir: "__ttl__", // ditangani khusus (split tempat/tanggal)
+    tempat_tanggal_lahir: "__ttl__", 
     nama_orangtua_wali: "namaOrangTua",
     nis: "nis",
     nisn: "nisn",
@@ -55,7 +39,6 @@ export const DOCUMENT_TYPE_LABELS = {
   transkrip: "Transkrip / Rekap Nilai",
 };
 
-// Label tampilan untuk setiap key metaData hasil mapping di atas.
 export const OCR_FIELD_LABELS = {
   namaSiswa: "Nama",
   tempatLahir: "Tempat Lahir",
@@ -75,7 +58,6 @@ export const OCR_FIELD_LABELS = {
   kelas: "Kelas",
 };
 
-/** Urutan field yang ditampilkan di form hasil OCR, per jenis dokumen. */
 export const OCR_FIELD_ORDER = {
   ijazah: [
     "namaSiswa", "tempatLahir", "tanggalLahir", "namaOrangTua",
@@ -86,7 +68,6 @@ export const OCR_FIELD_ORDER = {
   transkrip: ["namaSiswa", "nisn", "kelas", "tahunAjaran"],
 };
 
-/** Ubah dataUrl (base64) menjadi Blob agar bisa dikirim sebagai multipart/form-data. */
 function dataUrlToBlob(dataUrl) {
   const [meta, base64] = dataUrl.split(",");
   const mimeMatch = meta.match(/data:(.*?);base64/);
@@ -97,10 +78,6 @@ function dataUrlToBlob(dataUrl) {
   return new Blob([bytes], { type: mime });
 }
 
-/**
- * Pecah "Kota, 12 Mei 2008" menjadi { tempatLahir, tanggalLahir }.
- * Kalau tidak ada koma, seluruh teks dianggap tempat lahir saja.
- */
 function splitTempatTanggalLahir(value) {
   if (!value || typeof value !== "string") return {};
   const parts = value.split(",");
@@ -113,11 +90,6 @@ function splitTempatTanggalLahir(value) {
   return { tempatLahir: value.trim() };
 }
 
-/**
- * Terjemahkan { document_type, fields } dari backend menjadi objek metaData
- * yang siap digabungkan ke form upload (key camelCase, sama seperti field
- * form lain di UploadForm.jsx).
- */
 export function mapOcrFieldsToMetadata(documentType, rawFields = {}) {
   const map = FIELD_KEY_MAP[documentType];
   if (!map) return {};
@@ -138,9 +110,8 @@ export function mapOcrFieldsToMetadata(documentType, rawFields = {}) {
 }
 
 /**
- * Kirim gambar hasil scan ke backend untuk dibaca oleh Gemini Vision.
  *
- * @param {string} imageDataUrl - dataUrl hasil scan (dari DocumentScanner)
+ * @param {string} imageDataUrl 
  * @returns {Promise<{ documentType: string, confidence: number|null, fields: object, unsupported: boolean, message?: string }>}
  */
 export async function scanDocumentOCR(imageDataUrl) {

@@ -1,22 +1,3 @@
-/**
- * AppHeader.jsx — Phase 7 (patched: avatar fallback fix)
- * ─────────────────────────────────────────────────────────────────────────────
- * Perubahan Phase 7 (Notification):
- *  • Pakai `visibleNotifications` + `unreadCount` dari context (bukan hitung sendiri)
- *  • Badge badge animasi pulse saat ada notif baru (unread)
- *  • Ikon bervariasi per type notifikasi: approval, rejection, info
- *  • Klik notif → tandai baca + navigasi ke dokumen (jika docId ada)
- *  • Tombol dismiss (×) per notifikasi — panggil dismissNotification()
- *  • Tombol "Muat ulang" untuk manual refresh
- *  • State loading saat fetch (shimmer placeholder)
- *  • Empty state lebih informatif
- *
- * FIX (avatar): Tambah onError handler pada semua <img> avatar.
- *  Jika src tidak valid (base64 terpotong, null, URL rusak) →
- *  fallback ke inisial nama user dalam bentuk SVG/div, tidak crash.
- * ─────────────────────────────────────────────────────────────────────────────
- */
-
 import { Bell, User, LogOut, KeyRound, ChevronDown, CheckCheck, RefreshCw, X, FileCheck, FileX, Info, Clock, Menu } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
 import { useState, useRef, useEffect } from "react";
@@ -26,13 +7,6 @@ import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import UserAvatar from "@/components/shared/UserAvatar";
 
-// NOTE: Avatar fallback (inisial saat src tidak valid) + indikator Online
-// Status kini ditangani oleh komponen bersama <UserAvatar /> di
-// components/shared/UserAvatar.jsx, dipakai juga di seluruh halaman lain
-// (Approval, Timeline, System Log, Komentar, User Management, dst) agar
-// perilakunya konsisten di satu tempat.
-
-// ── Ikon & warna berdasarkan tipe notifikasi ──────────────────────────────────
 function NotifIcon({ type }) {
   const base = "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ring-1 ring-black/[0.03]";
   switch (type) {
@@ -63,7 +37,6 @@ function NotifIcon({ type }) {
   }
 }
 
-// ── Format waktu relatif sederhana ───────────────────────────────────────────
 function timeAgo(dateStr) {
   try {
     const diff = Date.now() - new Date(dateStr).getTime();
@@ -80,7 +53,6 @@ function timeAgo(dateStr) {
   }
 }
 
-// ── Skeleton placeholder ──────────────────────────────────────────────────────
 function NotifSkeleton() {
   return (
     <div className="flex items-start gap-3 px-4 py-3 animate-pulse">
@@ -94,7 +66,6 @@ function NotifSkeleton() {
   );
 }
 
-// ── Komponen utama ────────────────────────────────────────────────────────────
 export default function AppHeader({ title, subtitle }) {
   const {
     currentUser,
@@ -149,7 +120,6 @@ export default function AppHeader({ title, subtitle }) {
     };
   }, [showNotifs]);
 
-  // Klik notifikasi: tandai baca, lalu navigasi ke dokumen jika ada
   const handleNotifClick = async (notif) => {
     if (!notif.read) {
       await markNotificationRead(notif.id);
@@ -160,19 +130,16 @@ export default function AppHeader({ title, subtitle }) {
     }
   };
 
-  // Dismiss tanpa navigasi
   const handleDismiss = async (e, notifId) => {
     e.stopPropagation();
     await dismissNotification(notifId);
   };
 
-  // Tandai semua dibaca
   const handleMarkAll = async (e) => {
     e.stopPropagation();
     await markAllNotificationsRead();
   };
 
-  // Manual refresh
   const handleRefresh = async (e) => {
     e.stopPropagation();
     await loadNotifications();
@@ -181,7 +148,6 @@ export default function AppHeader({ title, subtitle }) {
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between gap-2 px-4 sm:px-6 lg:px-8 py-4 bg-card/80 glass border-b border-border/60">
       <div className="flex items-center gap-2 min-w-0">
-        {/* Hamburger — hanya tampil di layar HP/tablet untuk membuka sidebar drawer */}
         <button
           onClick={() => setMobileSidebarOpen(true)}
           className="lg:hidden shrink-0 p-2 -ml-2 rounded-lg text-foreground hover:bg-muted"
@@ -196,7 +162,6 @@ export default function AppHeader({ title, subtitle }) {
       </div>
 
       <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-        {/* ── Notification Bell ── */}
         <div className="relative" ref={notifRef}>
           <button
             ref={notifButtonRef}
@@ -225,7 +190,6 @@ export default function AppHeader({ title, subtitle }) {
                 className="fixed z-50 w-[90vw] max-w-sm sm:w-96 max-h-[70vh] bg-card border border-border/60 rounded-[22px] shadow-card-hover overflow-hidden backdrop-blur-sm"
                 style={{ top: notifMenuStyle.top, right: notifMenuStyle.right }}
               >
-                {/* Header panel notifikasi */}
                 <div className="flex items-center justify-between px-4 py-3.5 border-b border-border bg-muted/20">
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-sm text-foreground">Notifikasi</span>
@@ -269,7 +233,6 @@ export default function AppHeader({ title, subtitle }) {
                   </div>
                 </div>
 
-                {/* Daftar notifikasi */}
                 <div className="max-h-[calc(70vh-7rem)] overflow-y-auto divide-y divide-border scrollbar-thin">
                   {notificationsLoading && visibleNotifications.length === 0 && (
                     <>

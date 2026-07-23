@@ -1,17 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  X,
-  Minus,
-  Send,
-  Search,
-  ChartNoAxesColumnIncreasing,
-  CircleHelp,
-  Ellipsis,
-  User,
-  Upload,
-} from "lucide-react";
+import { X, Minus, Send, Search, ChartNoAxesColumnIncreasing, CircleHelp, Ellipsis, User, Upload } from "lucide-react";
 import { sendChatMessage } from "@/services/chatbotService";
 import { useApp } from "@/contexts/AppContext";
 import * as documentService from "@/services/documentService";
@@ -21,7 +11,6 @@ import chatbotPoster from "@/assets/sakura_chatbot_poster.png";
 import sakuraBranch from "@/assets/sakura_branch.png";
 import sakuraAlt from "@/assets/sakura_1.png";
 
-// ── Avatar SAKURA AI (dipakai di header & bubble chat) — efek hover: glow + kelopak beterbangan ──
 const AVATAR_PETALS = [
   { x: 26, y: -22, rot: 160, delay: 0 },
   { x: -28, y: -18, rot: 260, delay: 0.05 },
@@ -90,11 +79,8 @@ function formatTime(date) {
   return new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit" }).format(date);
 }
 
-// ── Komponen bubble pesan ──────────────────────────────────────────────────────
 function MessageBubble({ msg, navigate, onLinkClick }) {
   const isUser = msg.role === "user";
-
-  // Simple mapping: keyword -> internal route
   const routeMap = [
     { keys: ["upload dokumen", "halaman upload", "upload"], path: "/upload", label: "Buka halaman upload" },
     { keys: ["dashboard", "statistik", "statistik dokumen"], path: "/dashboard", label: "Buka dashboard" },
@@ -116,8 +102,6 @@ function MessageBubble({ msg, navigate, onLinkClick }) {
     if (!text) return [];
     const lower = text.toLowerCase();
     const found = [];
-
-    // explicit relative path detection, e.g. /upload
     const pathMatch = text.match(/\/(?:[a-z0-9\-_/]+)/i);
     if (pathMatch) {
       found.push({ path: pathMatch[0], label: `Buka ${pathMatch[0]}` });
@@ -132,11 +116,6 @@ function MessageBubble({ msg, navigate, onLinkClick }) {
     return found;
   }
 
-  // Hormati keputusan backend: jika backend mengirim array `links` (termasuk
-  // array KOSONG — artinya backend sudah memutuskan "tidak perlu tombol
-  // navigasi"), pakai itu apa adanya. Fallback pemindaian teks jawaban AI
-  // (findLinksFromText) hanya dipakai kalau backend sama sekali tidak
-  // mengirim field `links` (mis. respons lama/format lain).
   const links = Array.isArray(msg.links) ? msg.links : findLinksFromText(msg.text || "");
   const time = formatTime(msg.time || new Date());
 
@@ -205,7 +184,6 @@ function MessageBubble({ msg, navigate, onLinkClick }) {
   );
 }
 
-// ── Quick actions (sesuai spec: Cari dokumen / Statistik / Bantuan / lainnya) ──
 const QUICK_ACTIONS = [
   { key: "cari", label: "Cari dokumen", icon: Search, prompt: "Saya ingin mencari dokumen" },
   { key: "statistik", label: "Statistik dokumen", icon: ChartNoAxesColumnIncreasing, prompt: "Tampilkan statistik dokumen" },
@@ -218,7 +196,6 @@ const MORE_ACTIONS = [
   { key: "reset", label: "Mulai percakapan baru", prompt: "__reset__" },
 ];
 
-// ── Komponen utama ChatBot ─────────────────────────────────────────────────────
 export default function ChatBot() {
   const { isLoggedIn } = useApp();
   const navigate = useNavigate();
@@ -239,18 +216,12 @@ export default function ChatBot() {
   const inputRef = useRef(null);
   const [inputFocused, setInputFocused] = useState(false);
 
-  // ── Draggable floating button (posisi disimpan selama halaman belum di-refresh) ──
-  // buttonPos === null artinya tombol masih di posisi default (CSS: bottom-5 right-5).
-  // Setelah pertama kali digeser, posisi dikontrol lewat inline style (left/top, fixed),
-  // dan SELALU di-snap ke sisi kiri/kanan viewport terdekat begitu drag selesai
-  // (mirip Messenger Chat Head / Edge Panel / Assistive Touch) supaya icon tidak
-  // pernah berhenti di tengah layar.
   const buttonRef = useRef(null);
   const [buttonPos, setButtonPos] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
   const dragStateRef = useRef({ dragging: false, moved: false, offsetX: 0, offsetY: 0 });
   const DRAG_THRESHOLD_PX = 4;
-  const EDGE_MARGIN_PX = 16; // jarak minimal icon dari tepi layar setelah snap
+  const EDGE_MARGIN_PX = 16; 
 
   function clampToViewport(left, top, width, height) {
     const maxLeft = Math.max(0, window.innerWidth - width);
@@ -261,8 +232,6 @@ export default function ChatBot() {
     };
   }
 
-  // Tentukan posisi akhir setelah snap: pilih sisi kiri atau kanan viewport
-  // berdasarkan mana yang lebih dekat, posisi Y (top) tetap seperti saat dilepas.
   function computeSnapPosition(left, top, width, height) {
     const { top: clampedTop } = clampToViewport(left, top, width, height);
     const viewportWidth = window.innerWidth;
@@ -275,17 +244,13 @@ export default function ChatBot() {
         ? EDGE_MARGIN_PX
         : viewportWidth - width - EDGE_MARGIN_PX;
 
-    // Pengaman ekstra: pastikan tetap berada di dalam viewport walau
-    // viewport sangat sempit (mis. lebih sempit dari lebar tombol + margin).
     snappedLeft = Math.min(Math.max(0, snappedLeft), Math.max(0, viewportWidth - width));
-
     return { left: snappedLeft, top: clampedTop };
   }
 
   function handleButtonPointerDown(e) {
     const btn = buttonRef.current;
     if (!btn) return;
-    // Hanya tombol utama mouse / sentuhan tunggal yang memicu drag
     if (e.pointerType === "mouse" && e.button !== 0) return;
 
     btn.setPointerCapture?.(e.pointerId);
@@ -313,12 +278,10 @@ export default function ChatBot() {
       const dy = rawTop - rect.top;
       if (Math.abs(dx) < DRAG_THRESHOLD_PX && Math.abs(dy) < DRAG_THRESHOLD_PX) return;
       state.moved = true;
-      setIsDragging(true); // matikan transisi CSS selama drag aktif supaya mengikuti pointer tanpa lag
+      setIsDragging(true); 
     }
 
     const { left, top } = clampToViewport(rawLeft, rawTop, rect.width, rect.height);
-
-    // Update langsung ke DOM (tanpa setState) supaya drag terasa halus/smooth
     btn.style.left = `${left}px`;
     btn.style.top = `${top}px`;
     btn.style.right = "auto";
@@ -336,15 +299,10 @@ export default function ChatBot() {
     setIsDragging(false);
 
     if (wasMoved && btn) {
-      // Snap to Edge: setelah drag selesai, icon otomatis "menempel" ke sisi
-      // kiri atau kanan viewport terdekat (bukan berhenti di posisi bebas/tengah).
-      // Posisi Y (vertikal) tetap sesuai saat dilepas. Transisi CSS (lihat style
-      // di JSX tombol) yang membuat perpindahan ke tepi terasa smooth (~260ms).
       const rect = btn.getBoundingClientRect();
       const snapped = computeSnapPosition(rect.left, rect.top, rect.width, rect.height);
       setButtonPos(snapped);
     } else if (!wasMoved) {
-      // Tidak ada pergeseran berarti = klik biasa -> buka/tutup chatbot seperti semula
       setIsOpen((v) => !v);
     }
   }
@@ -354,12 +312,10 @@ export default function ChatBot() {
   }
 
   function handleButtonPointerCancel(e) {
-    // Interupsi (mis. sistem mengambil alih gesture): batalkan drag tanpa memicu klik
     dragStateRef.current = { dragging: false, moved: false, offsetX: 0, offsetY: 0 };
     setIsDragging(false);
   }
 
-  // Jaga tombol tetap ter-snap di tepi & di dalam viewport saat browser di-resize
   useEffect(() => {
     function handleResize() {
       const btn = buttonRef.current;
@@ -372,19 +328,14 @@ export default function ChatBot() {
     return () => window.removeEventListener("resize", handleResize);
   }, [buttonPos]);
 
-  // Auto-scroll ke bawah setiap ada pesan baru
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isOpen, isMinimized]);
 
-  // Fokus input saat jendela dibuka / tidak diminimize
   useEffect(() => {
     if (isOpen && !isMinimized) inputRef.current?.focus();
   }, [isOpen, isMinimized]);
 
-  // chat anchored to right by design
-
-  // Hanya tampilkan jika user sudah login
   if (!isLoggedIn) return null;
 
   async function sendText(text) {
@@ -455,16 +406,13 @@ export default function ChatBot() {
   async function handleLinkClick(link) {
     try {
       if (!link || !link.path) return;
-      // If it's a document link like /documents/:id, fetch and show inline
       if (link.path.startsWith("/documents/")) {
         const parts = link.path.split("/");
         const id = parts[parts.length - 1];
         if (!id) return;
-        // show a temporary loading message
         setMessages((prev) => [...prev, { role: "assistant", text: `Memuat dokumen ${id}...`, time: new Date() }]);
         try {
           const { document } = await documentService.getDocument(id);
-          // replace the loading message with the document card
           setMessages((prev) => {
             const copy = prev.slice(0, -1);
             return [...copy, { role: "assistant", text: `Detail dokumen: ${document.judul || document.nomor || ''}`, doc: { id: document.id, judul: document.judul, nomor: document.nomor_dokumen || document.nomor, status: document.status }, time: new Date() }];
@@ -475,7 +423,6 @@ export default function ChatBot() {
         return;
       }
 
-      // Otherwise navigate to the path
       navigate(link.path);
     } catch (e) {
       console.error("handleLinkClick error", e);
@@ -494,11 +441,9 @@ export default function ChatBot() {
     setIsMinimized(false);
   }
 
-  // dragging removed: fixed-position avatar on the right
-
   return (
     <>
-      {/* ── Chat Window ─────────────────────────────────────────────────── */}
+      {/* Chat Window */}
       <AnimatePresence>
         {isOpen && (
             <motion.div
@@ -511,7 +456,6 @@ export default function ChatBot() {
           >
             {/* Header */}
             <div className="relative flex items-center gap-2.5 px-4 py-3.5 flex-shrink-0 overflow-hidden text-primary-foreground">
-              {/* Background: sakura branch photo + gradient overlay for legibility */}
               <div
                 className="absolute inset-0"
                 style={{
@@ -641,7 +585,6 @@ export default function ChatBot() {
                         onFocus={() => setInputFocused(true)}
                         onBlur={() => setInputFocused(false)}
                         onInput={(e) => {
-                          // auto-resize
                           const ta = e.target;
                           ta.style.height = "auto";
                           ta.style.height = Math.min(ta.scrollHeight, 144) + "px";
@@ -663,7 +606,7 @@ export default function ChatBot() {
         )}
       </AnimatePresence>
 
-      {/* ── Floating Button (bisa di-drag bebas, posisi tersimpan sampai refresh) ─── */}
+      {/* Floating Button */}
       <motion.button
         ref={buttonRef}
         onPointerDown={handleButtonPointerDown}
@@ -674,11 +617,6 @@ export default function ChatBot() {
         style={{
           touchAction: "none",
           cursor: isDragging ? "grabbing" : "grab",
-          // Transisi hanya aktif saat TIDAK sedang drag, supaya perpindahan ke
-          // sisi tepi (snap) terasa smooth (~260ms), sementara saat drag aktif
-          // posisi mengikuti pointer secara langsung tanpa lag/delay.
-          // Durasi & easing untuk transform/box-shadow sengaja disamakan
-          // dengan className asli (300ms ease-out) supaya animasi hover tidak berubah.
           transition: isDragging
             ? "none"
             : "left 260ms cubic-bezier(0.22, 1, 0.36, 1), top 260ms cubic-bezier(0.22, 1, 0.36, 1), transform 300ms ease-out, box-shadow 300ms ease-out",
@@ -692,7 +630,7 @@ export default function ChatBot() {
         <PetalRing scale={1.3} />
         <div className="sakura-avatar-glow absolute inset-0 rounded-full" style={{ transition: "box-shadow 300ms ease" }} />
 
-        {/* Poster statis (default) */}
+        {/* Poster statis */}
         <img
           src={chatbotPoster}
           alt=""
@@ -701,7 +639,7 @@ export default function ChatBot() {
           className="sakura-avatar-img absolute inset-0 w-full h-full rounded-full object-cover border-2 border-white shadow-lg opacity-100 group-hover:opacity-0 transition-opacity duration-200"
           style={{ transition: "opacity 200ms ease, transform 300ms ease" }}
         />
-        {/* GIF animasi — terlihat & "bergerak" saat kursor diarahkan ke sini */}
+        {/* GIF animasi */}
         <img
           src={chatbotGif}
           alt="SAKURA AI"

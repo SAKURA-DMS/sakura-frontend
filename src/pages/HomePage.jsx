@@ -55,13 +55,13 @@ export default function HomePage() {
         </div>
       </nav>
 
-      {/* Falling petals — z-index 1, behind all content */}
+      {/* Falling petals */}
       <FallingPetals />
 
       {/* Burst petals overlay */}
       <PetalBurstOverlay petals={petals} />
 
-      {/* ─── HERO ─── */}
+      {/* HERO */}
       <section
         ref={heroRef}
         className="relative w-full"
@@ -168,7 +168,7 @@ export default function HomePage() {
         </motion.div>
       </section>
 
-      {/* ── Feature sections ── */}
+      {/* Feature sections */}
       <div
         className="relative"
         style={{

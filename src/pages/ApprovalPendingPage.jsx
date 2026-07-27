@@ -109,7 +109,7 @@ export default function ApprovalPendingPage() {
             ))}
           </div>
           <p className="text-center text-xs italic text-muted-foreground mt-3">
-            Hanya Operator TU yang dapat mengunggah dokumen
+            Tinjau setiap dokumen yang diajukan sebelum menyetujui atau menolak permintaan pengarsipan. TU yang dapat mengunggah dokumen
           </p>
         </div>
 

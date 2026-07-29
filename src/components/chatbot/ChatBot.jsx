@@ -201,7 +201,6 @@ export default function ChatBot() {
   const navigate = useNavigate();
 
   const [isOpen, setIsOpen] = useState(false);
-  const [isMinimized, setIsMinimized] = useState(false);
   const [showMore, setShowMore] = useState(false);
   const welcomeMessage = {
     role: "assistant",
@@ -223,12 +222,6 @@ export default function ChatBot() {
   const DRAG_THRESHOLD_PX = 4;
   const EDGE_MARGIN_PX = 16; 
 
-  // Measure the header's real rendered height so the "minimize" collapse
-  // animates to an exact pixel value instead of "auto" (which can't be
-  // animated smoothly and previously left the panel looking not fully
-  // collapsed).
-  const headerRef = useRef(null);
-  const [headerHeight, setHeaderHeight] = useState(64);
   const PANEL_HEIGHT = 520;
 
   // Only the X (close) button should wipe the conversation; minimizing,
@@ -347,16 +340,10 @@ export default function ChatBot() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isOpen, isMinimized]);
+  }, [messages, isOpen]);
 
   useEffect(() => {
-    if (isOpen && !isMinimized) inputRef.current?.focus();
-  }, [isOpen, isMinimized]);
-
-  useEffect(() => {
-    if (isOpen && headerRef.current) {
-      setHeaderHeight(headerRef.current.offsetHeight);
-    }
+    if (isOpen) inputRef.current?.focus();
   }, [isOpen]);
 
   if (!isLoggedIn) return null;
@@ -461,7 +448,12 @@ export default function ChatBot() {
 
   function openChat() {
     setIsOpen(true);
-    setIsMinimized(false);
+  }
+
+  // Both buttons fully hide the widget the same way. The only difference
+  // is whether the conversation is kept for next time.
+  function minimizeChat() {
+    setIsOpen(false);
   }
 
   // "X" fully closes the widget AND clears the conversation (fresh start
@@ -473,11 +465,8 @@ export default function ChatBot() {
   }
 
   // Reset transient UI state only after the close animation has fully
-  // finished, so the panel never reopens with a stale isMinimized/showMore
-  // state (which previously caused the header to render at the wrong
-  // height/position and look "duplicated" right after reopening).
+  // finished, so the panel never reopens with stale showMore state.
   function handlePanelExitComplete() {
-    setIsMinimized(false);
     setShowMore(false);
     if (shouldResetChatRef.current) {
       setMessages([{ ...welcomeMessage, time: new Date() }]);
@@ -492,15 +481,15 @@ export default function ChatBot() {
         {isOpen && (
             <motion.div
             key="sakura-chatbot-panel"
-            initial={{ opacity: 0, y: 24, scale: 0.96, height: PANEL_HEIGHT }}
-            animate={{ opacity: 1, y: 0, scale: 1, height: isMinimized ? headerHeight : PANEL_HEIGHT }}
+            initial={{ opacity: 0, y: 24, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 16, scale: 0.97 }}
             transition={{ duration: 0.22, ease: "easeOut" }}
               className={`fixed bottom-24 right-5 z-50 w-80 sm:w-96 flex flex-col rounded-2xl shadow-2xl ring-1 ring-black/5 border border-secondary bg-card overflow-hidden`}
-            style={{ maxHeight: "80vh" }}
+            style={{ height: PANEL_HEIGHT, maxHeight: "80vh" }}
           >
             {/* Header */}
-            <div ref={headerRef} className="relative flex items-center gap-2.5 px-4 py-3.5 flex-shrink-0 overflow-hidden text-primary-foreground">
+            <div className="relative flex items-center gap-2.5 px-4 py-3.5 flex-shrink-0 overflow-hidden text-primary-foreground">
               <div
                 className="absolute inset-0"
                 style={{
@@ -522,10 +511,10 @@ export default function ChatBot() {
 
               <div className="flex items-center gap-1 relative z-10">
                 <button
-                  onClick={() => setIsMinimized((v) => !v)}
+                  onClick={minimizeChat}
                   className="w-7 h-7 rounded-full flex items-center justify-center text-primary-foreground/85 hover:text-primary-foreground hover:bg-white/15 transition-colors"
-                  aria-label={isMinimized ? "Perbesar chatbot" : "Kecilkan chatbot"}
-                  title={isMinimized ? "Perbesar" : "Kecilkan"}
+                  aria-label="Kecilkan chatbot"
+                  title="Kecilkan (percakapan tetap tersimpan)"
                 >
                   <Minus className="w-4 h-4" />
                 </button>
@@ -533,15 +522,14 @@ export default function ChatBot() {
                   onClick={closeAndResetHistory}
                   className="w-7 h-7 rounded-full flex items-center justify-center text-primary-foreground/85 hover:text-primary-foreground hover:bg-white/15 transition-colors"
                   aria-label="Tutup chatbot"
-                  title="Tutup"
+                  title="Tutup (mulai percakapan baru)"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
             </div>
 
-            {!isMinimized && (
-              <>
+            <>
                 {/* Messages */}
                 <div className="flex-1 overflow-y-auto px-3.5 py-4 bg-background">
                   {messages.map((msg, i) => (
@@ -646,7 +634,6 @@ export default function ChatBot() {
                   </button>
                 </div>
               </>
-            )}
           </motion.div>
         )}
       </AnimatePresence>

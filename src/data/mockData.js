@@ -486,7 +486,7 @@ export function buildFolderTree(documents, folders = FOLDERS) {
       });
       children = [...yearSet].sort().reverse().map((year) => ({
         name: year,
-        path: `${path}/year:${year}`,
+        path: `${path}/year:${encodeURIComponent(year)}`,
         folder_id: folder.folder_id,
         category_id: folder.category_id,
         type_id: folder.type_id,
@@ -522,7 +522,7 @@ export function docMatchesFolder(doc, folderPath, strict = false) {
 
   const catId = catPart ? Number(catPart.split(":")[1]) : null;
   const typeId = typePart ? Number(typePart.split(":")[1]) : null;
-  const year = yearPart ? yearPart.split(":")[1] : null;
+  const year = yearPart ? decodeURIComponent(yearPart.slice("year:".length)) : null;
   const folderId = folderPart ? Number(folderPart.split(":")[1]) : null;
 
   if (folderId) {

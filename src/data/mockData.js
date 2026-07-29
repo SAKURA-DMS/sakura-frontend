@@ -539,6 +539,17 @@ export function docMatchesFolder(doc, folderPath, strict = false) {
 }
 
 export function docMatchesFolderStrict(doc, folderPath, folderHasChildren) {
+  const parts = folderPath.split("/");
+  const folderPart = [...parts].reverse().find((p) => p.startsWith("folder:"));
+
+  // Untuk folder nyata (custom folder dengan folder_id eksplisit), pencocokan
+  // dokumen sudah pasti/tidak ambigu (doc.folder_id === folder ini). Dokumen yang
+  // memang disimpan langsung di folder ini harus tetap tampil, walau folder tsb
+  // kebetulan juga punya subfolder.
+  if (folderPart) {
+    return docMatchesFolder(doc, folderPath);
+  }
+
   if (folderHasChildren) return false;
   return docMatchesFolder(doc, folderPath);
 }

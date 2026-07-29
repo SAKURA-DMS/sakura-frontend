@@ -1102,13 +1102,13 @@ export default function ArchivePage() {
                           setExpandedFolders(new Set(folderTree.map((f) => f.path)));
                         }
                       }}
-                      className={`w-full text-left px-3 py-1.5 rounded-md text-sm font-medium transition-none ${
+                      className={`w-full text-left px-3 py-1.5 rounded-md text-sm font-medium transition-none flex items-center gap-2 ${
                         !selectedFolder && !showFavorites
                           ? "bg-primary/10 text-primary font-semibold"
                           : "text-foreground hover:bg-muted"
                       }`}
                     >
-                      📂 Semua Dokumen
+                      <Folder size={18} className={!selectedFolder && !showFavorites ? "text-primary" : "text-sakura-warning"} /> Semua Dokumen
                     </button>
 
                     <button
@@ -1621,13 +1621,13 @@ export default function ArchivePage() {
                 setPreviewMode("inline");
                 setShowMobileFolderDialog(false);
               }}
-              className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-none ${
+              className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-none flex items-center gap-2 ${
                 !selectedFolder && !showFavorites
                   ? "bg-primary/10 text-primary font-semibold"
                   : "text-foreground hover:bg-muted"
               }`}
             >
-              📂 Semua Dokumen
+              <Folder size={18} className={!selectedFolder && !showFavorites ? "text-primary" : "text-sakura-warning"} /> Semua Dokumen
             </button>
             <button
               onClick={() => {

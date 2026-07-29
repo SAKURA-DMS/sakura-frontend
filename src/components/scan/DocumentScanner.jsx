@@ -1,9 +1,10 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import {
-  Camera, X, ZoomIn, ZoomOut, Sun, Contrast, Scan,
-  RotateCw, Check, Sliders, ChevronRight, AlertTriangle,
-  Focus, Maximize2, RefreshCw, Plus, Images,
+  Camera, X, Scan,
+  RotateCw, Check, ChevronRight, AlertTriangle,
+  Focus, Maximize2, Plus, Images, Zap, ZapOff,
 } from "lucide-react";
+import { useSettings } from "@/contexts/SettingsContext";
 
 const COMPRESS_QUALITY = 0.82;
 const MAX_SCAN_WIDTH = 2048;  
@@ -48,21 +49,6 @@ function applySharpen(ctx, w, h) {
     }
   }
   ctx.putImageData(dst, 0, 0);
-}
-
-function applyBrightnessContrast(ctx, w, h, brightness, contrast) {
-  const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
-  const imgData = ctx.getImageData(0, 0, w, h);
-  const d = imgData.data;
-  for (let i = 0; i < d.length; i += 4) {
-    for (let c = 0; c < 3; c++) {
-      let v = d[i + c];
-      v += brightness;             
-      v = factor * (v - 128) + 128;
-      d[i + c] = Math.max(0, Math.min(255, v));
-    }
-  }
-  ctx.putImageData(imgData, 0, 0);
 }
 
 function sobelEdgeMap(grayData, w, h) {
@@ -182,9 +168,9 @@ async function processImage(dataUrl, opts = {}) {
       const w = canvas.width, h = canvas.height;
       const pCtx = canvas.getContext("2d");
 
-      // Auto-detect corners
+      // Auto-detect corners (hanya dijalankan jika fitur Auto-crop aktif)
       let detectedCorners = opts.perspectiveCorners || null;
-      if (!detectedCorners) {
+      if (!detectedCorners && opts.detectCorners) {
         const grayData = pCtx.getImageData(0, 0, w, h);
         toGrayscale(grayData);
         const edgeMap = sobelEdgeMap(grayData, w, h);
@@ -199,13 +185,6 @@ async function processImage(dataUrl, opts = {}) {
       }
 
       const finalCtx = canvas.getContext("2d");
-
-      // Brightness / Contrast
-      const brightness = opts.brightness ?? 0;
-      const contrast = opts.contrast ?? 0;
-      if (brightness !== 0 || contrast !== 0) {
-        applyBrightnessContrast(finalCtx, canvas.width, canvas.height, brightness, contrast);
-      }
 
       // Sharpen
       if (opts.sharpen) {
@@ -297,6 +276,9 @@ function PerspectiveOverlay({ corners, containerW, containerH }) {
 
 // Main Component
 export default function DocumentScanner({ onClose, onCapture, ocrMode = false }) {
+  const { settings } = useSettings();
+  const autoCropEnabled = !!settings?.scan?.autoCrop;
+
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const [stream, setStream] = useState(null);
@@ -309,7 +291,6 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
   const [adjustedCorners, setAdjustedCorners] = useState(null); 
 
   // Kamera
-  const [zoom, setZoom] = useState(1);
   const [zoomRange, setZoomRange] = useState([1, 1]);
   const [torchOn, setTorchOn] = useState(false);
   const [videoSize, setVideoSize] = useState({ w: 1, h: 1 });
@@ -317,13 +298,6 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
   // Mode
   const [step, setStep] = useState("camera"); 
   const [isProcessing, setIsProcessing] = useState(false);
-
-  // Pengaturan
-  const [showSettings, setShowSettings] = useState(false);
-  const [brightness, setBrightness] = useState(10);
-  const [contrast, setContrast] = useState(15);
-  const [sharpen, setSharpen] = useState(true);
-  const [autoPerspective, setAutoPerspective] = useState(false);
 
   // Start kamera
   const startCamera = useCallback(async () => {
@@ -345,13 +319,11 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
         const maxZoom = Number(cap.zoom.max) || 1;
         const defaultZoom = Math.min(Math.max(1, minZoom), maxZoom);
         setZoomRange([minZoom, maxZoom]);
-        setZoom(defaultZoom);
         try {
           await track.applyConstraints({ advanced: [{ zoom: defaultZoom }] });
         } catch {}
       } else {
         setZoomRange([1, 1]);
-        setZoom(1);
       }
 
       if (Array.isArray(cap.focusMode) && cap.focusMode.includes("continuous")) {
@@ -413,19 +385,6 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
     }
   }, [stream]);
 
-  // Zoom
-  const applyZoom = useCallback(
-    async (val) => {
-      setZoom(val);
-      const track = stream?.getVideoTracks()[0];
-      if (!track) return;
-      try {
-        await track.applyConstraints({ advanced: [{ zoom: val }] });
-      } catch { }
-    },
-    [stream]
-  );
-
   // Torch
   const toggleTorch = useCallback(async () => {
     const track = stream?.getVideoTracks()[0];
@@ -450,10 +409,9 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
     setCapturedRaw(rawUrl);
 
     const { dataUrl, corners } = await processImage(rawUrl, {
-      brightness,
-      contrast,
-      sharpen,
-      applyPerspective: autoPerspective,
+      sharpen: true,
+      detectCorners: autoCropEnabled,
+      applyPerspective: autoCropEnabled,
     });
 
     setProcessedUrl(dataUrl);
@@ -464,17 +422,15 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     setCameraReady(false);
-    setStep(autoPerspective && corners ? "result" : "result");
-  }, [brightness, contrast, sharpen, autoPerspective, stream]);
+    setStep("result");
+  }, [autoCropEnabled]);
 
   const applyManualPerspective = useCallback(async () => {
     if (!capturedRaw || !adjustedCorners) return;
     setIsProcessing(true);
 
     const { dataUrl } = await processImage(capturedRaw, {
-      brightness,
-      contrast,
-      sharpen,
+      sharpen: true,
       perspectiveCorners: adjustedCorners,
       applyPerspective: true,
     });
@@ -482,26 +438,7 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
     setProcessedUrl(dataUrl);
     setIsProcessing(false);
     setStep("result");
-  }, [capturedRaw, adjustedCorners, brightness, contrast, sharpen]);
-
-  const reprocess = useCallback(async () => {
-    if (!capturedRaw) return;
-    setIsProcessing(true);
-    const { dataUrl } = await processImage(capturedRaw, {
-      brightness,
-      contrast,
-      sharpen,
-      perspectiveCorners: adjustedCorners,
-      applyPerspective: autoPerspective,
-    });
-    setProcessedUrl(dataUrl);
-    setIsProcessing(false);
-  }, [capturedRaw, brightness, contrast, sharpen, adjustedCorners, autoPerspective]);
-
-  useEffect(() => {
-    if (step !== "result" || !capturedRaw) return;
-    reprocess();
-  }, [step, brightness, contrast, sharpen, autoPerspective, reprocess]);
+  }, [capturedRaw, adjustedCorners]);
 
   const buildMultiPageFile = useCallback(async (pages) => {
     const images = await Promise.all(
@@ -596,13 +533,6 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setShowSettings((v) => !v)}
-            className={`p-2 rounded-lg transition-colors ${showSettings ? "bg-blue-600 text-white" : "bg-white/10 text-white"}`}
-            title="Pengaturan Scan"
-          >
-            <Sliders size={16} />
-          </button>
-          <button
             onClick={() => { streamRef.current?.getTracks().forEach((t) => t.stop()); streamRef.current = null; onClose(); }}
             className="p-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors"
           >
@@ -610,61 +540,6 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
           </button>
         </div>
       </div>
-
-      {/* Settings Panel*/}
-      {showSettings && (
-        <div className="bg-gray-900 border-b border-gray-700 px-4 py-3 shrink-0 space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-gray-400 flex items-center gap-1 mb-1">
-                <Sun size={12} /> Kecerahan: {brightness > 0 ? "+" : ""}{brightness}
-              </label>
-              <input
-                type="range" min={-80} max={80} value={brightness}
-                onChange={(e) => setBrightness(Number(e.target.value))}
-                className="w-full h-1.5 accent-blue-500"
-              />
-            </div>
-            {/* Contrast */}
-            <div>
-              <label className="text-xs text-gray-400 flex items-center gap-1 mb-1">
-                <Contrast size={12} /> Kontras: {contrast > 0 ? "+" : ""}{contrast}
-              </label>
-              <input
-                type="range" min={-80} max={80} value={contrast}
-                onChange={(e) => setContrast(Number(e.target.value))}
-                className="w-full h-1.5 accent-blue-500"
-              />
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer">
-              <input
-                type="checkbox" checked={sharpen}
-                onChange={(e) => setSharpen(e.target.checked)}
-                className="accent-blue-500"
-              />
-              Pertajam Teks
-            </label>
-            <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer">
-              <input
-                type="checkbox" checked={autoPerspective}
-                onChange={(e) => setAutoPerspective(e.target.checked)}
-                className="accent-blue-500"
-              />
-              Koreksi Perspektif Otomatis
-            </label>
-          </div>
-          {step === "result" && (
-            <button
-              onClick={reprocess}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors"
-            >
-              <RefreshCw size={12} /> Terapkan Ulang
-            </button>
-          )}
-        </div>
-      )}
 
       {/* Main View */}
       <div className="flex-1 relative overflow-hidden flex items-center justify-center bg-black">
@@ -685,7 +560,7 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
               </div>
             )}
 
-            {cameraReady && (
+            {cameraReady && autoCropEnabled && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className="w-4/5 h-3/4 relative">
                   {[
@@ -703,26 +578,6 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
-
-            {zoomRange[1] > 1 && (
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex flex-col items-center gap-2">
-                <button
-                  onClick={() => applyZoom(Math.min(zoom + 0.5, zoomRange[1]))}
-                  className="w-9 h-9 rounded-full bg-black/60 text-white flex items-center justify-center"
-                >
-                  <ZoomIn size={16} />
-                </button>
-                <span className="text-white text-xs font-medium bg-black/50 px-1.5 py-0.5 rounded-full">
-                  {zoom.toFixed(1)}×
-                </span>
-                <button
-                  onClick={() => applyZoom(Math.max(zoom - 0.5, zoomRange[0]))}
-                  className="w-9 h-9 rounded-full bg-black/60 text-white flex items-center justify-center"
-                >
-                  <ZoomOut size={16} />
-                </button>
               </div>
             )}
           </>
@@ -793,9 +648,9 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
             <button
               onClick={toggleTorch}
               className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors ${torchOn ? "bg-yellow-500 text-black" : "bg-white/10 text-white"}`}
-              title="Lampu Flash"
+              title={torchOn ? "Matikan Flash" : "Nyalakan Flash"}
             >
-              ⚡
+              {torchOn ? <Zap size={20} /> : <ZapOff size={20} />}
             </button>
 
             {/* Capture button */}
@@ -807,14 +662,8 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
               <div className="w-12 h-12 rounded-full bg-white" />
             </button>
 
-            {/* Settings shortcut */}
-            <button
-              onClick={() => setShowSettings((v) => !v)}
-              className="w-11 h-11 rounded-full bg-white/10 text-white flex items-center justify-center"
-              title="Pengaturan"
-            >
-              <Sliders size={18} />
-            </button>
+            {/* Spacer agar tombol shutter tetap center (simetris dengan tombol flash) */}
+            <div className="w-11 h-11" aria-hidden="true" />
           </div>
         )}
 
@@ -833,7 +682,7 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
               </button>
               <button
                 onClick={() => {
-                  processImage(capturedRaw, { brightness, contrast, sharpen, applyPerspective: false })
+                  processImage(capturedRaw, { sharpen: true, applyPerspective: false })
                     .then(({ dataUrl }) => { setProcessedUrl(dataUrl); setStep("result"); });
                 }}
                 className="py-3 px-4 rounded-xl bg-white/10 text-white text-sm font-medium hover:bg-white/20 transition-colors"
@@ -859,12 +708,12 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
               <span className="flex items-center gap-1">
                 <Check size={12} className="text-green-400" /> Siap digunakan
               </span>
-              {detectedCorners && (
+              {autoCropEnabled && detectedCorners && (
                 <span className="flex items-center gap-1">
                   <Scan size={12} className="text-blue-400" /> Deteksi otomatis berhasil
                 </span>
               )}
-              {!detectedCorners && (
+              {autoCropEnabled && !detectedCorners && (
                 <span className="flex items-center gap-1 text-yellow-400">
                   <AlertTriangle size={12} /> Sesuaikan manual
                 </span>
@@ -883,7 +732,7 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
               >
                 <RotateCw size={16} /> {ocrMode ? "Ambil Ulang" : "Foto Ulang"}
               </button>
-              {!autoPerspective && (
+              {autoCropEnabled && (
                 <button
                   onClick={() => setStep("adjust")}
                   className="py-3 px-4 rounded-xl bg-white/10 text-white text-sm font-medium hover:bg-white/20 transition-colors"

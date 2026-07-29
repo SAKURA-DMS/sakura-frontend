@@ -159,14 +159,23 @@ export default function ApprovalPage() {
 
   // Approve
   const handleApprove = async () => {
-    if (!approveReq) return;
+    if (!approveReq || submitting) return; // cegah klik ganda saat request masih diproses
     setSubmitting(true);
     try {
       await documentService.approveRequest(approveReq.id, approveComment.trim());
+      const approvedId = approveReq.id;
       setApproveReq(null);
       setApproveComment("");
-      await loadApprovals();
-      await loadDocuments();
+
+      // Optimistic update: hapus item dari daftar "Menunggu" saat ini juga
+      // tanpa menunggu full refetch, supaya status di UI langsung berubah.
+      setPending((prev) => prev.filter((r) => r.id !== approvedId));
+
+      // Sinkronisasi ulang (termasuk riwayat keputusan & data dokumen)
+      // tetap dijalankan di background, tidak di-await, supaya tidak
+      // memblokir UI.
+      loadApprovals();
+      loadDocuments();
     } catch (e) {
       alert(e?.response?.data?.error || "Gagal menyetujui dokumen");
     } finally {

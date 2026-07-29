@@ -162,6 +162,10 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
   // Draft state 
   const [pendingDraft, setPendingDraft] = useState(null); 
   const [draftRestored, setDraftRestored] = useState(false);
+  // Prevents a debounced/beforeunload autosave that was already scheduled
+  // before submit from re-writing the draft into localStorage right after
+  // a successful upload clears it (form fields aren't reset until 1s later).
+  const suppressAutoSaveRef = useRef(false);
 
   // Mode pengisian
   const [fillMode, setFillMode] = useState(MODE_JUDUL);
@@ -311,15 +315,20 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
 
   useEffect(() => {
     if (uploadProgress !== null) return;
+    if (suppressAutoSaveRef.current) return;
     const hasData = form.judul || selectedCategoryId || file || scanPageImages.length > 0;
     if (!hasData) return;
 
-    const t = setTimeout(() => saveDraft(draftPayload), 800);
+    const t = setTimeout(() => {
+      if (suppressAutoSaveRef.current) return;
+      saveDraft(draftPayload);
+    }, 800);
     return () => clearTimeout(t);
   }, [draftPayload, uploadProgress]);
 
   useEffect(() => {
     const handleBeforeUnload = () => {
+      if (suppressAutoSaveRef.current) return;
       const hasData = form.judul || selectedCategoryId || file || scanPageImages.length > 0;
       if (hasData && uploadProgress === null) saveDraft(draftPayload);
     };
@@ -687,6 +696,10 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
       toast({ variant: "destructive", title: "Gagal Mengunggah", description: result.error || "Terjadi kesalahan saat upload." });
       return;
     }
+    // Suppress autosave immediately: a debounce timer scheduled from the
+    // last keystroke before submit may still be pending and would
+    // otherwise resurrect the draft right after it's cleared below.
+    suppressAutoSaveRef.current = true;
     clearDraft();
 
     toast({
@@ -706,6 +719,8 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
       setSelectedCategoryId(null); setSelectedTypeId(null);
       setKategoriValue(""); setJenisValue("");
       setShowKategoriLainnya(false); setShowJenisLainnya(false);
+      // Form is now empty; safe to let autosave resume for the next document.
+      suppressAutoSaveRef.current = false;
       onSuccess?.();
     }, 1000);
   };

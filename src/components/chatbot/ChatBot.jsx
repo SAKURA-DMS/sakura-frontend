@@ -254,12 +254,26 @@ export default function ChatBot() {
     if (e.pointerType === "mouse" && e.button !== 0) return;
 
     btn.setPointerCapture?.(e.pointerId);
+
+    // Kill any leftover snap-transition from a previous drag immediately.
+    // Without this, starting a new drag while the previous snap animation
+    // is still finishing its 260ms transition causes the browser to fight
+    // the manual left/top updates below, so getBoundingClientRect() later
+    // no longer reflects where the user actually dropped the button —
+    // which is why snap-to-edge would silently stop working from the
+    // second drag onward.
+    btn.style.transition = "none";
+
+    // Cache the drag-start rect once, and reuse it for the threshold
+    // check on every move — instead of re-querying a live rect that can
+    // still be mid-transition right after the previous snap.
     const rect = btn.getBoundingClientRect();
     dragStateRef.current = {
       dragging: true,
       moved: false,
       offsetX: e.clientX - rect.left,
       offsetY: e.clientY - rect.top,
+      startRect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height },
     };
   }
 
@@ -269,7 +283,7 @@ export default function ChatBot() {
     const btn = buttonRef.current;
     if (!btn) return;
 
-    const rect = btn.getBoundingClientRect();
+    const rect = state.startRect || btn.getBoundingClientRect();
     const rawLeft = e.clientX - state.offsetX;
     const rawTop = e.clientY - state.offsetY;
 
@@ -295,8 +309,13 @@ export default function ChatBot() {
     btn?.releasePointerCapture?.(e.pointerId);
 
     const wasMoved = state.moved;
-    dragStateRef.current = { dragging: false, moved: false, offsetX: 0, offsetY: 0 };
+    dragStateRef.current = { dragging: false, moved: false, offsetX: 0, offsetY: 0, startRect: null };
     setIsDragging(false);
+
+    // Hand control of the transition back to React's declarative style
+    // (driven by isDragging/buttonPos) so the snap-to-edge animation can
+    // run cleanly every time, not just the first.
+    if (btn) btn.style.transition = "";
 
     if (wasMoved && btn) {
       const rect = btn.getBoundingClientRect();
@@ -312,7 +331,9 @@ export default function ChatBot() {
   }
 
   function handleButtonPointerCancel(e) {
-    dragStateRef.current = { dragging: false, moved: false, offsetX: 0, offsetY: 0 };
+    const btn = buttonRef.current;
+    if (btn) btn.style.transition = "";
+    dragStateRef.current = { dragging: false, moved: false, offsetX: 0, offsetY: 0, startRect: null };
     setIsDragging(false);
   }
 
@@ -441,12 +462,22 @@ export default function ChatBot() {
     setIsMinimized(false);
   }
 
+  // Reset transient UI state only after the close animation has fully
+  // finished, so the panel never reopens with a stale isMinimized/showMore
+  // state (which previously caused the header to render at the wrong
+  // height/position and look "duplicated" right after reopening).
+  function handlePanelExitComplete() {
+    setIsMinimized(false);
+    setShowMore(false);
+  }
+
   return (
     <>
       {/* Chat Window */}
-      <AnimatePresence>
+      <AnimatePresence mode="wait" onExitComplete={handlePanelExitComplete}>
         {isOpen && (
             <motion.div
+            key="sakura-chatbot-panel"
             initial={{ opacity: 0, y: 24, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 16, scale: 0.97 }}

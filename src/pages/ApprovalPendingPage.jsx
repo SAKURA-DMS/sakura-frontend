@@ -26,6 +26,7 @@ export default function ApprovalPendingPage() {
   const [approveId,      setApproveId]      = useState(null);
   const [approveComment, setApproveComment] = useState("");
   const [successMsg,     setSuccessMsg]     = useState(null);
+  const [isApproving,    setIsApproving]    = useState(false);
 
   const canApprove = hasPermission("documents.approve");
 
@@ -73,17 +74,28 @@ export default function ApprovalPendingPage() {
   };
 
   const handleApprove = async (req) => {
+    if (isApproving) return; // cegah klik ganda saat request masih diproses
+    setIsApproving(true);
     try {
       await approveRequest(req.id, approveComment.trim() || undefined);
       setApproveId(null);
       setApproveComment("");
       setSuccessMsg(`Dokumen "${req.judul}" berhasil disetujui dan diarsipkan.`);
       setTimeout(() => setSuccessMsg(null), 3500);
-      await fetchPending();
+
+      // Optimistic update: hapus item dari list saat ini juga tanpa menunggu
+      // full refetch, supaya UI langsung terasa responsif.
+      setRequests((prev) => prev.filter((r) => r.id !== req.id));
+
+      // Sinkronisasi ulang dengan server tetap dilakukan di background
+      // (tidak di-await) untuk menjaga konsistensi data, tanpa memblokir UI.
+      fetchPending();
     } catch (err) {
       setApproveId(null);
       setApproveComment("");
       setError(err?.response?.data?.error || err.message || "Gagal menyetujui dokumen");
+    } finally {
+      setIsApproving(false);
     }
   };
 
@@ -288,9 +300,14 @@ export default function ApprovalPendingPage() {
               className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none mb-4"
             />
             <div className="flex gap-2 justify-end">
-              <button onClick={() => { setApproveId(null); setApproveComment(""); }} className="px-4 py-2 rounded-lg border border-input text-sm hover:bg-muted">Batal</button>
-              <button onClick={() => handleApprove(approveId)} className="px-4 py-2 rounded-lg bg-sakura-success text-white text-sm font-semibold hover:opacity-90 flex items-center gap-2">
-                <CheckCircle size={16} /> Setujui
+              <button onClick={() => { setApproveId(null); setApproveComment(""); }} disabled={isApproving} className="px-4 py-2 rounded-lg border border-input text-sm hover:bg-muted disabled:opacity-50">Batal</button>
+              <button onClick={() => handleApprove(approveId)} disabled={isApproving} className="px-4 py-2 rounded-lg bg-sakura-success text-white text-sm font-semibold hover:opacity-90 flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed">
+                {isApproving ? (
+                  <span className="w-4 h-4 border-2 border-white/60 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <CheckCircle size={16} />
+                )}
+                {isApproving ? "Memproses..." : "Setujui"}
               </button>
             </div>
           </div>

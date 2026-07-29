@@ -219,9 +219,21 @@ export default function ChatBot() {
   const buttonRef = useRef(null);
   const [buttonPos, setButtonPos] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
-  const dragStateRef = useRef({ dragging: false, moved: false, offsetX: 0, offsetY: 0 });
+  const dragStateRef = useRef({ dragging: false, moved: false });
   const DRAG_THRESHOLD_PX = 4;
   const EDGE_MARGIN_PX = 16; 
+
+  // Measure the header's real rendered height so the "minimize" collapse
+  // animates to an exact pixel value instead of "auto" (which can't be
+  // animated smoothly and previously left the panel looking not fully
+  // collapsed).
+  const headerRef = useRef(null);
+  const [headerHeight, setHeaderHeight] = useState(64);
+  const PANEL_HEIGHT = 520;
+
+  // Only the X (close) button should wipe the conversation; minimizing,
+  // or closing by tapping the floating avatar again, must keep history.
+  const shouldResetChatRef = useRef(false);
 
   function clampToViewport(left, top, width, height) {
     const maxLeft = Math.max(0, window.innerWidth - width);
@@ -255,51 +267,40 @@ export default function ChatBot() {
 
     btn.setPointerCapture?.(e.pointerId);
 
-    // Kill any leftover snap-transition from a previous drag immediately.
-    // Without this, starting a new drag while the previous snap animation
-    // is still finishing its 260ms transition causes the browser to fight
-    // the manual left/top updates below, so getBoundingClientRect() later
-    // no longer reflects where the user actually dropped the button —
-    // which is why snap-to-edge would silently stop working from the
-    // second drag onward.
-    btn.style.transition = "none";
-
-    // Cache the drag-start rect once, and reuse it for the threshold
-    // check on every move — instead of re-querying a live rect that can
-    // still be mid-transition right after the previous snap.
     const rect = btn.getBoundingClientRect();
     dragStateRef.current = {
       dragging: true,
       moved: false,
-      offsetX: e.clientX - rect.left,
-      offsetY: e.clientY - rect.top,
-      startRect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height },
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      startLeft: rect.left,
+      startTop: rect.top,
+      width: rect.width,
+      height: rect.height,
     };
   }
 
   function handleButtonPointerMove(e) {
     const state = dragStateRef.current;
     if (!state.dragging) return;
-    const btn = buttonRef.current;
-    if (!btn) return;
 
-    const rect = state.startRect || btn.getBoundingClientRect();
-    const rawLeft = e.clientX - state.offsetX;
-    const rawTop = e.clientY - state.offsetY;
+    const dxFromStart = e.clientX - state.startClientX;
+    const dyFromStart = e.clientY - state.startClientY;
 
     if (!state.moved) {
-      const dx = rawLeft - rect.left;
-      const dy = rawTop - rect.top;
-      if (Math.abs(dx) < DRAG_THRESHOLD_PX && Math.abs(dy) < DRAG_THRESHOLD_PX) return;
+      if (Math.abs(dxFromStart) < DRAG_THRESHOLD_PX && Math.abs(dyFromStart) < DRAG_THRESHOLD_PX) return;
       state.moved = true;
-      setIsDragging(true); 
+      setIsDragging(true);
     }
 
-    const { left, top } = clampToViewport(rawLeft, rawTop, rect.width, rect.height);
-    btn.style.left = `${left}px`;
-    btn.style.top = `${top}px`;
-    btn.style.right = "auto";
-    btn.style.bottom = "auto";
+    // Drive position purely through React state (instead of mutating
+    // btn.style directly) so the value used to compute the snap target on
+    // release is always exactly what's on screen — no DOM/state desync,
+    // which is what caused snap-to-edge to only work on the very first drag.
+    const rawLeft = state.startLeft + dxFromStart;
+    const rawTop = state.startTop + dyFromStart;
+    const { left, top } = clampToViewport(rawLeft, rawTop, state.width, state.height);
+    setButtonPos({ left, top });
   }
 
   function finishDrag(e) {
@@ -309,19 +310,16 @@ export default function ChatBot() {
     btn?.releasePointerCapture?.(e.pointerId);
 
     const wasMoved = state.moved;
-    dragStateRef.current = { dragging: false, moved: false, offsetX: 0, offsetY: 0, startRect: null };
+    const { width, height, startLeft, startTop } = state;
+    dragStateRef.current = { dragging: false, moved: false };
     setIsDragging(false);
 
-    // Hand control of the transition back to React's declarative style
-    // (driven by isDragging/buttonPos) so the snap-to-edge animation can
-    // run cleanly every time, not just the first.
-    if (btn) btn.style.transition = "";
-
-    if (wasMoved && btn) {
-      const rect = btn.getBoundingClientRect();
-      const snapped = computeSnapPosition(rect.left, rect.top, rect.width, rect.height);
-      setButtonPos(snapped);
-    } else if (!wasMoved) {
+    if (wasMoved) {
+      setButtonPos((prev) => {
+        const base = prev || { left: startLeft, top: startTop };
+        return computeSnapPosition(base.left, base.top, width, height);
+      });
+    } else {
       setIsOpen((v) => !v);
     }
   }
@@ -331,9 +329,7 @@ export default function ChatBot() {
   }
 
   function handleButtonPointerCancel(e) {
-    const btn = buttonRef.current;
-    if (btn) btn.style.transition = "";
-    dragStateRef.current = { dragging: false, moved: false, offsetX: 0, offsetY: 0, startRect: null };
+    dragStateRef.current = { dragging: false, moved: false };
     setIsDragging(false);
   }
 
@@ -356,6 +352,12 @@ export default function ChatBot() {
   useEffect(() => {
     if (isOpen && !isMinimized) inputRef.current?.focus();
   }, [isOpen, isMinimized]);
+
+  useEffect(() => {
+    if (isOpen && headerRef.current) {
+      setHeaderHeight(headerRef.current.offsetHeight);
+    }
+  }, [isOpen]);
 
   if (!isLoggedIn) return null;
 
@@ -462,6 +464,14 @@ export default function ChatBot() {
     setIsMinimized(false);
   }
 
+  // "X" fully closes the widget AND clears the conversation (fresh start
+  // next time it's opened). Minimizing, or toggling closed via the
+  // floating avatar, must NOT clear anything.
+  function closeAndResetHistory() {
+    shouldResetChatRef.current = true;
+    setIsOpen(false);
+  }
+
   // Reset transient UI state only after the close animation has fully
   // finished, so the panel never reopens with a stale isMinimized/showMore
   // state (which previously caused the header to render at the wrong
@@ -469,6 +479,10 @@ export default function ChatBot() {
   function handlePanelExitComplete() {
     setIsMinimized(false);
     setShowMore(false);
+    if (shouldResetChatRef.current) {
+      setMessages([{ ...welcomeMessage, time: new Date() }]);
+      shouldResetChatRef.current = false;
+    }
   }
 
   return (
@@ -478,15 +492,15 @@ export default function ChatBot() {
         {isOpen && (
             <motion.div
             key="sakura-chatbot-panel"
-            initial={{ opacity: 0, y: 24, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
+            initial={{ opacity: 0, y: 24, scale: 0.96, height: PANEL_HEIGHT }}
+            animate={{ opacity: 1, y: 0, scale: 1, height: isMinimized ? headerHeight : PANEL_HEIGHT }}
             exit={{ opacity: 0, y: 16, scale: 0.97 }}
             transition={{ duration: 0.22, ease: "easeOut" }}
               className={`fixed bottom-24 right-5 z-50 w-80 sm:w-96 flex flex-col rounded-2xl shadow-2xl ring-1 ring-black/5 border border-secondary bg-card overflow-hidden`}
-            style={{ height: isMinimized ? "auto" : "520px", maxHeight: "80vh" }}
+            style={{ maxHeight: "80vh" }}
           >
             {/* Header */}
-            <div className="relative flex items-center gap-2.5 px-4 py-3.5 flex-shrink-0 overflow-hidden text-primary-foreground">
+            <div ref={headerRef} className="relative flex items-center gap-2.5 px-4 py-3.5 flex-shrink-0 overflow-hidden text-primary-foreground">
               <div
                 className="absolute inset-0"
                 style={{
@@ -516,7 +530,7 @@ export default function ChatBot() {
                   <Minus className="w-4 h-4" />
                 </button>
                 <button
-                  onClick={() => setIsOpen(false)}
+                  onClick={closeAndResetHistory}
                   className="w-7 h-7 rounded-full flex items-center justify-center text-primary-foreground/85 hover:text-primary-foreground hover:bg-white/15 transition-colors"
                   aria-label="Tutup chatbot"
                   title="Tutup"

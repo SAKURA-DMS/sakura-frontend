@@ -154,7 +154,11 @@ function LainnyaInput({ value, onChange, onSave, placeholder = "Masukkan nama ba
 }
 
 export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUploadOwn, lockedNip, lockedTypeId }) {
-  const { uploadDocument, currentUser, users } = useApp();
+  const { uploadDocument, currentUser, users, loadUsers } = useApp();
+
+  useEffect(() => {
+    if (users.length === 0) loadUsers();
+  }, []);
   const { toast } = useToast();
   const navigate = useNavigate();
   const fileRef = useRef(null);

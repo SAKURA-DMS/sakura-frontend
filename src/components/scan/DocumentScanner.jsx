@@ -18,13 +18,109 @@ function resizeCanvas(src, maxW = MAX_SCAN_WIDTH) {
   return dst;
 }
 
-function toGrayscale(imageData) {
-  const d = imageData.data;
-  for (let i = 0; i < d.length; i += 4) {
-    const g = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-    d[i] = d[i + 1] = d[i + 2] = g;
+// ===== OpenCV.js (lazy-loaded hanya saat Auto-crop aktif) =====
+const OPENCV_JS_URL = "https://docs.opencv.org/4.9.0/opencv.js";
+let cvLoadingPromise = null;
+
+function loadOpenCV() {
+  if (typeof window === "undefined") return Promise.reject(new Error("No window"));
+  if (window.cv && window.cv.Mat) return Promise.resolve(window.cv);
+  if (cvLoadingPromise) return cvLoadingPromise;
+
+  cvLoadingPromise = new Promise((resolve, reject) => {
+    const onReady = () => {
+      if (window.cv && window.cv.Mat) {
+        resolve(window.cv);
+      } else if (window.cv) {
+        window.cv["onRuntimeInitialized"] = () => resolve(window.cv);
+      } else {
+        reject(new Error("OpenCV.js gagal dimuat"));
+      }
+    };
+
+    const existing = document.getElementById("opencv-js-sdk");
+    if (existing) {
+      if (window.cv && window.cv.Mat) resolve(window.cv);
+      else existing.addEventListener("load", onReady);
+      existing.addEventListener("error", () => reject(new Error("OpenCV.js gagal dimuat")));
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.id = "opencv-js-sdk";
+    script.src = OPENCV_JS_URL;
+    script.async = true;
+    script.onload = onReady;
+    script.onerror = () => reject(new Error("OpenCV.js gagal dimuat"));
+    document.body.appendChild(script);
+  });
+
+  return cvLoadingPromise;
+}
+
+// Urutkan 4 titik hasil approxPolyDP menjadi [top-left, top-right, bottom-right, bottom-left]
+function orderCorners(pts) {
+  const sums = pts.map((p) => p.x + p.y);
+  const diffs = pts.map((p) => p.x - p.y);
+  const tl = pts[sums.indexOf(Math.min(...sums))];
+  const br = pts[sums.indexOf(Math.max(...sums))];
+  const tr = pts[diffs.indexOf(Math.max(...diffs))];
+  const bl = pts[diffs.indexOf(Math.min(...diffs))];
+  return [tl, tr, br, bl];
+}
+
+// Deteksi 4 sudut dokumen dari canvas memakai OpenCV.js (Canny + findContours + approxPolyDP)
+function detectDocumentCornersCV(cv, srcCanvas) {
+  const src = cv.imread(srcCanvas);
+  const gray = new cv.Mat();
+  const blurred = new cv.Mat();
+  const edged = new cv.Mat();
+  const dilated = new cv.Mat();
+  const kernel = cv.Mat.ones(3, 3, cv.CV_8U);
+  const contours = new cv.MatVector();
+  const hierarchy = new cv.Mat();
+  let best = null;
+
+  try {
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0);
+    cv.Canny(blurred, edged, 50, 150);
+    cv.dilate(edged, dilated, kernel);
+    cv.findContours(dilated, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
+
+    const imgArea = srcCanvas.width * srcCanvas.height;
+    let bestArea = 0;
+
+    for (let i = 0; i < contours.size(); i++) {
+      const cnt = contours.get(i);
+      const peri = cv.arcLength(cnt, true);
+      const approx = new cv.Mat();
+      cv.approxPolyDP(cnt, approx, 0.02 * peri, true);
+
+      if (approx.rows === 4 && cv.isContourConvex(approx)) {
+        const area = Math.abs(cv.contourArea(approx));
+        if (area > bestArea && area > imgArea * 0.15) {
+          bestArea = area;
+          if (best) best.delete();
+          best = approx.clone();
+        }
+      }
+      approx.delete();
+      cnt.delete();
+    }
+
+    if (!best) return null;
+
+    const pts = [];
+    for (let i = 0; i < 4; i++) {
+      pts.push({ x: best.data32S[i * 2], y: best.data32S[i * 2 + 1] });
+    }
+    return orderCorners(pts);
+  } finally {
+    src.delete(); gray.delete(); blurred.delete(); edged.delete(); dilated.delete();
+    kernel.delete(); contours.delete(); hierarchy.delete();
+    if (best) best.delete();
   }
-  return imageData;
 }
 
 function applySharpen(ctx, w, h) {
@@ -49,61 +145,6 @@ function applySharpen(ctx, w, h) {
     }
   }
   ctx.putImageData(dst, 0, 0);
-}
-
-function sobelEdgeMap(grayData, w, h) {
-  const d = grayData.data;
-  const edge = new Float32Array(w * h);
-  for (let y = 1; y < h - 1; y++) {
-    for (let x = 1; x < w - 1; x++) {
-      const g = (row, col) => d[((y + row) * w + (x + col)) * 4];
-      const gx =
-        -g(-1, -1) + g(-1, 1) - 2 * g(0, -1) + 2 * g(0, 1) - g(1, -1) + g(1, 1);
-      const gy =
-        -g(-1, -1) - 2 * g(-1, 0) - g(-1, 1) + g(1, -1) + 2 * g(1, 0) + g(1, 1);
-      edge[y * w + x] = Math.sqrt(gx * gx + gy * gy);
-    }
-  }
-  return edge;
-}
-
-function detectDocumentCorners(edgeMap, w, h) {
-  const MARGIN = 0.05;
-  const threshold = 80;
-
-  const candidates = { tl: null, tr: null, br: null, bl: null };
-  const maxDist = { tl: Infinity, tr: Infinity, br: Infinity, bl: Infinity };
-
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      if (edgeMap[y * w + x] < threshold) continue;
-      const nx = x / w, ny = y / h;
-      if (nx < MARGIN || nx > 1 - MARGIN || ny < MARGIN || ny > 1 - MARGIN) continue;
-
-      const dTL = nx * nx + ny * ny;
-      const dTR = (1 - nx) * (1 - nx) + ny * ny;
-      const dBR = (1 - nx) * (1 - nx) + (1 - ny) * (1 - ny);
-      const dBL = nx * nx + (1 - ny) * (1 - ny);
-
-      if (dTL < maxDist.tl) { maxDist.tl = dTL; candidates.tl = { x, y }; }
-      if (dTR < maxDist.tr) { maxDist.tr = dTR; candidates.tr = { x, y }; }
-      if (dBR < maxDist.br) { maxDist.br = dBR; candidates.br = { x, y }; }
-      if (dBL < maxDist.bl) { maxDist.bl = dBL; candidates.bl = { x, y }; }
-    }
-  }
-
-  const { tl, tr, br, bl } = candidates;
-  if (!tl || !tr || !br || !bl) return null;
-
-  const width1 = Math.hypot(tr.x - tl.x, tr.y - tl.y);
-  const width2 = Math.hypot(br.x - bl.x, br.y - bl.y);
-  const height1 = Math.hypot(bl.x - tl.x, bl.y - tl.y);
-  const height2 = Math.hypot(br.x - tr.x, br.y - tr.y);
-  const avgW = (width1 + width2) / 2;
-  const avgH = (height1 + height2) / 2;
-  if (avgW < w * 0.3 || avgH < h * 0.3) return null;
-
-  return [tl, tr, br, bl];
 }
 
 function perspectiveCorrect(srcCanvas, corners) {
@@ -157,7 +198,7 @@ function perspectiveCorrect(srcCanvas, corners) {
 async function processImage(dataUrl, opts = {}) {
   return new Promise((resolve) => {
     const img = new Image();
-    img.onload = () => {
+    img.onload = async () => {
       let canvas = document.createElement("canvas");
       canvas.width = img.width;
       canvas.height = img.height;
@@ -165,16 +206,17 @@ async function processImage(dataUrl, opts = {}) {
       ctx.drawImage(img, 0, 0);
 
       canvas = resizeCanvas(canvas);
-      const w = canvas.width, h = canvas.height;
-      const pCtx = canvas.getContext("2d");
 
       // Auto-detect corners (hanya dijalankan jika fitur Auto-crop aktif)
       let detectedCorners = opts.perspectiveCorners || null;
       if (!detectedCorners && opts.detectCorners) {
-        const grayData = pCtx.getImageData(0, 0, w, h);
-        toGrayscale(grayData);
-        const edgeMap = sobelEdgeMap(grayData, w, h);
-        detectedCorners = detectDocumentCorners(edgeMap, w, h);
+        try {
+          const cv = await loadOpenCV();
+          detectedCorners = detectDocumentCornersCV(cv, canvas);
+        } catch (err) {
+          console.warn("[Scanner] Deteksi tepi OpenCV gagal:", err);
+          detectedCorners = null;
+        }
       }
 
       // Perspective correction
@@ -297,11 +339,30 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
 
   // Live edge detection (overlay auto-crop mengikuti tepi dokumen secara real-time)
   const [liveCorners, setLiveCorners] = useState(null);
+  const [cvReady, setCvReady] = useState(false);
   const liveDetectCanvasRef = useRef(null);
+  const cvRef = useRef(null);
 
   // Mode
   const [step, setStep] = useState("camera"); 
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Preload OpenCV.js hanya saat fitur Auto-crop aktif (tidak membebani user yang tidak memakainya)
+  useEffect(() => {
+    if (!autoCropEnabled) return;
+    let cancelled = false;
+    loadOpenCV()
+      .then((cv) => {
+        if (!cancelled) {
+          cvRef.current = cv;
+          setCvReady(true);
+        }
+      })
+      .catch((err) => {
+        console.warn("[Scanner] OpenCV.js gagal dimuat:", err);
+      });
+    return () => { cancelled = true; };
+  }, [autoCropEnabled]);
 
   // Start kamera
   const startCamera = useCallback(async () => {
@@ -403,7 +464,8 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
   const LIVE_DETECT_WIDTH = 240;
   const detectLiveCorners = useCallback(() => {
     const v = videoRef.current;
-    if (!v || !v.videoWidth || !v.videoHeight) return;
+    const cv = cvRef.current;
+    if (!v || !cv || !v.videoWidth || !v.videoHeight) return;
 
     const scale = LIVE_DETECT_WIDTH / v.videoWidth;
     const w = LIVE_DETECT_WIDTH;
@@ -418,32 +480,27 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
     const ctx = canvas.getContext("2d");
     ctx.drawImage(v, 0, 0, w, h);
 
-    let imageData;
     try {
-      imageData = ctx.getImageData(0, 0, w, h);
-    } catch {
-      return;
-    }
-    toGrayscale(imageData);
-    const edgeMap = sobelEdgeMap(imageData, w, h);
-    const corners = detectDocumentCorners(edgeMap, w, h);
-
-    if (corners) {
-      setLiveCorners(corners.map((c) => ({ x: (c.x / w) * 100, y: (c.y / h) * 100 })));
-    } else {
+      const corners = detectDocumentCornersCV(cv, canvas);
+      if (corners) {
+        setLiveCorners(corners.map((c) => ({ x: (c.x / w) * 100, y: (c.y / h) * 100 })));
+      } else {
+        setLiveCorners(null);
+      }
+    } catch (err) {
       setLiveCorners(null);
     }
   }, []);
 
-  // Jalankan deteksi tepi secara berkala selama mode kamera & Auto-crop aktif
+  // Jalankan deteksi tepi secara berkala selama mode kamera & Auto-crop aktif (menunggu OpenCV siap)
   useEffect(() => {
-    if (step !== "camera" || !cameraReady || !autoCropEnabled) {
+    if (step !== "camera" || !cameraReady || !autoCropEnabled || !cvReady) {
       setLiveCorners(null);
       return;
     }
     const intervalId = setInterval(detectLiveCorners, 350);
     return () => clearInterval(intervalId);
-  }, [step, cameraReady, autoCropEnabled, detectLiveCorners]);
+  }, [step, cameraReady, autoCropEnabled, cvReady, detectLiveCorners]);
 
   // Capture
   const capture = useCallback(async () => {
@@ -649,6 +706,11 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
                         </div>
                       </div>
                     </div>
+                    {!cvReady && (
+                      <div className="absolute -bottom-8 left-0 right-0 flex justify-center">
+                        <span className="text-yellow-400/70 text-[11px]">Memuat mesin deteksi...</span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

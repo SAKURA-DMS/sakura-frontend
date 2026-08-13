@@ -347,9 +347,10 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
   const [step, setStep] = useState("camera"); 
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Preload OpenCV.js hanya saat fitur Auto-crop aktif (tidak membebani user yang tidak memakainya)
+  // Preload OpenCV.js hanya saat fitur Auto-crop aktif, DAN setelah kamera sudah ready
+  // (sengaja ditunda agar proses berat inisialisasi WASM tidak bentrok dengan startup kamera)
   useEffect(() => {
-    if (!autoCropEnabled) return;
+    if (!autoCropEnabled || !cameraReady) return;
     let cancelled = false;
     loadOpenCV()
       .then((cv) => {
@@ -362,7 +363,7 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
         console.warn("[Scanner] OpenCV.js gagal dimuat:", err);
       });
     return () => { cancelled = true; };
-  }, [autoCropEnabled]);
+  }, [autoCropEnabled, cameraReady]);
 
   // Start kamera
   const startCamera = useCallback(async () => {

@@ -157,7 +157,7 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
   const { uploadDocument, currentUser, users, loadUsers } = useApp();
 
   useEffect(() => {
-    if (users.length === 0) loadUsers();
+    if (!guruUploadOwn && users.length === 0) loadUsers();
   }, []);
   const { toast } = useToast();
   const navigate = useNavigate();

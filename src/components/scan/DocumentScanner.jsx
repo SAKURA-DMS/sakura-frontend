@@ -295,6 +295,10 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
   const [torchOn, setTorchOn] = useState(false);
   const [videoSize, setVideoSize] = useState({ w: 1, h: 1 });
 
+  // Live edge detection (overlay auto-crop mengikuti tepi dokumen secara real-time)
+  const [liveCorners, setLiveCorners] = useState(null);
+  const liveDetectCanvasRef = useRef(null);
+
   // Mode
   const [step, setStep] = useState("camera"); 
   const [isProcessing, setIsProcessing] = useState(false);
@@ -394,6 +398,52 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
       setTorchOn((v) => !v);
     } catch { }
   }, [stream, torchOn]);
+
+  // Deteksi tepi dokumen secara live dari frame video (dipakai untuk overlay auto-crop real-time)
+  const LIVE_DETECT_WIDTH = 240;
+  const detectLiveCorners = useCallback(() => {
+    const v = videoRef.current;
+    if (!v || !v.videoWidth || !v.videoHeight) return;
+
+    const scale = LIVE_DETECT_WIDTH / v.videoWidth;
+    const w = LIVE_DETECT_WIDTH;
+    const h = Math.max(1, Math.round(v.videoHeight * scale));
+
+    if (!liveDetectCanvasRef.current) {
+      liveDetectCanvasRef.current = document.createElement("canvas");
+    }
+    const canvas = liveDetectCanvasRef.current;
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(v, 0, 0, w, h);
+
+    let imageData;
+    try {
+      imageData = ctx.getImageData(0, 0, w, h);
+    } catch {
+      return;
+    }
+    toGrayscale(imageData);
+    const edgeMap = sobelEdgeMap(imageData, w, h);
+    const corners = detectDocumentCorners(edgeMap, w, h);
+
+    if (corners) {
+      setLiveCorners(corners.map((c) => ({ x: (c.x / w) * 100, y: (c.y / h) * 100 })));
+    } else {
+      setLiveCorners(null);
+    }
+  }, []);
+
+  // Jalankan deteksi tepi secara berkala selama mode kamera & Auto-crop aktif
+  useEffect(() => {
+    if (step !== "camera" || !cameraReady || !autoCropEnabled) {
+      setLiveCorners(null);
+      return;
+    }
+    const intervalId = setInterval(detectLiveCorners, 350);
+    return () => clearInterval(intervalId);
+  }, [step, cameraReady, autoCropEnabled, detectLiveCorners]);
 
   // Capture
   const capture = useCallback(async () => {
@@ -561,23 +611,46 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
             )}
 
             {cameraReady && autoCropEnabled && (
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div className="w-4/5 h-3/4 relative">
-                  {[
-                    "top-0 left-0 border-t-2 border-l-2 rounded-tl-sm",
-                    "top-0 right-0 border-t-2 border-r-2 rounded-tr-sm",
-                    "bottom-0 left-0 border-b-2 border-l-2 rounded-bl-sm",
-                    "bottom-0 right-0 border-b-2 border-r-2 rounded-br-sm",
-                  ].map((cls, i) => (
-                    <div key={i} className={`absolute border-blue-400 w-6 h-6 ${cls}`} />
-                  ))}
-                  <div className="absolute inset-0 border border-dashed border-blue-400/30 rounded" />
+              <div className="absolute inset-0 pointer-events-none">
+                {liveCorners ? (
+                  // Garis kuning mengikuti tepi dokumen yang terdeteksi secara real-time
+                  <svg
+                    className="absolute inset-0 w-full h-full"
+                    viewBox="0 0 100 100"
+                    preserveAspectRatio="none"
+                  >
+                    <polygon
+                      points={liveCorners.map((c) => `${c.x},${c.y}`).join(" ")}
+                      fill="rgba(250,204,21,0.12)"
+                      stroke="#facc15"
+                      strokeWidth="0.6"
+                      vectorEffect="non-scaling-stroke"
+                    />
+                    {liveCorners.map((c, i) => (
+                      <circle key={i} cx={c.x} cy={c.y} r="1.4" fill="#facc15" vectorEffect="non-scaling-stroke" />
+                    ))}
+                  </svg>
+                ) : (
+                  // Belum ada tepi terdeteksi: tampilkan guide sementara sampai dokumen terdeteksi
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-12 h-12 border border-blue-400/50 rounded flex items-center justify-center">
-                      <Focus size={16} className="text-blue-400/60" />
+                    <div className="w-4/5 h-3/4 relative">
+                      {[
+                        "top-0 left-0 border-t-2 border-l-2 rounded-tl-sm",
+                        "top-0 right-0 border-t-2 border-r-2 rounded-tr-sm",
+                        "bottom-0 left-0 border-b-2 border-l-2 rounded-bl-sm",
+                        "bottom-0 right-0 border-b-2 border-r-2 rounded-br-sm",
+                      ].map((cls, i) => (
+                        <div key={i} className={`absolute border-yellow-400 w-6 h-6 ${cls}`} />
+                      ))}
+                      <div className="absolute inset-0 border border-dashed border-yellow-400/30 rounded" />
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-12 h-12 border border-yellow-400/50 rounded flex items-center justify-center">
+                          <Focus size={16} className="text-yellow-400/60" />
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
               </div>
             )}
           </>

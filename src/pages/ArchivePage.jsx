@@ -9,7 +9,7 @@ import DocumentDetailModal from "@/components/document/DocumentDetail";
 import { useApp } from "@/contexts/AppContext";
 import { useSettings } from "@/contexts/SettingsContext";
 import UserAvatar from "@/components/shared/UserAvatar";
-import { buildFolderTree, docMatchesFolder, docMatchesFolderStrict, KATEGORI_OPTIONS, SIDEBAR_FOLDERS, CATEGORIES, DOCUMENT_TYPES, TAHUN_AJARAN_OPTIONS, getModuleByDoc, canManageModule } from "@/data/mockData";
+import { buildFolderTree, docMatchesFolder, docMatchesFolderStrict, filterAccessibleDocuments, KATEGORI_OPTIONS, SIDEBAR_FOLDERS, CATEGORIES, DOCUMENT_TYPES, TAHUN_AJARAN_OPTIONS, getModuleByDoc, canManageModule } from "@/data/mockData";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -160,24 +160,7 @@ export default function ArchivePage() {
   const canManageDoc = (doc) => canManageModule(currentUser?.role, getModuleByDoc(doc));
 
   const accessibleDocuments = useMemo(() => {
-    return documents.filter((doc) => {
-      if (currentUser?.role === "Operator/TU") return true;
-
-      const isSensitive = doc.category_id === 2 || doc.type_id === 12;
-
-      if (!isSensitive) return true;
-
-      if (currentUser?.role === "Guru" && currentUser?.nip) {
-        return (
-          doc.nip === currentUser.nip ||
-          doc.pengunggah?.id === currentUser.id
-        );
-      }
-
-      if (currentUser?.role === "Kepala Sekolah") return true;
-
-      return false;
-    });
+    return filterAccessibleDocuments(documents, currentUser);
   }, [documents, currentUser]);
 
   const folderTree = useMemo(() => buildFolderTree(documents, folders), [documents, folders]);

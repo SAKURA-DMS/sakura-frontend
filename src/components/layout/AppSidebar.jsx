@@ -3,7 +3,7 @@ import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { LayoutDashboard, Upload, Archive, Users, Shield, FileText, Settings, PanelLeftClose, PanelLeft, ChevronDown, Clock, CheckCircle, GitBranch, Folder, FolderOpen, Trash2, X, ShieldCheck } from "lucide-react";
 import logoSakura from "@/assets/logo_notransparan.png";
 import { useApp } from "@/contexts/AppContext";
-import { SIDEBAR_FOLDERS, MODULE_DEFINITIONS, canViewModule } from "@/data/mockData";
+import { SIDEBAR_FOLDERS, MODULE_DEFINITIONS, canViewModule, filterAccessibleDocuments } from "@/data/mockData";
 
 export default function AppSidebar() {
   const navigate = useNavigate();
@@ -30,13 +30,18 @@ export default function AppSidebar() {
   const showApproval =
     hasPermission("documents.approve") || isOperator;
 
+  const accessibleDocs = useMemo(
+    () => filterAccessibleDocuments(documents, currentUser),
+    [documents, currentUser]
+  );
+
   const folderCounts = useMemo(() => {
     const counts = {};
 
     SIDEBAR_FOLDERS.forEach((item) => {
       if (item.children) {
         item.children.forEach((child) => {
-          counts[child.folder] = documents.filter((d) => {
+          counts[child.folder] = accessibleDocs.filter((d) => {
             const parts = child.path.split("/");
 
             const catPart = parts.find((p) =>
@@ -66,7 +71,7 @@ export default function AppSidebar() {
     });
 
     return counts;
-  }, [documents]);
+  }, [accessibleDocs]);
 
   const visibleFolders = useMemo(() => {
     return SIDEBAR_FOLDERS.filter((item) => {

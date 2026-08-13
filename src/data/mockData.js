@@ -570,3 +570,36 @@ export function getFolderIdForDocument(categoryId, typeId) {
   const folder = FOLDERS.find((f) => f.category_id === categoryId && f.type_id === typeId);
   return folder ? folder.folder_id : null;
 }
+
+// ── Filter dokumen yang boleh dilihat currentUser ──────────────────────────
+//
+// Aturan akses dokumen (selaras dengan backend assertSensitiveAccess()):
+// - Operator/TU & Kepala Sekolah: bisa melihat SEMUA dokumen.
+// - Role lain (mis. Guru): dokumen non-sensitive (doc.isSensitive === false)
+//   selalu bisa dilihat. Dokumen sensitive hanya bisa dilihat jika user
+//   adalah uploader dokumen tsb, ATAU terdaftar sebagai owner (ownerNip
+//   cocok dengan NIP user).
+//
+// PENTING: status sensitive dokumen ditentukan dari flag asli
+// `doc.isSensitive` (dikirim backend dari kolom is_sensitive), BUKAN dari
+// tebakan kategori/tipe dokumen. Menebak dari category_id/type_id akan
+// salah menandai dokumen non-sensitive sebagai sensitive (atau sebaliknya).
+export function filterAccessibleDocuments(documents, currentUser) {
+  if (!Array.isArray(documents)) return [];
+
+  return documents.filter((doc) => {
+    if (
+      currentUser?.role === "Operator/TU" ||
+      currentUser?.role === "Kepala Sekolah"
+    ) {
+      return true;
+    }
+
+    if (!doc.isSensitive) return true;
+
+    return (
+      doc.pengunggah?.id === currentUser?.id ||
+      (!!currentUser?.nip && doc.ownerNip === currentUser.nip)
+    );
+  });
+}

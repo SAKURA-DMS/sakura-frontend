@@ -300,7 +300,7 @@ export default function ArchivePage() {
   }, [selectedFolder, folderTree]);
 
   const countDocsInFolder = (folderPath) => {
-    return documents.filter((d) => docMatchesFolder(d, folderPath)).length;
+    return accessibleDocuments.filter((d) => docMatchesFolder(d, folderPath)).length;
   };
 
   const flattenTree = (nodes, depth = 0) => {

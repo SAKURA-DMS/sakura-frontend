@@ -23,7 +23,6 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 const MODE_JUDUL = "hanya_judul";
 const MODE_LENGKAP = "isi_data_lengkap";
 
-// Cara Mengisi Guide
 function CaraMengisiGuide({ mode, onClose }) {
   const isJudul = mode === MODE_JUDUL;
 
@@ -166,9 +165,6 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
   // Draft state 
   const [pendingDraft, setPendingDraft] = useState(null); 
   const [draftRestored, setDraftRestored] = useState(false);
-  // Prevents a debounced/beforeunload autosave that was already scheduled
-  // before submit from re-writing the draft into localStorage right after
-  // a successful upload clears it (form fields aren't reset until 1s later).
   const suppressAutoSaveRef = useRef(false);
 
   // Mode pengisian
@@ -419,15 +415,6 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
     toast({ title: "Form dikosongkan", description: "Semua data dan draft telah dihapus." });
   };
 
-  useEffect(() => {
-    if (guruUploadOwn && !selectedCategoryId) {
-      const cat = categoryList.find((c) => c.category_id === 5);
-      setSelectedCategoryId(5);
-      setKategoriValue("5");
-      setForm((p) => ({ ...p, kategori: cat?.category_name || "Administrasi" }));
-    }
-  }, [guruUploadOwn, selectedCategoryId, categoryList]);
-
   const jenisOptions = useMemo(() => {
     if (!selectedCategoryId) return [];
     return typeList.filter((t) => t.category_id === selectedCategoryId);
@@ -635,7 +622,12 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
       return;
     }
 
-    const folderId = getFolderIdForDocument(selectedCategoryId, selectedTypeId);
+    const selectedTypeEntry = typeList.find((t) => t.type_id === selectedTypeId);
+    const selectedCategoryEntry = categoryList.find((c) => c.category_id === selectedCategoryId);
+    const folderId =
+      selectedTypeEntry?.folder_id ||
+      selectedCategoryEntry?.folder_id ||
+      getFolderIdForDocument(selectedCategoryId, selectedTypeId);
     const metadata = {};
 
     if (fillMode === MODE_LENGKAP) {
@@ -700,9 +692,6 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
       toast({ variant: "destructive", title: "Gagal Mengunggah", description: result.error || "Terjadi kesalahan saat upload." });
       return;
     }
-    // Suppress autosave immediately: a debounce timer scheduled from the
-    // last keystroke before submit may still be pending and would
-    // otherwise resurrect the draft right after it's cleared below.
     suppressAutoSaveRef.current = true;
     clearDraft();
 
@@ -723,13 +712,11 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
       setSelectedCategoryId(null); setSelectedTypeId(null);
       setKategoriValue(""); setJenisValue("");
       setShowKategoriLainnya(false); setShowJenisLainnya(false);
-      // Form is now empty; safe to let autosave resume for the next document.
       suppressAutoSaveRef.current = false;
       onSuccess?.();
     }, 1000);
   };
 
-  // Dynamic field renderer 
   const renderField = (field) => {
     if (field.type === "tahun_ajaran") {
       return (
@@ -788,7 +775,6 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
     return "Data Tambahan";
   };
 
-  // RENDER
   return (
     <>
       {/* Draft Restore Banner */}
@@ -1196,7 +1182,6 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
                 <select
                   required
                   value={kategoriValue}
-                  disabled={guruUploadOwn}
                   onChange={(e) => {
                     const val = e.target.value;
                     if (val === "lainnya") {
@@ -1218,9 +1203,8 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
                   className="w-full px-3 py-2.5 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:bg-muted disabled:cursor-not-allowed"
                 >
                   <option value="">Pilih kategori</option>
-                  {(guruUploadOwn ? categoryList.filter((c) => c.category_id === 5) : categoryList)
-                    .map((c) => <option key={c.category_id} value={c.category_id}>{c.category_name}</option>)}
-                  {!guruUploadOwn && <option value="lainnya">+ Lainnya (tambah baru)</option>}
+                  {categoryList.map((c) => <option key={c.category_id} value={c.category_id}>{c.category_name}</option>)}
+                  <option value="lainnya">+ Lainnya (tambah baru)</option>
                 </select>
                 {showKategoriLainnya && (
                   <LainnyaInput

@@ -14,7 +14,6 @@ export const CATEGORIES = [
   { category_id: 2, category_name: "Data Guru" },
   { category_id: 3, category_name: "Sarana Prasarana" },
   { category_id: 4, category_name: "Surat Menyurat" },
-  { category_id: 5, category_name: "Administrasi" },
 ];
 
 export const DOCUMENT_TYPES = [
@@ -32,24 +31,24 @@ export const DOCUMENT_TYPES = [
   { type_id: 12, category_id: 4, type_name: "Kumpulan Surat Keputusan (SK)", code_prefix: "KSK" },
   { type_id: 13, category_id: 4, type_name: "Lainnya", code_prefix: "LNR" },
   // Dokumen milik Guru 
-  { type_id: 19, category_id: 5, type_name: "Modul Ajar", code_prefix: "MDA" },
-  { type_id: 20, category_id: 5, type_name: "RPP", code_prefix: "RPP" },
-  { type_id: 21, category_id: 5, type_name: "Silabus", code_prefix: "SIL" },
-  { type_id: 22, category_id: 5, type_name: "Program Tahunan (Prota)", code_prefix: "PTA" },
-  { type_id: 23, category_id: 5, type_name: "Program Semester (Promes)", code_prefix: "PSM" },
-  { type_id: 24, category_id: 5, type_name: "Bahan Ajar", code_prefix: "BJR" },
-  { type_id: 25, category_id: 5, type_name: "Bank Soal", code_prefix: "BSL" },
-  { type_id: 26, category_id: 5, type_name: "Kisi-kisi", code_prefix: "KSI" },
-  { type_id: 27, category_id: 5, type_name: "Rubrik Penilaian", code_prefix: "RBP" },
-  { type_id: 28, category_id: 5, type_name: "Rekap Nilai", code_prefix: "RKN" },
-  { type_id: 29, category_id: 5, type_name: "Jurnal Mengajar", code_prefix: "JRM" },
-  { type_id: 30, category_id: 5, type_name: "Absensi Siswa", code_prefix: "ABS" },
-  { type_id: 31, category_id: 5, type_name: "Laporan Hasil Belajar", code_prefix: "LHB" },
-  { type_id: 32, category_id: 5, type_name: "Portofolio Siswa", code_prefix: "PFS" },
-  { type_id: 33, category_id: 5, type_name: "SK Mengajar", code_prefix: "SKM" },
-  { type_id: 34, category_id: 5, type_name: "Sertifikat Diklat", code_prefix: "SRD" },
-  { type_id: 35, category_id: 5, type_name: "Sertifikat Seminar", code_prefix: "SRS" },
-  { type_id: 36, category_id: 5, type_name: "Portofolio Guru", code_prefix: "PFG" },
+  { type_id: 19, category_id: 2, type_name: "Modul Ajar", code_prefix: "MDA" },
+  { type_id: 20, category_id: 2, type_name: "RPP", code_prefix: "RPP" },
+  { type_id: 21, category_id: 2, type_name: "Silabus", code_prefix: "SIL" },
+  { type_id: 22, category_id: 2, type_name: "Program Tahunan (Prota)", code_prefix: "PTA" },
+  { type_id: 23, category_id: 2, type_name: "Program Semester (Promes)", code_prefix: "PSM" },
+  { type_id: 24, category_id: 2, type_name: "Bahan Ajar", code_prefix: "BJR" },
+  { type_id: 25, category_id: 2, type_name: "Bank Soal", code_prefix: "BSL" },
+  { type_id: 26, category_id: 2, type_name: "Kisi-kisi", code_prefix: "KSI" },
+  { type_id: 27, category_id: 2, type_name: "Rubrik Penilaian", code_prefix: "RBP" },
+  { type_id: 28, category_id: 1, type_name: "Rekap Nilai", code_prefix: "RKN" },
+  { type_id: 29, category_id: 2, type_name: "Jurnal Mengajar", code_prefix: "JRM" },
+  { type_id: 30, category_id: 1, type_name: "Absensi Siswa", code_prefix: "ABS" },
+  { type_id: 31, category_id: 1, type_name: "Laporan Hasil Belajar", code_prefix: "LHB" },
+  { type_id: 32, category_id: 1, type_name: "Portofolio Siswa", code_prefix: "PFS" },
+  { type_id: 33, category_id: 2, type_name: "SK Mengajar", code_prefix: "SKM" },
+  { type_id: 34, category_id: 2, type_name: "Sertifikat Diklat", code_prefix: "SRD" },
+  { type_id: 35, category_id: 2, type_name: "Sertifikat Seminar", code_prefix: "SRS" },
+  { type_id: 36, category_id: 2, type_name: "Portofolio Guru", code_prefix: "PFG" },
 ];
 
 export const INITIAL_DOCUMENT_COUNTERS = [];
@@ -60,15 +59,33 @@ export const FOLDERS = [
   { folder_id: 2, folder_name: "Data Guru", parent_id: null, category_id: 2, type_id: null, description: "Berisi dokumen kepegawaian guru seperti buku induk pegawai, sertifikat pendidik, dan catatan diklat." },
   { folder_id: 3, folder_name: "Sarana Prasarana", parent_id: null, category_id: 3, type_id: null, description: "Berisi dokumen inventaris barang dan pemeliharaan sarana prasarana sekolah." },
   { folder_id: 4, folder_name: "Surat Menyurat", parent_id: null, category_id: 4, type_id: null, description: "Berisi arsip surat masuk, surat keluar, dan surat keputusan (SK)." },
-  // Data Siswa sub-folders (document types)
+  // Data Siswa sub-folders
   { folder_id: 10, folder_name: "Buku Klapper", parent_id: 1, category_id: 1, type_id: 1, description: "Buku klapper berisi daftar nama siswa yang disusun menurut abjad." },
   { folder_id: 11, folder_name: "Buku Induk Register Peserta Didik", parent_id: 1, category_id: 1, type_id: 2, description: "Buku induk berisi data lengkap seluruh peserta didik." },
   { folder_id: 12, folder_name: "Surat Keterangan Hasil Ujian (SKHU)", parent_id: 1, category_id: 1, type_id: 3, description: "Arsip SKHU siswa yang telah menyelesaikan ujian." },
   { folder_id: 13, folder_name: "Ijazah SMP", parent_id: 1, category_id: 1, type_id: 4, description: "Arsip ijazah siswa SMP." },
+  { folder_id: 14, folder_name: "Rekap Nilai", parent_id: 1, category_id: 1, type_id: 28, description: "Rekap nilai hasil belajar siswa." },
+  { folder_id: 15, folder_name: "Absensi Siswa", parent_id: 1, category_id: 1, type_id: 30, description: "Data kehadiran siswa." },
+  { folder_id: 16, folder_name: "Laporan Hasil Belajar", parent_id: 1, category_id: 1, type_id: 31, description: "Laporan hasil belajar siswa per periode." },
+  { folder_id: 17, folder_name: "Portofolio Siswa", parent_id: 1, category_id: 1, type_id: 32, description: "Kumpulan portofolio hasil karya siswa." },
   // Data Guru sub-folders
   { folder_id: 20, folder_name: "Buku Induk Pegawai", parent_id: 2, category_id: 2, type_id: 5, description: "Data pokok seluruh pegawai sekolah." },
   { folder_id: 21, folder_name: "Sertifikat Pendidik", parent_id: 2, category_id: 2, type_id: 6, description: "Arsip sertifikat profesional pendidik." },
   { folder_id: 22, folder_name: "Catatan Diklat", parent_id: 2, category_id: 2, type_id: 7, description: "Catatan pelatihan dan pendidikan guru." },
+  { folder_id: 23, folder_name: "Modul Ajar", parent_id: 2, category_id: 2, type_id: 19, description: "Arsip modul ajar guru." },
+  { folder_id: 24, folder_name: "RPP", parent_id: 2, category_id: 2, type_id: 20, description: "Arsip Rencana Pelaksanaan Pembelajaran." },
+  { folder_id: 25, folder_name: "Silabus", parent_id: 2, category_id: 2, type_id: 21, description: "Arsip silabus mata pelajaran." },
+  { folder_id: 26, folder_name: "Program Tahunan (Prota)", parent_id: 2, category_id: 2, type_id: 22, description: "Arsip program tahunan guru." },
+  { folder_id: 27, folder_name: "Program Semester (Promes)", parent_id: 2, category_id: 2, type_id: 23, description: "Arsip program semester guru." },
+  { folder_id: 28, folder_name: "Bahan Ajar", parent_id: 2, category_id: 2, type_id: 24, description: "Arsip bahan ajar guru." },
+  { folder_id: 29, folder_name: "Bank Soal", parent_id: 2, category_id: 2, type_id: 25, description: "Arsip bank soal guru." },
+  { folder_id: 32, folder_name: "Kisi-kisi", parent_id: 2, category_id: 2, type_id: 26, description: "Arsip kisi-kisi soal guru." },
+  { folder_id: 33, folder_name: "Rubrik Penilaian", parent_id: 2, category_id: 2, type_id: 27, description: "Arsip rubrik penilaian guru." },
+  { folder_id: 34, folder_name: "Jurnal Mengajar", parent_id: 2, category_id: 2, type_id: 29, description: "Arsip jurnal mengajar guru." },
+  { folder_id: 35, folder_name: "SK Mengajar", parent_id: 2, category_id: 2, type_id: 33, description: "Arsip SK mengajar guru." },
+  { folder_id: 36, folder_name: "Sertifikat Diklat", parent_id: 2, category_id: 2, type_id: 34, description: "Arsip sertifikat diklat guru." },
+  { folder_id: 37, folder_name: "Sertifikat Seminar", parent_id: 2, category_id: 2, type_id: 35, description: "Arsip sertifikat seminar guru." },
+  { folder_id: 38, folder_name: "Portofolio Guru", parent_id: 2, category_id: 2, type_id: 36, description: "Kumpulan portofolio guru." },
   // Sarana Prasarana sub-folders
   { folder_id: 30, folder_name: "Buku Inventaris Barang dan Penghapusan Barang", parent_id: 3, category_id: 3, type_id: 8, description: "Daftar inventaris barang milik sekolah." },
   { folder_id: 31, folder_name: "Buku Pemeliharaan & Perbaikan", parent_id: 3, category_id: 3, type_id: 9, description: "Catatan pemeliharaan dan perbaikan sarana sekolah." },
@@ -311,7 +328,7 @@ export const MODULE_DEFINITIONS = [
   {
     id: "administrasi-pembelajaran",
     label: "Administrasi Pembelajaran",
-    category_id: 5,
+    category_id: 2,
     type_ids: [19, 20, 21, 22, 23, 24],
     viewRoles: ["Guru", "Kepala Sekolah", "Operator/TU"],
     manageRoles: ["Guru"],
@@ -319,23 +336,39 @@ export const MODULE_DEFINITIONS = [
   {
     id: "penilaian",
     label: "Penilaian",
-    category_id: 5,
-    type_ids: [25, 26, 27, 28],
+    category_id: 2,
+    type_ids: [25, 26, 27],
+    viewRoles: ["Guru", "Kepala Sekolah", "Operator/TU"],
+    manageRoles: ["Guru"],
+  },
+  {
+    id: "rekap-nilai",
+    label: "Rekap Nilai",
+    category_id: 1,
+    type_ids: [28],
+    viewRoles: ["Guru", "Kepala Sekolah", "Operator/TU"],
+    manageRoles: ["Guru"],
+  },
+  {
+    id: "jurnal-mengajar",
+    label: "Jurnal Mengajar",
+    category_id: 2,
+    type_ids: [29],
     viewRoles: ["Guru", "Kepala Sekolah", "Operator/TU"],
     manageRoles: ["Guru"],
   },
   {
     id: "administrasi-kelas",
     label: "Administrasi Kelas",
-    category_id: 5,
-    type_ids: [29, 30, 31, 32],
+    category_id: 1,
+    type_ids: [30, 31, 32],
     viewRoles: ["Guru", "Kepala Sekolah", "Operator/TU"],
     manageRoles: ["Guru"],
   },
   {
     id: "pengembangan-profesi",
     label: "Pengembangan Profesi",
-    category_id: 5,
+    category_id: 2,
     type_ids: [33, 34, 35, 36],
     viewRoles: ["Guru", "Kepala Sekolah", "Operator/TU"],
     manageRoles: ["Guru"],
@@ -382,6 +415,10 @@ export const SIDEBAR_FOLDERS = [
       { label: "Buku Induk Siswa", folder: "induk-siswa", path: "cat:1/type:2" },
       { label: "Ijazah SMP", folder: "ijazah", path: "cat:1/type:4" },
       { label: "Surat Keterangan", folder: "surat-ket", path: "cat:1/type:3" },
+      { label: "Rekap Nilai", folder: "rekap-nilai", path: "cat:1/type:28" },
+      { label: "Absensi Siswa", folder: "absensi-siswa", path: "cat:1/type:30" },
+      { label: "Laporan Hasil Belajar", folder: "laporan-hasil-belajar", path: "cat:1/type:31" },
+      { label: "Portofolio Siswa", folder: "portofolio-siswa", path: "cat:1/type:32" },
     ],
   },
   {
@@ -389,6 +426,20 @@ export const SIDEBAR_FOLDERS = [
       { label: "Sertifikat/Diklat", folder: "sertifikat", path: "cat:2/type:6" },
       { label: "Buku Induk Pegawai", folder: "induk-pegawai", path: "cat:2/type:5" },
       { label: "Catatan Diklat", folder: "catatan-diklat", path: "cat:2/type:7" },
+      { label: "Modul Ajar", folder: "modul-ajar", path: "cat:2/type:19" },
+      { label: "RPP", folder: "rpp", path: "cat:2/type:20" },
+      { label: "Silabus", folder: "silabus", path: "cat:2/type:21" },
+      { label: "Program Tahunan (Prota)", folder: "prota", path: "cat:2/type:22" },
+      { label: "Program Semester (Promes)", folder: "promes", path: "cat:2/type:23" },
+      { label: "Bahan Ajar", folder: "bahan-ajar", path: "cat:2/type:24" },
+      { label: "Bank Soal", folder: "bank-soal", path: "cat:2/type:25" },
+      { label: "Kisi-kisi", folder: "kisi-kisi", path: "cat:2/type:26" },
+      { label: "Rubrik Penilaian", folder: "rubrik-penilaian", path: "cat:2/type:27" },
+      { label: "Jurnal Mengajar", folder: "jurnal-mengajar", path: "cat:2/type:29" },
+      { label: "SK Mengajar", folder: "sk-mengajar", path: "cat:2/type:33" },
+      { label: "Sertifikat Diklat", folder: "sertifikat-diklat", path: "cat:2/type:34" },
+      { label: "Sertifikat Seminar", folder: "sertifikat-seminar", path: "cat:2/type:35" },
+      { label: "Portofolio Guru", folder: "portofolio-guru", path: "cat:2/type:36" },
     ],
   },
   {
@@ -542,10 +593,6 @@ export function docMatchesFolderStrict(doc, folderPath, folderHasChildren) {
   const parts = folderPath.split("/");
   const folderPart = [...parts].reverse().find((p) => p.startsWith("folder:"));
 
-  // Untuk folder nyata (custom folder dengan folder_id eksplisit), pencocokan
-  // dokumen sudah pasti/tidak ambigu (doc.folder_id === folder ini). Dokumen yang
-  // memang disimpan langsung di folder ini harus tetap tampil, walau folder tsb
-  // kebetulan juga punya subfolder.
   if (folderPart) {
     return docMatchesFolder(doc, folderPath);
   }
@@ -571,19 +618,6 @@ export function getFolderIdForDocument(categoryId, typeId) {
   return folder ? folder.folder_id : null;
 }
 
-// ── Filter dokumen yang boleh dilihat currentUser ──────────────────────────
-//
-// Aturan akses dokumen (selaras dengan backend assertSensitiveAccess()):
-// - Operator/TU & Kepala Sekolah: bisa melihat SEMUA dokumen.
-// - Role lain (mis. Guru): dokumen non-sensitive (doc.isSensitive === false)
-//   selalu bisa dilihat. Dokumen sensitive hanya bisa dilihat jika user
-//   adalah uploader dokumen tsb, ATAU terdaftar sebagai owner (ownerNip
-//   cocok dengan NIP user).
-//
-// PENTING: status sensitive dokumen ditentukan dari flag asli
-// `doc.isSensitive` (dikirim backend dari kolom is_sensitive), BUKAN dari
-// tebakan kategori/tipe dokumen. Menebak dari category_id/type_id akan
-// salah menandai dokumen non-sensitive sebagai sensitive (atau sebaliknya).
 export function filterAccessibleDocuments(documents, currentUser) {
   if (!Array.isArray(documents)) return [];
 

@@ -1,15 +1,19 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { LayoutDashboard, Upload, Archive, Users, Shield, FileText, Settings, PanelLeftClose, PanelLeft, ChevronDown, Clock, CheckCircle, GitBranch, Folder, FolderOpen, Trash2, X, ShieldCheck } from "lucide-react";
 import logoSakura from "@/assets/logo_notransparan.png";
 import { useApp } from "@/contexts/AppContext";
-import { SIDEBAR_FOLDERS, MODULE_DEFINITIONS, canViewModule, filterAccessibleDocuments } from "@/data/mockData";
+import { MODULE_DEFINITIONS, canViewModule, filterAccessibleDocuments } from "@/data/mockData";
 
 export default function AppSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const { hasPermission, documents, currentUser, mobileSidebarOpen, setMobileSidebarOpen } = useApp();
+  const { hasPermission, documents, currentUser, mobileSidebarOpen, setMobileSidebarOpen, folders, loadFolders } = useApp();
+
+  useEffect(() => {
+    loadFolders();
+  }, [loadFolders]);
   const [collapsed, setCollapsed] = useState(false);
   const [approvalOpen, setApprovalOpen] = useState(
     location.pathname.startsWith("/approval")
@@ -35,55 +39,60 @@ export default function AppSidebar() {
     [documents, currentUser]
   );
 
+  const sidebarGroups = useMemo(() => {
+    const rootFolders = folders
+      .filter((f) => f.parent_id === null || f.parent_id === undefined)
+      .slice()
+      .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.folder_id - b.folder_id);
+
+    return rootFolders.map((root) => {
+      const mod = MODULE_DEFINITIONS.find((m) => m.category_id === root.category_id);
+
+      const children = folders
+        .filter((f) => f.parent_id === root.folder_id)
+        .slice()
+        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.folder_id - b.folder_id);
+
+      return {
+        module: root.folder_name,
+        moduleId: mod ? mod.id : null,
+        children: children.map((c) => ({
+          label: c.folder_name,
+          folder: String(c.folder_id),
+          category_id: c.category_id,
+          type_id: c.type_id,
+        })),
+      };
+    });
+  }, [folders]);
+
   const folderCounts = useMemo(() => {
     const counts = {};
 
-    SIDEBAR_FOLDERS.forEach((item) => {
-      if (item.children) {
-        item.children.forEach((child) => {
-          counts[child.folder] = accessibleDocs.filter((d) => {
-            const parts = child.path.split("/");
-
-            const catPart = parts.find((p) =>
-              p.startsWith("cat:")
-            );
-
-            const typePart = parts.find((p) =>
-              p.startsWith("type:")
-            );
-
-            const catId = catPart
-              ? Number(catPart.split(":")[1])
-              : null;
-
-            const typeId = typePart
-              ? Number(typePart.split(":")[1])
-              : null;
-
-            if (catId && d.category_id !== catId) return false;
-
-            if (typeId && d.type_id !== typeId) return false;
-
-            return true;
-          }).length;
-        });
-      }
+    sidebarGroups.forEach((group) => {
+      group.children.forEach((child) => {
+        counts[child.folder] = accessibleDocs.filter((d) => {
+          if (child.category_id && d.category_id !== child.category_id) return false;
+          if (child.type_id && d.type_id !== child.type_id) return false;
+          return true;
+        }).length;
+      });
     });
 
     return counts;
-  }, [accessibleDocs]);
+  }, [sidebarGroups, accessibleDocs]);
 
   const visibleFolders = useMemo(() => {
-    return SIDEBAR_FOLDERS.filter((item) => {
-      if (!item.module) return true;
+    return sidebarGroups.filter((group) => {
+      if (!group.moduleId) return true;
 
       const mod = MODULE_DEFINITIONS.find(
-        (m) => m.id === item.moduleId
+        (m) => m.id === group.moduleId
       );
 
       return canViewModule(currentUser.role, mod);
     });
-  }, [currentUser.role]);
+  }, [sidebarGroups, currentUser.role]);
 
   const currentFolder = searchParams.get("folder");
 
@@ -511,38 +520,34 @@ export default function AppSidebar() {
               )
             }
           >
+            <button
+              key="all"
+              tabIndex={-1}
+              onMouseDown={(e) =>
+                e.preventDefault()
+              }
+              onClick={(e) =>
+                handleNavigate(
+                  e,
+                  "/archive"
+                )
+              }
+              className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs rounded-lg ${
+                !currentFolder &&
+                arsipActive
+                  ? "text-sidebar-accent-foreground font-semibold bg-sidebar-accent/40"
+                  : "text-sidebar-foreground/70 hover:text-sidebar-accent-foreground"
+              }`}
+            >
+              <FolderOpen
+                size={14}
+              />
+
+              Semua Dokumen
+            </button>
+
             {visibleFolders.map(
               (item) => {
-                if (!item.module) {
-                  return (
-                    <button
-                      key="all"
-                      tabIndex={-1}
-                      onMouseDown={(e) =>
-                        e.preventDefault()
-                      }
-                      onClick={(e) =>
-                        handleNavigate(
-                          e,
-                          "/archive"
-                        )
-                      }
-                      className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs rounded-lg ${
-                        !currentFolder &&
-                        arsipActive
-                          ? "text-sidebar-accent-foreground font-semibold bg-sidebar-accent/40"
-                          : "text-sidebar-foreground/70 hover:text-sidebar-accent-foreground"
-                      }`}
-                    >
-                      <FolderOpen
-                        size={14}
-                      />
-
-                      {item.label}
-                    </button>
-                  );
-                }
-
                 return (
                   <div
                     key={item.module}

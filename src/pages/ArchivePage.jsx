@@ -103,19 +103,6 @@ export default function ArchivePage() {
       setCategoryFilter(kat);
       setSearchParams({}, { replace: true });
     }
-
-    const folder = searchParams.get("folder");
-    if (folder) {
-      for (const item of SIDEBAR_FOLDERS) {
-        if (item.children) {
-          const match = item.children.find((c) => c.folder === folder);
-          if (match) {
-            setSelectedFolder(match.path);
-            break;
-          }
-        }
-      }
-    }
   }, [searchParams, setSearchParams]);
 
   const [detailDoc, setDetailDoc] = useState(null);
@@ -164,6 +151,30 @@ export default function ArchivePage() {
   }, [documents, currentUser]);
 
   const folderTree = useMemo(() => buildFolderTree(documents, folders), [documents, folders]);
+
+  useEffect(() => {
+    const folder = searchParams.get("folder");
+    if (!folder) return;
+
+    const folderIdNum = Number(folder);
+    if (Number.isNaN(folderIdNum)) return;
+
+    const findByFolderId = (nodes) => {
+      for (const node of nodes) {
+        if (node.folder_id === folderIdNum) return node;
+        if (node.children && node.children.length) {
+          const found = findByFolderId(node.children);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+
+    const match = findByFolderId(folderTree);
+    if (match) {
+      setSelectedFolder(match.path);
+    }
+  }, [searchParams, folderTree]);
 
   const toggleExpand = (path) => {
     setExpandedFolders((prev) => {

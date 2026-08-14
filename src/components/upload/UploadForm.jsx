@@ -1035,7 +1035,7 @@ export default function UploadForm({ onSuccess, onCancel, selectedModule, guruUp
                   <Wand2 size={16} /> {lastScanUrl || scanPageImages.length > 0 ? "Isi Form dengan OCR" : "Scan OCR"}
                 </button>
                 <p className="text-xs text-muted-foreground mt-2">
-                  OCR mendukung: Ijazah SMP, SKL/SKHU, Sertifikat, atau Transkrip/Rekap Nilai — tidak perlu memilih kategori/jenis dokumen dulu.
+                  OCR mendukung: Ijazah SMP, SKL/SKHU, Sertifikat, atau Transkrip/Rekap Nilai 
                 </p>
               </>
             )}

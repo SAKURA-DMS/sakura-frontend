@@ -27,14 +27,42 @@ let workerReadyResolve = null;
 let detectMsgId = 0;
 const pendingDetections = new Map();
 
+// Bungkus promise dengan batas waktu, supaya UI tidak pernah macet permanen
+// kalau worker gagal merespons (mis. script worker gagal dimuat di server/network).
+function withTimeout(promise, ms, fallbackValue) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        console.warn(`[Scanner] Worker deteksi tidak merespons dalam ${ms}ms, pakai fallback.`);
+        resolve(fallbackValue);
+      }
+    }, ms);
+    promise.then((value) => {
+      if (!settled) {
+        settled = true;
+        clearTimeout(timer);
+        resolve(value);
+      }
+    });
+  });
+}
+
 function getDetectWorker() {
   if (detectWorker) return detectWorker;
 
   workerReadyPromise = new Promise((resolve) => { workerReadyResolve = resolve; });
 
-  detectWorker = new Worker(
-    new URL("../../workers/documentDetectWorker.js", import.meta.url)
-  );
+  try {
+    detectWorker = new Worker(
+      new URL("../../workers/documentDetectWorker.js", import.meta.url)
+    );
+  } catch (err) {
+    console.warn("[Scanner] Gagal membuat worker deteksi:", err);
+    workerReadyResolve(false);
+    return null;
+  }
 
   detectWorker.onmessage = (e) => {
     const data = e.data;
@@ -57,21 +85,29 @@ function getDetectWorker() {
   detectWorker.onerror = (err) => {
     console.warn("[Scanner] Worker deteksi error:", err.message);
     if (workerReadyResolve) workerReadyResolve(false);
+    // Gagalkan semua request yang masih menunggu balasan supaya tidak menggantung
+    pendingDetections.forEach((resolve) => resolve(null));
+    pendingDetections.clear();
   };
 
   return detectWorker;
 }
 
 // Menunggu worker & OpenCV.js di dalamnya siap (dipakai untuk indikator UI)
+// Dibatasi timeout agar tidak menunggu selamanya jika worker tidak pernah merespons.
 function waitForDetectorReady() {
-  getDetectWorker();
-  return workerReadyPromise;
+  const worker = getDetectWorker();
+  if (!worker) return Promise.resolve(false);
+  return withTimeout(workerReadyPromise, 8000, false);
 }
 
-// Kirim frame (canvas) ke worker untuk dideteksi sudutnya, tanpa memblokir main thread
+// Kirim frame (canvas) ke worker untuk dideteksi sudutnya, tanpa memblokir main thread.
+// Dibatasi timeout agar processImage()/live-detect tidak pernah macet permanen.
 function detectCornersAsync(canvas) {
-  return new Promise((resolve) => {
-    const worker = getDetectWorker();
+  const worker = getDetectWorker();
+  if (!worker) return Promise.resolve(null);
+
+  const detection = new Promise((resolve) => {
     const ctx = canvas.getContext("2d");
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const id = ++detectMsgId;
@@ -79,6 +115,8 @@ function detectCornersAsync(canvas) {
     const buffer = imageData.data.buffer;
     worker.postMessage({ id, width: canvas.width, height: canvas.height, buffer }, [buffer]);
   });
+
+  return withTimeout(detection, 5000, null);
 }
 
 function applySharpen(ctx, w, h) {
@@ -629,6 +667,7 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
             {cameraReady && autoCropEnabled && (
               <div className="absolute inset-0 pointer-events-none">
                 {liveCorners ? (
+                  // Garis kuning mengikuti tepi dokumen yang terdeteksi secara real-time
                   <svg
                     className="absolute inset-0 w-full h-full"
                     viewBox="0 0 100 100"
@@ -646,6 +685,7 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
                     ))}
                   </svg>
                 ) : (
+                  // Belum ada tepi terdeteksi: tampilkan guide sementara sampai dokumen terdeteksi
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="w-4/5 h-3/4 relative">
                       {[

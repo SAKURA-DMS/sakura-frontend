@@ -659,7 +659,7 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
               playsInline
               muted
               className="w-full h-full object-cover bg-black"
-              style={{ display: cameraReady ? "block" : "none" }}
+              style={{ display: cameraReady ? "block" : "none", pointerEvents: "none" }}
             />
             {!cameraReady && (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">

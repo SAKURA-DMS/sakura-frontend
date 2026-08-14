@@ -1,5 +1,11 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
-import { Search, RotateCcw, Clock, ChevronDown, ChevronRight, RefreshCw, AlertCircle, ClipboardList, CalendarDays, Calendar as CalendarIcon, Users, Lock, LogOut, Eye, Download, Upload, XCircle, CheckCircle2, PencilLine, Archive, FileSpreadsheet, Check, Info } from "lucide-react";
+import {
+  Search, RotateCcw, Clock, ChevronDown, ChevronRight,
+  RefreshCw, AlertCircle, ClipboardList, CalendarDays,
+  Calendar as CalendarIcon, Users, Lock, LogOut, Eye, Download,
+  Upload, XCircle, CheckCircle2, PencilLine, Archive,
+  FileSpreadsheet, Check, Info
+} from "lucide-react";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import * as XLSX from "xlsx";
@@ -7,86 +13,26 @@ import AppHeader from "@/components/layout/AppHeader";
 import { useApp } from "@/contexts/AppContext";
 import UserAvatar from "@/components/shared/UserAvatar";
 import api from "@/lib/apiClient";
-import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent
+} from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 
 const ACTIVITY_VISUALS = [
+  { test: (a) => a.includes("login"), icon: Lock, dot: "bg-primary", iconBg: "bg-primary/10", iconText: "text-primary", status: "SUKSES" },
+  { test: (a) => a.includes("logout"), icon: LogOut, dot: "bg-rose-500", iconBg: "bg-rose-100", iconText: "text-rose-500", status: "INFO" },
+  { test: (a) => a.includes("unggah"), icon: Upload, dot: "bg-emerald-500", iconBg: "bg-emerald-100", iconText: "text-emerald-600", status: "SUKSES" },
+  { test: (a) => a.includes("tolak"), icon: XCircle, dot: "bg-red-500", iconBg: "bg-red-100", iconText: "text-red-600", status: "GAGAL" },
+  { test: (a) => a.includes("setuju"), icon: CheckCircle2, dot: "bg-amber-500", iconBg: "bg-amber-100", iconText: "text-amber-600", status: "SUKSES" },
+  { test: (a) => a.includes("lihat"), icon: Eye, dot: "bg-blue-500", iconBg: "bg-blue-100", iconText: "text-blue-600", status: null },
+  { test: (a) => a.includes("unduh"), icon: Download, dot: "bg-purple-500", iconBg: "bg-purple-100", iconText: "text-purple-600", status: null },
   {
-    test: (a) => a.includes("login"),
-    icon: Lock,
-    dot: "bg-primary",
-    iconBg: "bg-primary/10",
-    iconText: "text-primary",
-    status: "SUKSES",
+    test: (a) => a.includes("perbarui") || a.includes("metadata") || a.includes("mengubah") || a.includes("edit"),
+    icon: PencilLine, dot: "bg-orange-500", iconBg: "bg-orange-100", iconText: "text-orange-600", status: "SUKSES"
   },
-  {
-    test: (a) => a.includes("logout"),
-    icon: LogOut,
-    dot: "bg-rose-500",
-    iconBg: "bg-rose-100",
-    iconText: "text-rose-500",
-    status: "INFO",
-  },
-  {
-    test: (a) => a.includes("unggah"),
-    icon: Upload,
-    dot: "bg-emerald-500",
-    iconBg: "bg-emerald-100",
-    iconText: "text-emerald-600",
-    status: "SUKSES",
-  },
-  {
-    test: (a) => a.includes("tolak"),
-    icon: XCircle,
-    dot: "bg-red-500",
-    iconBg: "bg-red-100",
-    iconText: "text-red-600",
-    status: "GAGAL",
-  },
-  {
-    test: (a) => a.includes("setuju"),
-    icon: CheckCircle2,
-    dot: "bg-amber-500",
-    iconBg: "bg-amber-100",
-    iconText: "text-amber-600",
-    status: "SUKSES",
-  },
-  {
-    test: (a) => a.includes("lihat"),
-    icon: Eye,
-    dot: "bg-blue-500",
-    iconBg: "bg-blue-100",
-    iconText: "text-blue-600",
-    status: null,
-  },
-  {
-    test: (a) => a.includes("unduh"),
-    icon: Download,
-    dot: "bg-purple-500",
-    iconBg: "bg-purple-100",
-    iconText: "text-purple-600",
-    status: null,
-  },
-  {
-    test: (a) =>
-      a.includes("perbarui") ||
-      a.includes("metadata") ||
-      a.includes("mengubah") ||
-      a.includes("edit"),
-    icon: PencilLine,
-    dot: "bg-orange-500",
-    iconBg: "bg-orange-100",
-    iconText: "text-orange-600",
-    status: "SUKSES",
-  },
-  {
-    test: (a) => a.includes("arsip"),
-    icon: Archive,
-    dot: "bg-emerald-500",
-    iconBg: "bg-emerald-100",
-    iconText: "text-emerald-600",
-    status: "SUKSES",
-  },
+  { test: (a) => a.includes("arsip"), icon: Archive, dot: "bg-emerald-500", iconBg: "bg-emerald-100", iconText: "text-emerald-600", status: "SUKSES" },
 ];
 
 const DEFAULT_VISUAL = {
@@ -104,10 +50,8 @@ function getActivityVisual(action = "") {
 
 function getActivitySubtitle(action = "") {
   const a = action.toLowerCase();
-
   if (a.includes("login")) return "User berhasil masuk ke sistem";
   if (a.includes("logout")) return "User keluar dari sistem";
-
   return null;
 }
 
@@ -126,7 +70,6 @@ const QUICK_RANGES = [
   { label: "Semua Waktu", days: null },
 ];
 
-/* QUICK RANGE DROPDOWN */
 function ViewRangeDropdown({ onSelect }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -137,12 +80,8 @@ function ViewRangeDropdown({ onSelect }) {
         setOpen(false);
       }
     };
-
     document.addEventListener("mousedown", handler);
-
-    return () => {
-      document.removeEventListener("mousedown", handler);
-    };
+    return () => document.removeEventListener("mousedown", handler);
   }, []);
 
   return (
@@ -153,13 +92,7 @@ function ViewRangeDropdown({ onSelect }) {
         className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-input bg-background text-sm font-medium hover:bg-muted transition-colors"
       >
         Lihat
-
-        <ChevronDown
-          size={14}
-          className={`transition-transform ${
-            open ? "rotate-180" : ""
-          }`}
-        />
+        <ChevronDown size={14} className={`transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
 
       {open && (
@@ -183,30 +116,22 @@ function ViewRangeDropdown({ onSelect }) {
   );
 }
 
-/* TRUNCATE ACTIVITIES */
 function getTruncatedSections(sections, limit) {
   const result = [];
   let count = 0;
 
   for (const section of sections) {
     if (count >= limit) break;
-
     const items = section.items.slice(0, limit - count);
-
     if (items.length > 0) {
-      result.push({
-        ...section,
-        items,
-      });
+      result.push({ ...section, items });
     }
-
     count += items.length;
   }
 
   return result;
 }
 
-/* LOG PAGE */
 export default function LogPage() {
   const { currentUser } = useApp();
 
@@ -220,20 +145,16 @@ export default function LogPage() {
   const [dateRange, setDateRange] = useState({});
   const [selectedUserKey, setSelectedUserKey] = useState(null);
 
-  const [expandedUsers, setExpandedUsers] = useState(
-    () => new Set()
-  );
-
-  const [expandedLogRows, setExpandedLogRows] = useState(
-    () => new Set()
-  );
-
+  const [expandedUsers, setExpandedUsers] = useState(() => new Set());
+  const [expandedLogRows, setExpandedLogRows] = useState(() => new Set());
   const [visibleCounts, setVisibleCounts] = useState({});
-
   const [exportState, setExportState] = useState(null);
   const [showExportConfirm, setShowExportConfirm] = useState(false);
 
-  /* FETCH LOGS */
+  // ONLY ADDITION: audit integrity verification state.
+  const [integrityChecking, setIntegrityChecking] = useState(false);
+  const [integrityResult, setIntegrityResult] = useState(null);
+
   const fetchLogs = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -247,33 +168,20 @@ export default function LogPage() {
 
       const normalized = raw.map((t) => ({
         id: t.id,
-
         docId: t.document_id,
-
         docTitle:
           t.document_judul ||
-          (t.document_id
-            ? `Dokumen #${t.document_id}`
-            : null),
-
+          (t.document_id ? `Dokumen #${t.document_id}` : null),
         docNomor: t.document_nomor || null,
-
         time: t.created_at,
-
         userId: t.user_id,
-
         userName: t.nama || "Sistem",
-
         userAvatar: t.avatar || null,
-
         userRole: t.role || "Sistem",
-
         action: t.action,
-
         previousHash: t.previous_hash,
         currentHash: t.current_hash,
         integrityStatus: t.integrity_status,
-
         oldValue: t.old_value,
         newValue: t.new_value,
       }));
@@ -282,8 +190,8 @@ export default function LogPage() {
     } catch (e) {
       setError(
         e?.response?.data?.error ||
-          e.message ||
-          "Gagal memuat log"
+        e.message ||
+        "Gagal memuat log"
       );
     } finally {
       setLoading(false);
@@ -294,14 +202,50 @@ export default function LogPage() {
     fetchLogs();
   }, [fetchLogs]);
 
-  /* USERS */
+  // ONLY ADDITION: call backend verification and use native browser notification.
+  const verifyAuditIntegrity = useCallback(async () => {
+    setIntegrityChecking(true);
+    setIntegrityResult(null);
+
+    try {
+      const { data } = await api.post("/audit/verify-integrity");
+      setIntegrityResult(data);
+
+      if (!data.valid && "Notification" in window) {
+        if (Notification.permission === "granted") {
+          new Notification("SAKURA DMS", {
+            body: "Audit Trail Integrity Breach Detected.",
+          });
+        } else if (Notification.permission !== "denied") {
+          const permission = await Notification.requestPermission();
+
+          if (permission === "granted") {
+            new Notification("SAKURA DMS", {
+              body: "Audit Trail Integrity Breach Detected.",
+            });
+          }
+        }
+      }
+    } catch (e) {
+      setIntegrityResult({
+        valid: false,
+        status: "ERROR",
+        broken_records: [],
+        error:
+          e?.response?.data?.error ||
+          e?.message ||
+          "Gagal memverifikasi Audit Trail.",
+      });
+    } finally {
+      setIntegrityChecking(false);
+    }
+  }, []);
+
   const allUsers = useMemo(() => {
     const map = new Map();
 
     logs.forEach((log) => {
-      const key =
-        log.userId ?? `nama:${log.userName}`;
-
+      const key = log.userId ?? `nama:${log.userName}`;
       if (!map.has(key)) {
         map.set(key, {
           key,
@@ -318,84 +262,57 @@ export default function LogPage() {
     );
   }, [logs]);
 
-  /* LATEST ACTIVITY */
   const latestActivityLabel = useMemo(() => {
     if (logs.length === 0) return "—";
 
     const latest = logs.reduce((max, log) => {
-      const time = log.time
-        ? new Date(log.time).getTime()
-        : 0;
-
+      const time = log.time ? new Date(log.time).getTime() : 0;
       return time > max ? time : max;
     }, 0);
 
     return latest
-      ? format(new Date(latest), "d MMM yyyy", {
-          locale: idLocale,
-        })
+      ? format(new Date(latest), "d MMM yyyy", { locale: idLocale })
       : "—";
   }, [logs]);
 
-  /* FILTER */
   const filtered = useMemo(() => {
     return logs.filter((log) => {
       if (
         filterAction !== "Semua" &&
-        !log.action
-          .toLowerCase()
-          .includes(filterAction.toLowerCase())
-      ) {
-        return false;
-      }
+        !log.action.toLowerCase().includes(filterAction.toLowerCase())
+      ) return false;
 
       if (filterStatus !== "Semua") {
         const visual = getActivityVisual(log.action);
-
-        if (visual.status !== filterStatus) {
-          return false;
-        }
+        if (visual.status !== filterStatus) return false;
       }
 
       if (dateRange?.from) {
         if (!log.time) return false;
 
         const time = new Date(log.time);
-
         const from = new Date(dateRange.from);
         from.setHours(0, 0, 0, 0);
 
         const to = dateRange.to
           ? new Date(dateRange.to)
           : new Date(dateRange.from);
-
         to.setHours(23, 59, 59, 999);
 
-        if (time < from || time > to) {
-          return false;
-        }
+        if (time < from || time > to) return false;
       }
 
       if (selectedUserKey) {
-        const key =
-          log.userId ?? `nama:${log.userName}`;
-
-        if (key !== selectedUserKey) {
-          return false;
-        }
+        const key = log.userId ?? `nama:${log.userName}`;
+        if (key !== selectedUserKey) return false;
       }
 
       if (search) {
         const q = search.toLowerCase();
-
         return (
           log.userName.toLowerCase().includes(q) ||
-          (log.docTitle || "")
-            .toLowerCase()
-            .includes(q) ||
-          (log.docNomor || "")
-            .toLowerCase()
-            .includes(q) ||
+          (log.docTitle || "").toLowerCase().includes(q) ||
+          (log.docNomor || "").toLowerCase().includes(q) ||
           log.action.toLowerCase().includes(q)
         );
       }
@@ -413,21 +330,13 @@ export default function LogPage() {
 
   useEffect(() => {
     setVisibleCounts({});
-  }, [
-    search,
-    filterAction,
-    filterStatus,
-    dateRange,
-    selectedUserKey,
-  ]);
+  }, [search, filterAction, filterStatus, dateRange, selectedUserKey]);
 
-  /* GROUP BY USER */
   const groupedLogs = useMemo(() => {
     const byUser = new Map();
 
     filtered.forEach((log) => {
-      const key =
-        log.userId ?? `nama:${log.userName}`;
+      const key = log.userId ?? `nama:${log.userName}`;
 
       if (!byUser.has(key)) {
         byUser.set(key, {
@@ -443,9 +352,7 @@ export default function LogPage() {
       byUser.get(key).activities.push(log);
     });
 
-    const users = Array.from(
-      byUser.values()
-    ).sort((a, b) =>
+    const users = Array.from(byUser.values()).sort((a, b) =>
       a.userName.localeCompare(b.userName, "id", {
         sensitivity: "base",
       })
@@ -453,32 +360,17 @@ export default function LogPage() {
 
     users.forEach((user) => {
       user.activities.sort((a, b) => {
-        const ta = a.time
-          ? new Date(a.time).getTime()
-          : 0;
-
-        const tb = b.time
-          ? new Date(b.time).getTime()
-          : 0;
+        const ta = a.time ? new Date(a.time).getTime() : 0;
+        const tb = b.time ? new Date(b.time).getTime() : 0;
 
         const dateA = a.time
-          ? format(
-              new Date(a.time),
-              "yyyy-MM-dd"
-            )
+          ? format(new Date(a.time), "yyyy-MM-dd")
           : "";
-
         const dateB = b.time
-          ? format(
-              new Date(b.time),
-              "yyyy-MM-dd"
-            )
+          ? format(new Date(b.time), "yyyy-MM-dd")
           : "";
 
-        if (dateA !== dateB) {
-          return dateA < dateB ? 1 : -1;
-        }
-
+        if (dateA !== dateB) return dateA < dateB ? 1 : -1;
         return ta - tb;
       });
 
@@ -486,30 +378,21 @@ export default function LogPage() {
       let current = null;
 
       user.activities.forEach((log) => {
-        const time = log.time
-          ? new Date(log.time)
-          : null;
-
+        const time = log.time ? new Date(log.time) : null;
         const dateKey = time
           ? format(time, "yyyy-MM-dd")
           : "unknown";
 
         const dateLabel = time
-          ? format(time, "d MMMM yyyy", {
-              locale: idLocale,
-            }).toUpperCase()
+          ? format(time, "d MMMM yyyy", { locale: idLocale }).toUpperCase()
           : "TANGGAL TIDAK DIKETAHUI";
 
-        if (
-          !current ||
-          current.dateKey !== dateKey
-        ) {
+        if (!current || current.dateKey !== dateKey) {
           current = {
             dateKey,
             label: dateLabel,
             items: [],
           };
-
           sections.push(current);
         }
 
@@ -522,17 +405,11 @@ export default function LogPage() {
     return users;
   }, [filtered]);
 
-  /* USER EXPAND */
   const toggleUser = (key) => {
     setExpandedUsers((prev) => {
       const next = new Set(prev);
-
-      if (next.has(key)) {
-        next.delete(key);
-      } else {
-        next.add(key);
-      }
-
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       return next;
     });
   };
@@ -540,13 +417,8 @@ export default function LogPage() {
   const handleRowClick = (rowKey) => {
     setExpandedLogRows((prev) => {
       const next = new Set(prev);
-
-      if (next.has(rowKey)) {
-        next.delete(rowKey);
-      } else {
-        next.add(rowKey);
-      }
-
+      if (next.has(rowKey)) next.delete(rowKey);
+      else next.add(rowKey);
       return next;
     });
   };
@@ -555,13 +427,10 @@ export default function LogPage() {
     setSelectedUserKey(key || null);
 
     if (key) {
-      setExpandedUsers(
-        (prev) => new Set(prev).add(key)
-      );
+      setExpandedUsers((prev) => new Set(prev).add(key));
     }
   };
 
-  /* QUICK DATE */
   const handleQuickRange = (preset) => {
     if (preset.days === null) {
       setDateRange({});
@@ -570,18 +439,11 @@ export default function LogPage() {
 
     const to = new Date();
     const from = new Date();
+    from.setDate(from.getDate() - preset.days);
 
-    from.setDate(
-      from.getDate() - preset.days
-    );
-
-    setDateRange({
-      from,
-      to,
-    });
+    setDateRange({ from, to });
   };
 
-  /* RESET */
   const handleReset = () => {
     setSearch("");
     setFilterAction("Semua");
@@ -590,31 +452,20 @@ export default function LogPage() {
     setSelectedUserKey(null);
   };
 
-  /* LOAD MORE */
   const getVisibleCount = (key) =>
     visibleCounts[key] ?? INITIAL_VISIBLE;
 
   const loadMore = (key) => {
     setVisibleCounts((prev) => ({
       ...prev,
-
-      [key]:
-        (prev[key] ?? INITIAL_VISIBLE) +
-        INITIAL_VISIBLE,
+      [key]: (prev[key] ?? INITIAL_VISIBLE) + INITIAL_VISIBLE,
     }));
   };
 
-  /* DATE LABEL */
   const dateRangeLabel = useMemo(() => {
-    if (!dateRange?.from) {
-      return "Semua Tanggal";
-    }
+    if (!dateRange?.from) return "Semua Tanggal";
 
-    const from = format(
-      dateRange.from,
-      "dd/MM/yyyy"
-    );
-
+    const from = format(dateRange.from, "dd/MM/yyyy");
     const to = dateRange.to
       ? format(dateRange.to, "dd/MM/yyyy")
       : from;
@@ -622,71 +473,124 @@ export default function LogPage() {
     return `${from} - ${to}`;
   }, [dateRange]);
 
-  /* EXPORT EXCEL */
   const handleExportExcel = () => {
     if (filtered.length === 0) {
       setShowExportConfirm(false);
-      setExportState({ type: "error", message: "Tidak ada data aktivitas untuk diekspor." });
+      setExportState({
+        type: "error",
+        message: "Tidak ada data aktivitas untuk diekspor.",
+      });
       setTimeout(() => setExportState(null), 3000);
       return;
     }
 
     setShowExportConfirm(false);
-    setExportState({ type: "loading", message: "Menyiapkan file Excel..." });
+    setExportState({
+      type: "loading",
+      message: "Menyiapkan file Excel...",
+    });
 
     try {
       const exportData = filtered.slice().sort(
-        (a, b) => new Date(b.time || 0) - new Date(a.time || 0)
+        (a, b) =>
+          new Date(b.time || 0) -
+          new Date(a.time || 0)
       );
 
       const rows = exportData.map((log) => {
         const visual = getActivityVisual(log.action);
+
         return {
-          Waktu: log.time ? format(new Date(log.time), "dd/MM/yyyy HH:mm") : "-",
+          Waktu: log.time
+            ? format(new Date(log.time), "dd/MM/yyyy HH:mm")
+            : "-",
           Nama: log.userName,
           Peran: log.userRole,
           Aktivitas: log.action,
-          Dokumen: log.docId && log.docTitle ? log.docTitle : "-",
+          Dokumen:
+            log.docId && log.docTitle
+              ? log.docTitle
+              : "-",
           "No. Dokumen": log.docNomor || "-",
-          Status: log.docId ? "-" : visual.status || "-",
+          Status: log.docId
+            ? "-"
+            : visual.status || "-",
         };
       });
 
       const ws = XLSX.utils.json_to_sheet(rows);
+
       ws["!cols"] = [
-        { wch: 17 }, { wch: 22 }, { wch: 14 }, { wch: 38 },
-        { wch: 32 }, { wch: 22 }, { wch: 10 },
+        { wch: 17 },
+        { wch: 22 },
+        { wch: 14 },
+        { wch: 38 },
+        { wch: 32 },
+        { wch: 22 },
+        { wch: 10 },
       ];
 
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Log Aktivitas");
+      XLSX.utils.book_append_sheet(
+        wb,
+        ws,
+        "Log Aktivitas"
+      );
 
       const validDates = exportData
-        .filter((log) => log.time && !Number.isNaN(new Date(log.time).getTime()))
+        .filter(
+          (log) =>
+            log.time &&
+            !Number.isNaN(
+              new Date(log.time).getTime()
+            )
+        )
         .map((log) => new Date(log.time))
         .sort((a, b) => a - b);
 
-      let fileDateLabel = format(new Date(), "yyyy-MM-dd");
+      let fileDateLabel = format(
+        new Date(),
+        "yyyy-MM-dd"
+      );
+
       if (validDates.length > 0) {
-        const oldestLabel = format(validDates[0], "yyyy-MM-dd");
-        const newestLabel = format(validDates[validDates.length - 1], "yyyy-MM-dd");
-        fileDateLabel = oldestLabel === newestLabel
-          ? oldestLabel
-          : `${oldestLabel}_sampai_${newestLabel}`;
+        const oldestLabel = format(
+          validDates[0],
+          "yyyy-MM-dd"
+        );
+
+        const newestLabel = format(
+          validDates[validDates.length - 1],
+          "yyyy-MM-dd"
+        );
+
+        fileDateLabel =
+          oldestLabel === newestLabel
+            ? oldestLabel
+            : `${oldestLabel}_sampai_${newestLabel}`;
       }
 
-      const fileName = `Log_Aktivitas_SAKURA_${fileDateLabel}.xlsx`;
+      const fileName =
+        `Log_Aktivitas_SAKURA_${fileDateLabel}.xlsx`;
+
       XLSX.writeFile(wb, fileName);
-      setExportState({ type: "success", message: `${fileName} berhasil diunduh.` });
+
+      setExportState({
+        type: "success",
+        message: `${fileName} berhasil diunduh.`,
+      });
     } catch (err) {
       console.error("Export Excel gagal:", err);
-      setExportState({ type: "error", message: "Gagal mengekspor file Excel." });
+
+      setExportState({
+        type: "error",
+        message: "Gagal mengekspor file Excel.",
+      });
     }
 
     setTimeout(() => setExportState(null), 3500);
   };
 
-  /* RENDER */
   return (
     <>
       <AppHeader
@@ -695,65 +599,44 @@ export default function LogPage() {
       />
 
       <div className="p-8 space-y-5">
-        {/* TITLE + SUMMARY */}
         <div className="flex flex-wrap items-center justify-between gap-4">
-
           <div className="flex items-center gap-2">
-
             <Clock
               size={22}
               className="text-primary"
             />
-
             <h2 className="text-xl font-bold text-foreground">
               Jejak Aktivitas Global
             </h2>
-
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-
-            {/* TOTAL */}
             <div className="flex items-center gap-2.5 bg-card border border-border rounded-xl px-4 py-2 shadow-soft">
               <span className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
                 <ClipboardList size={16} />
               </span>
-
               <div className="leading-tight">
-
                 <div className="text-sm font-bold">
                   {logs.length}
                 </div>
-
                 <div className="text-[10px] text-muted-foreground">
                   Total Aktivitas
                 </div>
-
               </div>
-
             </div>
 
-            {/* LATEST */}
             <div className="flex items-center gap-2.5 bg-card border border-border rounded-xl px-4 py-2 shadow-soft">
-
               <span className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-
                 <CalendarDays size={16} />
-
               </span>
-
               <div className="leading-tight">
-
                 <div className="text-sm font-bold">
                   {latestActivityLabel}
                 </div>
-
                 <div className="text-[10px] text-muted-foreground">
                   Aktivitas Terbaru
                 </div>
-
               </div>
-
             </div>
 
             <ViewRangeDropdown
@@ -765,175 +648,158 @@ export default function LogPage() {
               disabled={loading}
               className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl border border-input text-sm hover:bg-muted disabled:opacity-50 transition-colors"
             >
+              <RefreshCw
+                size={14}
+                className={loading ? "animate-spin" : ""}
+              />
+              Refresh
+            </button>
 
+            {/* ONLY ADDITION: verification button */}
+            <button
+              type="button"
+              onClick={verifyAuditIntegrity}
+              disabled={integrityChecking}
+              className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl border border-input text-sm hover:bg-muted disabled:opacity-50 transition-colors"
+            >
               <RefreshCw
                 size={14}
                 className={
-                  loading
+                  integrityChecking
                     ? "animate-spin"
                     : ""
                 }
               />
-
-              Refresh
-
+              {integrityChecking
+                ? "Verifying..."
+                : "Verify Integrity"}
             </button>
-
           </div>
-
         </div>
 
+        {/* ONLY ADDITION: verification result */}
+        {integrityResult && (
+          <div
+            className={`rounded-xl border px-4 py-3 ${
+              integrityResult.valid
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : "border-red-200 bg-red-50 text-red-700"
+            }`}
+          >
+            {integrityResult.valid ? (
+              <>
+                <div className="font-semibold">
+                  ✓ Audit Trail Integrity: VALID
+                </div>
+                <div className="text-xs mt-1">
+                  {integrityResult.total_records} audit
+                  records verified. No broken chain detected.
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="font-semibold">
+                  ⚠ Audit Trail Integrity: TAMPERED
+                </div>
+                <div className="text-xs mt-1">
+                  {integrityResult.broken_records?.length || 0}
+                  {" "}broken record(s) detected.
+                </div>
+                {integrityResult.error && (
+                  <div className="text-xs mt-1">
+                    {integrityResult.error}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
         {/* FILTER */}
-        <div className="bg-card border border-border rounded-xl shadow-soft p-4 space-y-3">
-          <div className="flex flex-wrap items-center gap-3">
-            {/* SEARCH */}
-            <div className="relative flex-1 min-w-[260px]">
+        <div className="bg-card border border-border rounded-xl shadow-soft p-5 space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative flex-1 min-w-[220px]">
               <Search
-                size={16}
+                size={15}
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
               />
-
               <input
                 value={search}
-                onChange={(e) =>
-                  setSearch(e.target.value)
-                }
+                onChange={(e) => setSearch(e.target.value)}
                 placeholder="Cari aktivitas, dokumen, atau kata kunci..."
                 className="w-full pl-9 pr-4 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               />
-
             </div>
-
-            {/* ACTIVITY FILTER */}
 
             <select
               value={filterAction}
               onChange={(e) =>
-                setFilterAction(
-                  e.target.value
-                )
+                setFilterAction(e.target.value)
               }
               className="px-3 py-2 rounded-lg border border-input bg-background text-sm"
             >
-
-              <option value="Semua">
-                Semua Aktivitas
-              </option>
-
-              <option value="Login">
-                Login
-              </option>
-
-              <option value="Logout">
-                Logout
-              </option>
-
-              <option value="Mengunggah">
-                Unggah
-              </option>
-
-              <option value="Melihat">
-                Lihat
-              </option>
-
-              <option value="Menyetujui">
-                Setujui
-              </option>
-
-              <option value="Menolak">
-                Tolak
-              </option>
-
-              <option value="Mengarsipkan">
-                Arsipkan
-              </option>
-
-              <option value="Mengunduh">
-                Unduh
-              </option>
-
-              <option value="Catatan">
-                Catatan Admin
-              </option>
-
+              <option value="Semua">Semua Aktivitas</option>
+              <option value="Login">Login</option>
+              <option value="Logout">Logout</option>
+              <option value="Mengunggah">Unggah</option>
+              <option value="Melihat">Lihat</option>
+              <option value="Menyetujui">Setujui</option>
+              <option value="Menolak">Tolak</option>
+              <option value="Mengarsipkan">Arsipkan</option>
+              <option value="Mengunduh">Unduh</option>
+              <option value="Catatan">Catatan Admin</option>
             </select>
 
-            {/* STATUS */}
             <select
               value={filterStatus}
               onChange={(e) =>
-                setFilterStatus(
-                  e.target.value
-                )
+                setFilterStatus(e.target.value)
               }
               className="px-3 py-2 rounded-lg border border-input bg-background text-sm"
             >
-
-              <option value="Semua">
-                Semua Status
-              </option>
-
-              <option value="SUKSES">
-                Sukses
-              </option>
-
-              <option value="INFO">
-                Info
-              </option>
-
-              <option value="GAGAL">
-                Gagal
-              </option>
-
+              <option value="Semua">Semua Status</option>
+              <option value="SUKSES">Sukses</option>
+              <option value="INFO">Info</option>
+              <option value="GAGAL">Gagal</option>
             </select>
 
-            {/* DATE */}
             <Popover>
               <PopoverTrigger asChild>
                 <button
                   type="button"
                   className="flex items-center gap-2 px-3 py-2 rounded-lg border border-input bg-background text-sm hover:bg-muted transition-colors"
                 >
-
                   <CalendarIcon
                     size={14}
                     className="text-muted-foreground"
                   />
-
                   {dateRangeLabel}
-
                 </button>
-
               </PopoverTrigger>
 
               <PopoverContent
                 className="w-auto p-2"
                 align="start"
               >
-
                 <Calendar
                   mode="range"
                   selected={dateRange}
                   onSelect={(range) =>
-                    setDateRange(
-                      range || {}
-                    )
+                    setDateRange(range || {})
                   }
                   numberOfMonths={2}
                   locale={idLocale}
                 />
-
               </PopoverContent>
-
             </Popover>
 
-            {/* EXPORT EXCEL WITH CONFIRMATION */}
             <div className="relative">
               <div className="relative group">
                 <button
                   type="button"
                   onClick={() => {
-                    if (filtered.length > 0) setShowExportConfirm((prev) => !prev);
+                    if (filtered.length > 0)
+                      setShowExportConfirm((prev) => !prev);
                   }}
                   disabled={filtered.length === 0}
                   className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-primary/30 bg-background text-primary text-sm font-medium hover:bg-primary/5 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
@@ -994,27 +860,22 @@ export default function LogPage() {
                         Ekspor
                       </button>
                     </div>
+
                     <div className="absolute -top-[5px] right-6 h-2.5 w-2.5 rotate-45 border-l border-t border-border bg-card" />
                   </div>
                 </>
               )}
             </div>
 
-            {/* RESET */}
             <button
               onClick={handleReset}
               className="flex items-center gap-1 px-3 py-2 rounded-lg border border-input text-sm hover:bg-muted transition-colors"
             >
-
               <RotateCcw size={14} />
-
               Reset
-
             </button>
-
           </div>
 
-          {/* USER FILTER */}
           <div className="pt-3 border-t border-border/60">
             <label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground mb-1.5">
               <Users size={13} />
@@ -1022,128 +883,75 @@ export default function LogPage() {
             </label>
 
             <div className="relative">
-
               <select
-                value={
-                  selectedUserKey ?? ""
-                }
+                value={selectedUserKey ?? ""}
                 onChange={(e) =>
-                  handleSelectUser(
-                    e.target.value
-                  )
+                  handleSelectUser(e.target.value)
                 }
                 className="w-full appearance-none pl-3 pr-8 py-2 rounded-lg border border-input bg-background text-sm"
               >
-
-                <option value="">
-                  Semua user
-                </option>
+                <option value="">Semua user</option>
 
                 {allUsers.map((user) => (
-
                   <option
                     key={user.key}
                     value={user.key}
                   >
-
-                    {user.userName} —{" "}
-                    {user.role}
-
+                    {user.userName} — {user.role}
                   </option>
-
                 ))}
-
               </select>
 
               <ChevronDown
                 size={14}
                 className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
               />
-
             </div>
-
           </div>
-
         </div>
 
-        {/* EXPORT TOAST */}
         {exportState && (
-
           <div className="fixed top-24 right-8 z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
-
             <div
               className={`flex items-center gap-3 min-w-[280px] rounded-xl border bg-card px-4 py-3 shadow-xl ${
                 exportState.type === "success"
                   ? "border-emerald-200"
-                  : exportState.type ===
-                    "error"
-                  ? "border-red-200"
-                  : "border-border"
+                  : exportState.type === "error"
+                    ? "border-red-200"
+                    : "border-border"
               }`}
             >
-
-              {exportState.type ===
-              "success" ? (
-
+              {exportState.type === "success" ? (
                 <span className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
-
                   <Check size={17} />
-
                 </span>
-
-              ) : exportState.type ===
-                "error" ? (
-
+              ) : exportState.type === "error" ? (
                 <span className="w-8 h-8 rounded-full bg-red-100 text-red-600 flex items-center justify-center">
-
-                  <AlertCircle
-                    size={17}
-                  />
-
+                  <AlertCircle size={17} />
                 </span>
-
               ) : (
-
                 <span className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center">
-
-                  <RefreshCw
-                    size={16}
-                    className="animate-spin"
-                  />
-
+                  <RefreshCw size={16} className="animate-spin" />
                 </span>
-
               )}
 
               <div>
-
                 <div className="text-sm font-semibold text-foreground">
-
-                  {exportState.type ===
-                  "success"
+                  {exportState.type === "success"
                     ? "Ekspor Berhasil"
-                    : exportState.type ===
-                      "error"
-                    ? "Ekspor Gagal"
-                    : "Ekspor Excel"}
-
+                    : exportState.type === "error"
+                      ? "Ekspor Gagal"
+                      : "Ekspor Excel"}
                 </div>
 
                 <div className="text-xs text-muted-foreground mt-0.5">
-
                   {exportState.message}
-
                 </div>
-
               </div>
-
             </div>
-
           </div>
-
         )}
 
-        {/* LOADING */}
         {loading && (
           <div className="flex flex-col items-center gap-3 py-16 bg-card border border-border rounded-xl shadow-soft">
             <div className="w-8 h-8 border-[3px] border-primary border-t-transparent rounded-full animate-spin" />
@@ -1153,7 +961,6 @@ export default function LogPage() {
           </div>
         )}
 
-        {/* ERROR */}
         {!loading && error && (
           <div className="flex flex-col items-center gap-3 py-16 bg-card border border-border rounded-xl shadow-soft">
             <AlertCircle
@@ -1172,7 +979,6 @@ export default function LogPage() {
           </div>
         )}
 
-        {/* EMPTY */}
         {!loading &&
           !error &&
           groupedLogs.length === 0 && (
@@ -1183,44 +989,31 @@ export default function LogPage() {
             </div>
           )}
 
-        {/* USER CARDS */}
         {!loading &&
           !error &&
           groupedLogs.length > 0 && (
             <div className="space-y-3">
               {groupedLogs.map((user) => {
-                const isOpen =
-                  expandedUsers.has(
-                    user.key
-                  );
-                const visibleCount =
-                  getVisibleCount(
-                    user.key
-                  );
-                const truncatedSections =
-                  getTruncatedSections(
-                    user.sections,
-                    visibleCount
-                  );
+                const isOpen = expandedUsers.has(user.key);
+                const visibleCount = getVisibleCount(user.key);
+                const truncatedSections = getTruncatedSections(
+                  user.sections,
+                  visibleCount
+                );
                 const hasMore =
-                  visibleCount <
-                  user.activities.length;
+                  visibleCount < user.activities.length;
+
                 return (
                   <div
                     key={user.key}
                     className="bg-card border border-border rounded-xl shadow-soft overflow-hidden"
                   >
-
-                    {/* USER HEADER */}
                     <button
                       type="button"
-                      onClick={() =>
-                        toggleUser(user.key)
-                      }
+                      onClick={() => toggleUser(user.key)}
                       aria-expanded={isOpen}
                       className="w-full flex items-center gap-4 px-4 py-3.5 hover:bg-muted/30 transition-colors text-left"
                     >
-
                       <UserAvatar
                         userId={user.userId}
                         avatar={user.avatar}
@@ -1229,296 +1022,207 @@ export default function LogPage() {
                       />
 
                       <div className="flex-1 min-w-0">
-
                         <div className="font-bold text-sm text-foreground">
-
                           {user.userName}
-
                         </div>
 
                         <div className="text-xs text-muted-foreground mt-0.5">
-
                           {user.role}
-
-                          <span className="mx-1">
-                            •
-                          </span>
-
-                          {
-                            user.activities
-                              .length
-                          }{" "}
-                          Aktivitas
-
+                          <span className="mx-1">•</span>
+                          {user.activities.length} Aktivitas
                         </div>
-
                       </div>
 
                       <ChevronDown
                         size={18}
                         className={`text-muted-foreground transition-transform ${
-                          isOpen
-                            ? "rotate-180"
-                            : ""
+                          isOpen ? "rotate-180" : ""
                         }`}
                       />
-
                     </button>
 
-                    {/* ACTIVITY LIST */}
                     {isOpen && (
                       <div className="border-t border-border/60 px-4 py-4">
                         <div className="text-sm font-bold text-foreground mb-4">
                           Aktivitas Terbaru
                         </div>
+
                         <div>
-                          {truncatedSections.map(
-                            (section) => (
-                              <div
-                                key={
-                                  section.dateKey
-                                }
-                                className="mb-4 last:mb-0"
-                              >
+                          {truncatedSections.map((section) => (
+                            <div
+                              key={section.dateKey}
+                              className="mb-4 last:mb-0"
+                            >
+                              <div className="text-[11px] font-bold text-primary tracking-wide mb-1.5">
+                                {section.label}
+                              </div>
 
-                                {/* DATE */}
-                                <div className="text-[11px] font-bold text-primary tracking-wide mb-1.5">
-                                  {section.label}
-                                </div>
+                              <div>
+                                {section.items.map((log, index) => {
+                                  const visual = getActivityVisual(
+                                    log.action
+                                  );
 
-                                {/* TIMELINE */}
-                                <div>
-                                  {section.items.map(
-                                    (
-                                      log,
-                                      index
-                                    ) => {
+                                  const Icon = visual.icon;
 
-                                      const visual =
-                                        getActivityVisual(
-                                          log.action
-                                        );
+                                  const rowKey =
+                                    log.id ??
+                                    `${user.key}-${log.time}-${index}`;
 
-                                      const Icon =
-                                        visual.icon;
+                                  const isRowOpen =
+                                    expandedLogRows.has(rowKey);
 
-                                      const rowKey =
-                                        log.id ??
-                                        `${user.key}-${log.time}-${index}`;
+                                  const subtitle = log.docId
+                                    ? log.docTitle
+                                    : getActivitySubtitle(
+                                        log.action
+                                      );
 
-                                      const isRowOpen =
-                                        expandedLogRows.has(
-                                          rowKey
-                                        );
+                                  return (
+                                    <div
+                                      key={rowKey}
+                                      className="relative"
+                                    >
+                                      {index <
+                                        section.items.length - 1 && (
+                                        <span className="absolute left-[4px] top-[27px] bottom-[-8px] w-px bg-border" />
+                                      )}
 
-                                      const subtitle =
-                                        log.docId
-                                          ? log.docTitle
-                                          : getActivitySubtitle(
-                                              log.action
-                                            );
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          handleRowClick(rowKey)
+                                        }
+                                        className="w-full grid grid-cols-[12px_48px_36px_minmax(0,1fr)_auto_18px] items-center gap-2 py-2 text-left group"
+                                      >
+                                        <span
+                                          className={`w-2 h-2 rounded-full ${visual.dot}`}
+                                        />
 
-                                      return (
-
-                                        <div
-                                          key={
-                                            rowKey
-                                          }
-                                          className="relative"
-                                        >
-
-                                          {/* TIMELINE LINE */}
-                                          {index <
-                                            section
-                                              .items
-                                              .length -
-                                              1 && (
-
-                                            <span className="absolute left-[4px] top-[27px] bottom-[-8px] w-px bg-border" />
-
-                                          )}
-
-                                          {/* ROW */}
-                                          <button
-                                            type="button"
-                                            onClick={() =>
-                                              handleRowClick(
-                                                rowKey
+                                        <span className="text-[11px] font-mono text-muted-foreground">
+                                          {log.time
+                                            ? format(
+                                                new Date(log.time),
+                                                "HH:mm"
                                               )
-                                            }
-                                            className="w-full grid grid-cols-[12px_48px_36px_minmax(0,1fr)_auto_18px] items-center gap-2 py-2 text-left group"
+                                            : "—"}
+                                        </span>
+
+                                        <span
+                                          className={`w-8 h-8 rounded-lg flex items-center justify-center ${visual.iconBg} ${visual.iconText}`}
+                                        >
+                                          <Icon size={15} />
+                                        </span>
+
+                                        <div className="min-w-0">
+                                          <div
+                                            className={`text-sm font-semibold truncate ${
+                                              log.action.startsWith(
+                                                "Catatan Admin"
+                                              )
+                                                ? "text-accent italic"
+                                                : "text-foreground"
+                                            }`}
                                           >
+                                            {log.action}
+                                          </div>
 
-                                            {/* DOT */}
-                                            <span
-                                              className={`w-2 h-2 rounded-full ${visual.dot}`}
-                                            />
-
-                                            {/* TIME */}
-                                            <span className="text-[11px] font-mono text-muted-foreground">
-                                              {log.time
-                                                ? format(
-                                                    new Date(
-                                                      log.time
-                                                    ),
-                                                    "HH:mm"
-                                                  )
-                                                : "—"}
-
-                                            </span>
-
-                                            {/* ICON */}
-                                            <span
-                                              className={`w-8 h-8 rounded-lg flex items-center justify-center ${visual.iconBg} ${visual.iconText}`}
-                                            >
-                                              <Icon
-                                                size={
-                                                  15
-                                                }
-                                              />
-                                            </span>
-
-                                            {/* ACTIVITY */}
-                                            <div className="min-w-0">
-                                              <div
-                                                className={`text-sm font-semibold truncate ${
-                                                  log.action.startsWith(
-                                                    "Catatan Admin"
-                                                  )
-                                                    ? "text-accent italic"
-                                                    : "text-foreground"
-                                                }`}
-                                              >
-                                                {
-                                                  log.action
-                                                }
-                                              </div>
-
-                                              {subtitle && (
-
-                                                <div className="text-xs text-muted-foreground truncate mt-0.5">
-
-                                                  {
-                                                    subtitle
-                                                  }
-
-                                                </div>
-
-                                              )}
-
-                                            </div>
-
-                                            {/* DOCUMENT NUMBER / STATUS */}
-                                            {log.docId &&
-                                            log.docNomor ? (
-                                              <span className="font-mono bg-muted px-2 py-1 rounded text-[10px] text-muted-foreground shrink-0">
-                                                {
-                                                  log.docNomor
-                                                }
-                                              </span>
-                                            ) : visual.status ? (
-                                              <span
-                                                className={`text-[10px] font-bold px-2 py-1 rounded-full shrink-0 ${
-                                                  STATUS_STYLES[
-                                                    visual
-                                                      .status
-                                                  ]
-                                                }`}
-                                              >
-                                                {
-                                                  visual.status
-                                                }
-                                              </span>
-                                            ) : (
-                                              <span />
-                                            )}
-
-                                            {/* CHEVRON */}
-                                            <ChevronRight
-                                              size={15}
-                                              className={`text-muted-foreground transition-transform ${
-                                                isRowOpen
-                                                  ? "rotate-90"
-                                                  : ""
-                                              }`}
-                                            />
-                                          </button>
-
-                                          {/* INLINE DETAIL */}
-                                          {isRowOpen && (
-                                            <div className="ml-[106px] mr-6 mb-2 rounded-lg border border-border/60 bg-muted/30 px-3 py-2.5">
-                                              <div className="flex items-start gap-2">
-                                                <Info
-                                                  size={
-                                                    14
-                                                  }
-                                                  className="text-muted-foreground mt-0.5 shrink-0"
-                                                />
-                                                <div className="space-y-1 text-xs">
-                                                  <div className="text-muted-foreground">
-                                                    {log.time
-                                                      ? format(
-                                                          new Date(
-                                                            log.time
-                                                          ),
-                                                          "EEEE, d MMMM yyyy 'pukul' HH:mm",
-                                                          {
-                                                            locale:
-                                                              idLocale,
-                                                          }
-                                                        )
-                                                      : "Waktu tidak diketahui"}
-                                                  </div>
-                                                  {log.docTitle && (
-                                                    <div className="text-foreground">
-                                                      <span className="text-muted-foreground">
-                                                        Dokumen:{" "}
-                                                      </span>
-                                                      {
-                                                        log.docTitle
-                                                      }
-                                                    </div>
-                                                  )}
-                                                  {log.docNomor && (
-                                                    <div className="text-foreground">
-                                                      <span className="text-muted-foreground">
-                                                        Nomor:{" "}
-                                                      </span>
-                                                      {
-                                                        log.docNomor
-                                                      }
-                                                    </div>
-                                                  )}
-                                                </div>
-                                              </div>
+                                          {subtitle && (
+                                            <div className="text-xs text-muted-foreground truncate mt-0.5">
+                                              {subtitle}
                                             </div>
                                           )}
                                         </div>
-                                      );
-                                    }
-                                  )}
-                                </div>
+
+                                        {log.docId &&
+                                        log.docNomor ? (
+                                          <span className="font-mono bg-muted px-2 py-1 rounded text-[10px] text-muted-foreground shrink-0">
+                                            {log.docNomor}
+                                          </span>
+                                        ) : visual.status ? (
+                                          <span
+                                            className={`text-[10px] font-bold px-2 py-1 rounded-full shrink-0 ${STATUS_STYLES[visual.status]}`}
+                                          >
+                                            {visual.status}
+                                          </span>
+                                        ) : (
+                                          <span />
+                                        )}
+
+                                        <ChevronRight
+                                          size={15}
+                                          className={`text-muted-foreground transition-transform ${
+                                            isRowOpen
+                                              ? "rotate-90"
+                                              : ""
+                                          }`}
+                                        />
+                                      </button>
+
+                                      {isRowOpen && (
+                                        <div className="ml-[106px] mr-6 mb-2 rounded-lg border border-border/60 bg-muted/30 px-3 py-2.5">
+                                          <div className="flex items-start gap-2">
+                                            <Info
+                                              size={14}
+                                              className="text-muted-foreground mt-0.5 shrink-0"
+                                            />
+
+                                            <div className="space-y-1 text-xs">
+                                              <div className="text-muted-foreground">
+                                                {log.time
+                                                  ? format(
+                                                      new Date(
+                                                        log.time
+                                                      ),
+                                                      "EEEE, d MMMM yyyy 'pukul' HH:mm",
+                                                      {
+                                                        locale:
+                                                          idLocale,
+                                                      }
+                                                    )
+                                                  : "Waktu tidak diketahui"}
+                                              </div>
+
+                                              {log.docTitle && (
+                                                <div className="text-foreground">
+                                                  <span className="text-muted-foreground">
+                                                    Dokumen:{" "}
+                                                  </span>
+                                                  {log.docTitle}
+                                                </div>
+                                              )}
+
+                                              {log.docNomor && (
+                                                <div className="text-foreground">
+                                                  <span className="text-muted-foreground">
+                                                    Nomor:{" "}
+                                                  </span>
+                                                  {log.docNomor}
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
                               </div>
-                            )
-                          )}
+                            </div>
+                          ))}
                         </div>
 
-                        {/* LOAD MORE AFTER 7 */}
                         {hasMore && (
                           <div className="flex justify-center mt-4">
                             <button
                               type="button"
                               onClick={() =>
-                                loadMore(
-                                  user.key
-                                )
+                                loadMore(user.key)
                               }
                               className="flex items-center gap-2 px-5 py-2 rounded-lg border border-primary/30 text-primary text-sm font-medium hover:bg-primary/5 transition-colors"
                             >
                               Muat lebih banyak
-                              <ChevronDown
-                                size={14}
-                              />
+                              <ChevronDown size={14} />
                             </button>
                           </div>
                         )}

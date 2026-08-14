@@ -1,16 +1,18 @@
-import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import {
-  Camera, X, Scan,
-  RotateCw, Check, ChevronRight, AlertTriangle,
+  X, Scan, RotateCw, Check, ChevronRight, AlertTriangle,
   Focus, Maximize2, Plus, Images, Zap, ZapOff,
 } from "lucide-react";
 import { useSettings } from "@/contexts/SettingsContext";
 
-const COMPRESS_QUALITY = 0.82;
-const MAX_SCAN_WIDTH = 2048;  
+const COMPRESS_QUALITY = 0.88;
+const MAX_SCAN_WIDTH = 2048;
+const OPENCV_URL = "https://docs.opencv.org/4.x/opencv.js";
 
 function resizeCanvas(src, maxW = MAX_SCAN_WIDTH) {
   const scale = src.width > maxW ? maxW / src.width : 1;
+  if (scale === 1) return src;
+
   const dst = document.createElement("canvas");
   dst.width = Math.round(src.width * scale);
   dst.height = Math.round(src.height * scale);
@@ -18,124 +20,332 @@ function resizeCanvas(src, maxW = MAX_SCAN_WIDTH) {
   return dst;
 }
 
-// ===== Deteksi tepi dokumen — heuristik JS murni (tanpa dependency eksternal) =====
-// Dijalankan HANYA SEKALI saat shutter ditekan (bukan live-tracking terus-menerus),
-// supaya ringan di semua device/jaringan dan tidak butuh library/CDN apapun.
+function loadOpenCV() {
+  if (typeof window === "undefined") return Promise.reject(new Error("Browser only"));
+  if (window.cv?.Mat) return Promise.resolve(window.cv);
 
-function toGrayscale(imageData) {
-  const d = imageData.data;
-  for (let i = 0; i < d.length; i += 4) {
-    const g = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-    d[i] = d[i + 1] = d[i + 2] = g;
-  }
-  return imageData;
+  if (window.__sakuraOpenCVPromise) return window.__sakuraOpenCVPromise;
+
+  window.__sakuraOpenCVPromise = new Promise((resolve, reject) => {
+    const existing = document.querySelector('script[data-sakura-opencv="true"]');
+
+    const finish = () => {
+      const cv = window.cv;
+      if (cv?.Mat) resolve(cv);
+      else reject(new Error("OpenCV.js loaded but cv is unavailable"));
+    };
+
+    if (existing) {
+      existing.addEventListener("load", finish, { once: true });
+      existing.addEventListener("error", () => reject(new Error("OpenCV.js failed to load")), { once: true });
+      const timer = setInterval(() => {
+        if (window.cv?.Mat) {
+          clearInterval(timer);
+          finish();
+        }
+      }, 100);
+      setTimeout(() => clearInterval(timer), 15000);
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = OPENCV_URL;
+    script.async = true;
+    script.dataset.sakuraOpencv = "true";
+    script.onload = () => {
+      const started = Date.now();
+      const wait = () => {
+        if (window.cv?.Mat) {
+          resolve(window.cv);
+          return;
+        }
+        if (Date.now() - started > 15000) {
+          reject(new Error("OpenCV runtime initialization timeout"));
+          return;
+        }
+        setTimeout(wait, 50);
+      };
+      wait();
+    };
+    script.onerror = () => reject(new Error("OpenCV.js failed to load"));
+    document.head.appendChild(script);
+  });
+
+  return window.__sakuraOpenCVPromise;
 }
 
-function sobelEdgeMap(grayData, w, h) {
-  const d = grayData.data;
-  const edge = new Float32Array(w * h);
-  for (let y = 1; y < h - 1; y++) {
-    for (let x = 1; x < w - 1; x++) {
-      const g = (row, col) => d[((y + row) * w + (x + col)) * 4];
-      const gx =
-        -g(-1, -1) + g(-1, 1) - 2 * g(0, -1) + 2 * g(0, 1) - g(1, -1) + g(1, 1);
-      const gy =
-        -g(-1, -1) - 2 * g(-1, 0) - g(-1, 1) + g(1, -1) + 2 * g(1, 0) + g(1, 1);
-      edge[y * w + x] = Math.sqrt(gx * gx + gy * gy);
-    }
-  }
-  return edge;
+function distance(a, b) {
+  return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
-// Deteksi 4 sudut dokumen dari edge map.
-// Perbaikan dari versi awal: threshold adaptif (mengikuti kontras foto, bukan angka
-// tetap) + tiap sudut diambil dari RATA-RATA beberapa titik edge terkuat di area
-// quadrant-nya (bukan cuma 1 titik terdekat) supaya jauh lebih tahan terhadap noise
-// dari background bertekstur (mengurangi salah-deteksi akibat 1-2 piksel liar).
-function detectDocumentCorners(edgeMap, w, h) {
-  const MARGIN = 0.05;
-
-  // Threshold adaptif: mean + 1.5*stddev dari edge map (di luar margin)
-  let sum = 0, sumSq = 0, count = 0;
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const nx = x / w, ny = y / h;
-      if (nx < MARGIN || nx > 1 - MARGIN || ny < MARGIN || ny > 1 - MARGIN) continue;
-      const v = edgeMap[y * w + x];
-      sum += v; sumSq += v * v; count++;
-    }
+function polygonArea(points) {
+  let area = 0;
+  for (let i = 0; i < points.length; i++) {
+    const a = points[i];
+    const b = points[(i + 1) % points.length];
+    area += a.x * b.y - b.x * a.y;
   }
-  if (count === 0) return null;
-  const mean = sum / count;
-  const variance = Math.max(0, sumSq / count - mean * mean);
-  const threshold = Math.max(40, mean + 1.5 * Math.sqrt(variance));
+  return Math.abs(area) / 2;
+}
 
-  // Kumpulkan kandidat titik edge kuat per quadrant (TL/TR/BR/BL)
-  const buckets = { tl: [], tr: [], br: [], bl: [] };
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const strength = edgeMap[y * w + x];
-      if (strength < threshold) continue;
-      const nx = x / w, ny = y / h;
-      if (nx < MARGIN || nx > 1 - MARGIN || ny < MARGIN || ny > 1 - MARGIN) continue;
+function orderCorners(points) {
+  const sorted = [...points];
+  const sum = p => p.x + p.y;
+  const diff = p => p.x - p.y;
 
-      const quadrant = (ny < 0.5 ? (nx < 0.5 ? "tl" : "tr") : (nx < 0.5 ? "bl" : "br"));
-      buckets[quadrant].push({ x, y, strength });
-    }
-  }
-
-  // Ambil rata-rata (weighted by strength) dari titik-titik terkuat di tiap quadrant,
-  // yang paling dekat ke pojok frame quadrant tsb — bukan cuma 1 titik tunggal.
-  const TOP_K = 25;
-  const cornerFromBucket = (points, cornerX, cornerY) => {
-    if (points.length === 0) return null;
-    const sorted = [...points].sort((a, b) => {
-      const da = (a.x - cornerX) ** 2 + (a.y - cornerY) ** 2;
-      const db = (b.x - cornerX) ** 2 + (b.y - cornerY) ** 2;
-      return da - db;
-    });
-    const top = sorted.slice(0, Math.min(TOP_K, sorted.length));
-    let sx = 0, sy = 0, sw = 0;
-    top.forEach((p) => { sx += p.x * p.strength; sy += p.y * p.strength; sw += p.strength; });
-    if (sw === 0) return null;
-    return { x: sx / sw, y: sy / sw };
-  };
-
-  const tl = cornerFromBucket(buckets.tl, 0, 0);
-  const tr = cornerFromBucket(buckets.tr, w, 0);
-  const br = cornerFromBucket(buckets.br, w, h);
-  const bl = cornerFromBucket(buckets.bl, 0, h);
-
-  if (!tl || !tr || !br || !bl) return null;
-
-  // Validasi ukuran hasil kuadrilateral (hindari crop yang terlalu kecil/aneh)
-  const width1 = Math.hypot(tr.x - tl.x, tr.y - tl.y);
-  const width2 = Math.hypot(br.x - bl.x, br.y - bl.y);
-  const height1 = Math.hypot(bl.x - tl.x, bl.y - tl.y);
-  const height2 = Math.hypot(br.x - tr.x, br.y - tr.y);
-  const avgW = (width1 + width2) / 2;
-  const avgH = (height1 + height2) / 2;
-  if (avgW < w * 0.3 || avgH < h * 0.3) return null;
+  const tl = sorted.reduce((a, b) => sum(a) < sum(b) ? a : b);
+  const br = sorted.reduce((a, b) => sum(a) > sum(b) ? a : b);
+  const tr = sorted.reduce((a, b) => diff(a) > diff(b) ? a : b);
+  const bl = sorted.reduce((a, b) => diff(a) < diff(b) ? a : b);
 
   return [tl, tr, br, bl];
 }
 
-// Jalankan deteksi tepi sekali di atas sebuah canvas (dipanggil saat shutter ditekan)
-function detectCornersFromCanvas(canvas) {
-  const ctx = canvas.getContext("2d");
-  const w = canvas.width, h = canvas.height;
-  const imageData = ctx.getImageData(0, 0, w, h);
-  toGrayscale(imageData);
-  const edgeMap = sobelEdgeMap(imageData, w, h);
-  return detectDocumentCorners(edgeMap, w, h);
+function angleCosine(a, b, c) {
+  const abx = a.x - b.x;
+  const aby = a.y - b.y;
+  const cbx = c.x - b.x;
+  const cby = c.y - b.y;
+  const dot = abx * cbx + aby * cby;
+  const den = Math.hypot(abx, aby) * Math.hypot(cbx, cby);
+  return den ? Math.abs(dot / den) : 1;
+}
+
+/*
+ * Detects the largest strong quadrilateral in the camera frame.
+ * This replaces the old "strongest edge in each quadrant" approach.
+ *
+ * OpenCV:
+ *   grayscale -> blur -> Canny -> close -> contours
+ *   contours -> polygon approximation -> 4 corners
+ *
+ * A candidate is accepted only when:
+ * - it has exactly 4 corners
+ * - it is convex
+ * - it occupies enough of the frame
+ * - its angles are reasonably rectangular
+ */
+function detectDocumentCornersOpenCV(cv, canvas) {
+  if (!cv?.Mat || !canvas?.width || !canvas?.height) return null;
+
+  let src;
+  let gray;
+  let blurred;
+  let edges;
+  let kernel;
+  let closed;
+  let contours;
+  let hierarchy;
+
+  try {
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+    src = cv.matFromImageData(imageData);
+    gray = new cv.Mat();
+    blurred = new cv.Mat();
+    edges = new cv.Mat();
+    kernel = cv.Mat.ones(5, 5, cv.CV_8U);
+    closed = new cv.Mat();
+    contours = new cv.MatVector();
+    hierarchy = new cv.Mat();
+
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+    cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
+    cv.Canny(blurred, edges, 45, 140);
+    cv.morphologyEx(edges, closed, cv.MORPH_CLOSE, kernel);
+
+    cv.findContours(
+      closed,
+      contours,
+      hierarchy,
+      cv.RETR_LIST,
+      cv.CHAIN_APPROX_SIMPLE
+    );
+
+    const frameArea = canvas.width * canvas.height;
+    const candidates = [];
+
+    for (let i = 0; i < contours.size(); i++) {
+      const contour = contours.get(i);
+      let approx;
+
+      try {
+        const perimeter = cv.arcLength(contour, true);
+        if (perimeter < Math.min(canvas.width, canvas.height) * 0.7) continue;
+
+        approx = new cv.Mat();
+        cv.approxPolyDP(contour, approx, Math.max(2, perimeter * 0.018), true);
+
+        if (approx.rows !== 4 || !cv.isContourConvex(approx)) continue;
+
+        const points = [];
+        for (let j = 0; j < 4; j++) {
+          points.push({
+            x: Number(approx.intPtr(j, 0)[0]),
+            y: Number(approx.intPtr(j, 0)[1]),
+          });
+        }
+
+        const area = polygonArea(points);
+        const areaRatio = area / frameArea;
+        if (areaRatio < 0.16 || areaRatio > 0.98) continue;
+
+        const ordered = orderCorners(points);
+
+        const cosines = ordered.map((_, idx) => {
+          const prev = ordered[(idx + 3) % 4];
+          const cur = ordered[idx];
+          const next = ordered[(idx + 1) % 4];
+          return angleCosine(prev, cur, next);
+        });
+
+        const maxCos = Math.max(...cosines);
+
+        // Allows perspective, but rejects very sharp/irregular polygons.
+        if (maxCos > 0.48) continue;
+
+        const w1 = distance(ordered[0], ordered[1]);
+        const w2 = distance(ordered[3], ordered[2]);
+        const h1 = distance(ordered[0], ordered[3]);
+        const h2 = distance(ordered[1], ordered[2]);
+
+        const avgW = (w1 + w2) / 2;
+        const avgH = (h1 + h2) / 2;
+        if (avgW < canvas.width * 0.25 || avgH < canvas.height * 0.20) continue;
+
+        const rectangularity = Math.min(avgW / avgH, avgH / avgW);
+        const score =
+          areaRatio * 10 +
+          (1 - maxCos) * 2 +
+          rectangularity * 0.25;
+
+        candidates.push({ points: ordered, score, area });
+      } finally {
+        contour.delete();
+        approx?.delete();
+      }
+    }
+
+    if (!candidates.length) return null;
+
+    candidates.sort((a, b) => {
+      if (Math.abs(b.area - a.area) > frameArea * 0.025) {
+        return b.area - a.area;
+      }
+      return b.score - a.score;
+    });
+
+    return candidates[0].points;
+  } catch (error) {
+    console.warn("[Scanner] OpenCV detection failed:", error);
+    return null;
+  } finally {
+    src?.delete();
+    gray?.delete();
+    blurred?.delete();
+    edges?.delete();
+    kernel?.delete();
+    closed?.delete();
+    contours?.delete();
+    hierarchy?.delete();
+  }
+}
+
+function scaleCorners(corners, fromW, fromH, toW, toH) {
+  if (!corners || corners.length !== 4) return null;
+  return corners.map(c => ({
+    x: c.x * (toW / fromW),
+    y: c.y * (toH / fromH),
+  }));
+}
+
+/*
+ * Proper perspective transform.
+ * Unlike the previous bilinear interpolation, this uses a real
+ * projective transform so slanted documents are straightened correctly.
+ */
+function perspectiveCorrect(srcCanvas, corners) {
+  if (!corners || corners.length !== 4) return srcCanvas;
+
+  const cv = window.cv;
+  if (!cv?.Mat) return srcCanvas;
+
+  const [tl, tr, br, bl] = corners;
+
+  const outW = Math.max(
+    1,
+    Math.round(Math.max(distance(tl, tr), distance(bl, br)))
+  );
+  const outH = Math.max(
+    1,
+    Math.round(Math.max(distance(tl, bl), distance(tr, br)))
+  );
+
+  let src;
+  let srcPts;
+  let dstPts;
+  let matrix;
+  let dst;
+
+  try {
+    const ctx = srcCanvas.getContext("2d");
+    const imageData = ctx.getImageData(0, 0, srcCanvas.width, srcCanvas.height);
+
+    src = cv.matFromImageData(imageData);
+
+    srcPts = cv.matFromArray(4, 1, cv.CV_32FC2, [
+      tl.x, tl.y,
+      tr.x, tr.y,
+      br.x, br.y,
+      bl.x, bl.y,
+    ]);
+
+    dstPts = cv.matFromArray(4, 1, cv.CV_32FC2, [
+      0, 0,
+      outW - 1, 0,
+      outW - 1, outH - 1,
+      0, outH - 1,
+    ]);
+
+    matrix = cv.getPerspectiveTransform(srcPts, dstPts);
+    dst = new cv.Mat();
+
+    cv.warpPerspective(
+      src,
+      dst,
+      matrix,
+      new cv.Size(outW, outH),
+      cv.INTER_LINEAR,
+      cv.BORDER_REPLICATE
+    );
+
+    const output = document.createElement("canvas");
+    output.width = outW;
+    output.height = outH;
+    cv.imshow(output, dst);
+    return output;
+  } catch (error) {
+    console.warn("[Scanner] Perspective transform failed:", error);
+    return srcCanvas;
+  } finally {
+    src?.delete();
+    srcPts?.delete();
+    dstPts?.delete();
+    matrix?.delete();
+    dst?.delete();
+  }
 }
 
 function applySharpen(ctx, w, h) {
+  if (w < 3 || h < 3) return;
+
   const src = ctx.getImageData(0, 0, w, h);
   const dst = ctx.createImageData(w, h);
   const kernel = [0, -1, 0, -1, 5, -1, 0, -1, 0];
   const d = src.data;
   const o = dst.data;
+
   for (let y = 1; y < h - 1; y++) {
     for (let x = 1; x < w - 1; x++) {
       for (let c = 0; c < 3; c++) {
@@ -151,103 +361,65 @@ function applySharpen(ctx, w, h) {
       o[(y * w + x) * 4 + 3] = 255;
     }
   }
+
   ctx.putImageData(dst, 0, 0);
 }
 
-function perspectiveCorrect(srcCanvas, corners) {
-  const [tl, tr, br, bl] = corners;
-  const outW = Math.round(Math.max(
-    Math.hypot(tr.x - tl.x, tr.y - tl.y),
-    Math.hypot(br.x - bl.x, br.y - bl.y)
-  ));
-  const outH = Math.round(Math.max(
-    Math.hypot(bl.x - tl.x, bl.y - tl.y),
-    Math.hypot(br.x - tr.x, br.y - tr.y)
-  ));
-
-  const dst = document.createElement("canvas");
-  dst.width = outW;
-  dst.height = outH;
-  const ctx = dst.getContext("2d");
-
-  const srcCtx = srcCanvas.getContext("2d");
-  const srcData = srcCtx.getImageData(0, 0, srcCanvas.width, srcCanvas.height).data;
-  const dstData = ctx.createImageData(outW, outH);
-  const dd = dstData.data;
-
-  for (let oy = 0; oy < outH; oy++) {
-    for (let ox = 0; ox < outW; ox++) {
-      const tx = ox / outW;
-      const ty = oy / outH;
-      const sx = (1 - ty) * ((1 - tx) * tl.x + tx * tr.x) + ty * ((1 - tx) * bl.x + tx * br.x);
-      const sy = (1 - ty) * ((1 - tx) * tl.y + tx * tr.y) + ty * ((1 - tx) * bl.y + tx * br.y);
-
-      const ix = Math.round(sx), iy = Math.round(sy);
-      if (ix < 0 || ix >= srcCanvas.width || iy < 0 || iy >= srcCanvas.height) continue;
-
-      const si = (iy * srcCanvas.width + ix) * 4;
-      const di = (oy * outW + ox) * 4;
-      dd[di] = srcData[si];
-      dd[di + 1] = srcData[si + 1];
-      dd[di + 2] = srcData[si + 2];
-      dd[di + 3] = 255;
-    }
-  }
-  ctx.putImageData(dstData, 0, 0);
-  return dst;
-}
-
-/**
- * @param {string} dataUrl 
- * @param {object} opts 
- * @returns {Promise<{dataUrl: string, corners: Array|null}>}
- */
 async function processImage(dataUrl, opts = {}) {
   return new Promise((resolve) => {
     const img = new Image();
-    img.onload = async () => {
+
+    img.onload = () => {
       let canvas = document.createElement("canvas");
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(img, 0, 0);
+      canvas.width = img.naturalWidth || img.width;
+      canvas.height = img.naturalHeight || img.height;
+      canvas.getContext("2d").drawImage(img, 0, 0);
+
+      const originalW = canvas.width;
+      const originalH = canvas.height;
+
+      let corners = opts.perspectiveCorners || null;
 
       canvas = resizeCanvas(canvas);
 
-      // Auto-detect corners (hanya dijalankan jika fitur Auto-crop aktif)
-      let detectedCorners = opts.perspectiveCorners || null;
-      if (!detectedCorners && opts.detectCorners) {
-        try {
-          detectedCorners = detectCornersFromCanvas(canvas);
-        } catch (err) {
-          console.warn("[Scanner] Deteksi tepi gagal:", err);
-          detectedCorners = null;
-        }
+      if (corners) {
+        corners = scaleCorners(
+          corners,
+          originalW,
+          originalH,
+          canvas.width,
+          canvas.height
+        );
       }
 
-      // Perspective correction
-      if (detectedCorners && opts.applyPerspective !== false) {
-        try {
-          canvas = perspectiveCorrect(canvas, detectedCorners);
-        } catch { }
+      if (!corners && opts.detectCorners && window.cv?.Mat) {
+        corners = detectDocumentCornersOpenCV(window.cv, canvas);
+      }
+
+      if (corners && opts.applyPerspective !== false) {
+        canvas = perspectiveCorrect(canvas, corners);
       }
 
       const finalCtx = canvas.getContext("2d");
 
-      // Sharpen
       if (opts.sharpen) {
         applySharpen(finalCtx, canvas.width, canvas.height);
       }
 
-      // Compress & return
-      const out = canvas.toDataURL("image/jpeg", COMPRESS_QUALITY);
-      resolve({ dataUrl: out, corners: detectedCorners });
+      resolve({
+        dataUrl: canvas.toDataURL("image/jpeg", COMPRESS_QUALITY),
+        corners,
+      });
     };
+
+    img.onerror = () => {
+      resolve({ dataUrl, corners: null });
+    };
+
     img.src = dataUrl;
   });
 }
 
-// Corner Overlay
 function CornerHandle({ label, xPct, yPct, onChange, color = "#3b82f6" }) {
   const handleRef = useRef(null);
 
@@ -257,20 +429,22 @@ function CornerHandle({ label, xPct, yPct, onChange, color = "#3b82f6" }) {
     if (!container) return;
 
     const move = (me) => {
+      const point = me.touches?.[0] || me;
       const rect = container.getBoundingClientRect();
-      const cx = (me.touches ? me.touches[0].clientX : me.clientX) - rect.left;
-      const cy = (me.touches ? me.touches[0].clientY : me.clientY) - rect.top;
+
       onChange({
-        x: Math.max(0, Math.min(100, (cx / rect.width) * 100)),
-        y: Math.max(0, Math.min(100, (cy / rect.height) * 100)),
+        x: Math.max(0, Math.min(100, ((point.clientX - rect.left) / rect.width) * 100)),
+        y: Math.max(0, Math.min(100, ((point.clientY - rect.top) / rect.height) * 100)),
       });
     };
+
     const up = () => {
       window.removeEventListener("mousemove", move);
       window.removeEventListener("mouseup", up);
       window.removeEventListener("touchmove", move);
       window.removeEventListener("touchend", up);
     };
+
     window.addEventListener("mousemove", move);
     window.addEventListener("mouseup", up);
     window.addEventListener("touchmove", move, { passive: false });
@@ -301,90 +475,113 @@ function CornerHandle({ label, xPct, yPct, onChange, color = "#3b82f6" }) {
   );
 }
 
-function toPercent(value, base = 100) {
-  if (typeof value === "string" && value.endsWith("%")) {
-    return Number(value.replace("%", "")) || 0;
-  }
-  return (Number(value) / base) * 100;
-}
-
-function PerspectiveOverlay({ corners, containerW, containerH, color = "#3b82f6", fill = "rgba(59,130,246,0.15)", dashed = true }) {
+function PerspectiveOverlay({ corners, color = "#facc15", fill = "rgba(250,204,21,0.10)", dashed = false }) {
   if (!corners || corners.length !== 4) return null;
+
   const pts = corners
-    .map((c) => `${toPercent(c.x, containerW)}%,${toPercent(c.y, containerH)}%`)
+    .map(c => `${c.x}%,${c.y}%`)
     .join(" ");
+
   return (
     <svg
-      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 25 }}
+      style={{
+        position: "absolute",
+        inset: 0,
+        width: "100%",
+        height: "100%",
+        pointerEvents: "none",
+        zIndex: 25,
+      }}
     >
       <polygon
         points={pts}
         fill={fill}
         stroke={color}
-        strokeWidth="2"
+        strokeWidth="3"
+        strokeLinejoin="round"
         strokeDasharray={dashed ? "6,4" : undefined}
       />
     </svg>
   );
 }
 
-// Live tracking: memetakan koordinat sudut (dalam resolusi asli video) ke posisi
-// persentase pada elemen <video> yang ditampilkan dengan object-cover, supaya
-// kotak kuning penanda mengikuti persis area dokumen yang terlihat di layar
-// (bukan cuma kotak statis di tengah).
 function mapVideoCornersToDisplayPercent(corners, videoEl) {
-  if (!videoEl) return null;
-  const vw = videoEl.videoWidth, vh = videoEl.videoHeight;
-  const dw = videoEl.clientWidth, dh = videoEl.clientHeight;
+  if (!videoEl || !corners?.length) return null;
+
+  const vw = videoEl.videoWidth;
+  const vh = videoEl.videoHeight;
+  const dw = videoEl.clientWidth;
+  const dh = videoEl.clientHeight;
+
   if (!vw || !vh || !dw || !dh) return null;
 
+  // Must match object-cover exactly.
   const scale = Math.max(dw / vw, dh / vh);
-  const offsetX = (dw - vw * scale) / 2;
-  const offsetY = (dh - vh * scale) / 2;
+  const renderedW = vw * scale;
+  const renderedH = vh * scale;
+  const offsetX = (dw - renderedW) / 2;
+  const offsetY = (dh - renderedH) / 2;
 
-  return corners.map((c) => ({
+  return corners.map(c => ({
     x: ((offsetX + c.x * scale) / dw) * 100,
     y: ((offsetY + c.y * scale) / dh) * 100,
   }));
 }
 
-// Main Component
 export default function DocumentScanner({ onClose, onCapture, ocrMode = false }) {
   const { settings } = useSettings();
   const autoCropEnabled = !!settings?.scan?.autoCrop;
 
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
-  const [stream, setStream] = useState(null);
-  const streamRef = useRef(null);
-  const [cameraReady, setCameraReady] = useState(false);
-  const [capturedRaw, setCapturedRaw] = useState(null);       
-  const [processedUrl, setProcessedUrl] = useState(null);     
-  const [scannedPages, setScannedPages] = useState([]);      
-  const [detectedCorners, setDetectedCorners] = useState(null); 
-  const [adjustedCorners, setAdjustedCorners] = useState(null); 
-
-  // Live tracking kotak kuning (mengikuti tepi dokumen secara real-time, ala CamScanner)
-  const [liveCorners, setLiveCorners] = useState(null);
   const previewCanvasRef = useRef(null);
-  const liveDetectTimerRef = useRef(null);
+  const streamRef = useRef(null);
+  const liveNativeCornersRef = useRef(null);
+  const liveDetectBusyRef = useRef(false);
+  const lastDetectionTimeRef = useRef(0);
+  const animationRef = useRef(null);
 
-  // Kamera
+  const [stream, setStream] = useState(null);
+  const [cameraReady, setCameraReady] = useState(false);
+  const [capturedRaw, setCapturedRaw] = useState(null);
+  const [processedUrl, setProcessedUrl] = useState(null);
+  const [scannedPages, setScannedPages] = useState([]);
+  const [detectedCorners, setDetectedCorners] = useState(null);
+  const [adjustedCorners, setAdjustedCorners] = useState(null);
+  const [liveCorners, setLiveCorners] = useState(null);
+  const [cvReady, setCvReady] = useState(false);
+
   const [zoomRange, setZoomRange] = useState([1, 1]);
   const [torchOn, setTorchOn] = useState(false);
   const [videoSize, setVideoSize] = useState({ w: 1, h: 1 });
-
-  // Mode
-  const [step, setStep] = useState("camera"); 
+  const [step, setStep] = useState("camera");
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // Load OpenCV only for this scanner component.
+  useEffect(() => {
+    if (!autoCropEnabled) return;
 
-  // Start kamera
+    let cancelled = false;
+
+    loadOpenCV()
+      .then(() => {
+        if (!cancelled) setCvReady(true);
+      })
+      .catch((error) => {
+        console.warn("[Scanner] OpenCV unavailable:", error);
+        if (!cancelled) setCvReady(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [autoCropEnabled]);
+
   const startCamera = useCallback(async () => {
     setCameraReady(false);
 
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
 
@@ -399,8 +596,11 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
         const maxZoom = Number(cap.zoom.max) || 1;
         const defaultZoom = Math.min(Math.max(1, minZoom), maxZoom);
         setZoomRange([minZoom, maxZoom]);
+
         try {
-          await track.applyConstraints({ advanced: [{ zoom: defaultZoom }] });
+          await track.applyConstraints({
+            advanced: [{ zoom: defaultZoom }],
+          });
         } catch {}
       } else {
         setZoomRange([1, 1]);
@@ -408,7 +608,9 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
 
       if (Array.isArray(cap.focusMode) && cap.focusMode.includes("continuous")) {
         try {
-          await track.applyConstraints({ advanced: [{ focusMode: "continuous" }] });
+          await track.applyConstraints({
+            advanced: [{ focusMode: "continuous" }],
+          });
         } catch {}
       }
     };
@@ -427,13 +629,14 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
       streamRef.current = ms;
       setStream(ms);
     } catch (primaryError) {
-      console.warn("[Scanner] Kamera HD gagal, memakai fallback:", primaryError);
+      console.warn("[Scanner] HD camera failed:", primaryError);
 
       try {
         const ms = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: { ideal: "environment" } },
           audio: false,
         });
+
         await configureTrack(ms);
         streamRef.current = ms;
         setStream(ms);
@@ -445,100 +648,191 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
 
   useEffect(() => {
     startCamera();
+
     return () => {
-      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current?.getTracks().forEach(t => t.stop());
       streamRef.current = null;
     };
   }, [startCamera]);
 
   useEffect(() => {
-    if (videoRef.current && stream) {
-      videoRef.current.srcObject = stream;
-      videoRef.current.play().catch(() => {});
-      videoRef.current.onloadedmetadata = () => {
-        setCameraReady(true);
-        setVideoSize({
-          w: videoRef.current.videoWidth,
-          h: videoRef.current.videoHeight,
-        });
-      };
-    }
+    const video = videoRef.current;
+    if (!video || !stream) return;
+
+    video.srcObject = stream;
+    video.play().catch(() => {});
+
+    const onMetadata = () => {
+      setCameraReady(true);
+      setVideoSize({
+        w: video.videoWidth || 1,
+        h: video.videoHeight || 1,
+      });
+    };
+
+    video.addEventListener("loadedmetadata", onMetadata);
+
+    return () => {
+      video.removeEventListener("loadedmetadata", onMetadata);
+    };
   }, [stream]);
 
-  // Live tracking kotak kuning: jalan berkala (bukan tiap frame) di canvas kecil
-  // supaya ringan, lalu hasil sudutnya dipetakan ke posisi layar (object-cover).
+  /*
+   * Live detector.
+   * - 640px working image so mobile devices stay responsive.
+   * - Runs about 4 times/sec, not 1 detection every 700ms.
+   * - Keeps the previous valid polygon briefly when one frame fails.
+   * - NO corner dots are rendered.
+   */
   useEffect(() => {
-    if (step !== "camera" || !cameraReady || !autoCropEnabled) {
+    if (
+      step !== "camera" ||
+      !cameraReady ||
+      !autoCropEnabled ||
+      !cvReady
+    ) {
+      cancelAnimationFrame(animationRef.current);
+      liveNativeCornersRef.current = null;
       setLiveCorners(null);
       return;
     }
 
     let cancelled = false;
 
-    const runDetection = () => {
+    const detectLoop = (timestamp) => {
       if (cancelled) return;
-      const v = videoRef.current;
-      if (v && v.videoWidth && v.videoHeight) {
-        try {
-          if (!previewCanvasRef.current) {
-            previewCanvasRef.current = document.createElement("canvas");
-          }
-          const pc = previewCanvasRef.current;
-          const PREVIEW_W = 360;
-          const scale = PREVIEW_W / v.videoWidth;
-          pc.width = PREVIEW_W;
-          pc.height = Math.round(v.videoHeight * scale);
-          pc.getContext("2d").drawImage(v, 0, 0, pc.width, pc.height);
 
-          const corners = detectCornersFromCanvas(pc);
-          if (corners) {
-            const nativeCorners = corners.map((c) => ({ x: c.x / scale, y: c.y / scale }));
-            const mapped = mapVideoCornersToDisplayPercent(nativeCorners, v);
-            if (!cancelled) setLiveCorners(mapped);
-          } else if (!cancelled) {
-            setLiveCorners(null);
-          }
-        } catch {
-          if (!cancelled) setLiveCorners(null);
+      animationRef.current = requestAnimationFrame(detectLoop);
+
+      if (timestamp - lastDetectionTimeRef.current < 250) return;
+      if (liveDetectBusyRef.current) return;
+
+      const video = videoRef.current;
+      if (!video?.videoWidth || !video?.videoHeight) return;
+
+      lastDetectionTimeRef.current = timestamp;
+      liveDetectBusyRef.current = true;
+
+      try {
+        if (!previewCanvasRef.current) {
+          previewCanvasRef.current = document.createElement("canvas");
         }
+
+        const canvas = previewCanvasRef.current;
+        const workW = 640;
+        const scale = workW / video.videoWidth;
+        const workH = Math.max(1, Math.round(video.videoHeight * scale));
+
+        canvas.width = workW;
+        canvas.height = workH;
+
+        const ctx = canvas.getContext("2d", {
+          willReadFrequently: true,
+        });
+
+        ctx.drawImage(video, 0, 0, workW, workH);
+
+        const corners = detectDocumentCornersOpenCV(
+          window.cv,
+          canvas
+        );
+
+        if (corners) {
+          const nativeCorners = corners.map(c => ({
+            x: c.x / scale,
+            y: c.y / scale,
+          }));
+
+          liveNativeCornersRef.current = nativeCorners;
+
+          const mapped = mapVideoCornersToDisplayPercent(
+            nativeCorners,
+            video
+          );
+
+          if (!cancelled) setLiveCorners(mapped);
+        }
+      } catch (error) {
+        console.warn("[Scanner] Live detection:", error);
+      } finally {
+        liveDetectBusyRef.current = false;
       }
-      liveDetectTimerRef.current = setTimeout(runDetection, 700);
     };
 
-    runDetection();
+    animationRef.current = requestAnimationFrame(detectLoop);
 
     return () => {
       cancelled = true;
-      clearTimeout(liveDetectTimerRef.current);
+      cancelAnimationFrame(animationRef.current);
+      liveNativeCornersRef.current = null;
     };
-  }, [step, cameraReady, autoCropEnabled]);
+  }, [step, cameraReady, autoCropEnabled, cvReady]);
 
-  // Torch
   const toggleTorch = useCallback(async () => {
     const track = stream?.getVideoTracks()[0];
     if (!track) return;
+
     try {
-      await track.applyConstraints({ advanced: [{ torch: !torchOn }] });
-      setTorchOn((v) => !v);
-    } catch { }
+      await track.applyConstraints({
+        advanced: [{ torch: !torchOn }],
+      });
+      setTorchOn(v => !v);
+    } catch {}
   }, [stream, torchOn]);
 
-  // Capture
   const capture = useCallback(async () => {
     if (!videoRef.current || !canvasRef.current) return;
+
     setIsProcessing(true);
 
-    const v = videoRef.current;
-    const c = canvasRef.current;
-    c.width = v.videoWidth;
-    c.height = v.videoHeight;
-    c.getContext("2d").drawImage(v, 0, 0);
-    const rawUrl = c.toDataURL("image/jpeg", 0.95);
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(video, 0, 0);
+
+    const rawUrl = canvas.toDataURL("image/jpeg", 0.96);
     setCapturedRaw(rawUrl);
 
+    // Use exactly the same corners that the user was seeing on screen.
+    // If detection was lost on the last frame, do one final detection.
+    let captureCorners = liveNativeCornersRef.current;
+
+    if (!captureCorners && autoCropEnabled && cvReady) {
+      const work = document.createElement("canvas");
+      const workW = 960;
+      const scale = workW / video.videoWidth;
+      work.width = workW;
+      work.height = Math.round(video.videoHeight * scale);
+
+      work.getContext("2d").drawImage(
+        video,
+        0,
+        0,
+        work.width,
+        work.height
+      );
+
+      const finalDetected = detectDocumentCornersOpenCV(
+        window.cv,
+        work
+      );
+
+      if (finalDetected) {
+        captureCorners = finalDetected.map(c => ({
+          x: c.x / scale,
+          y: c.y / scale,
+        }));
+      }
+    }
+
     const { dataUrl, corners } = await processImage(rawUrl, {
-      sharpen: true,
-      detectCorners: autoCropEnabled,
+      sharpen: false,
+      perspectiveCorners: autoCropEnabled ? captureCorners : null,
+      detectCorners: autoCropEnabled && !captureCorners,
       applyPerspective: autoCropEnabled,
     });
 
@@ -547,18 +841,20 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
     setAdjustedCorners(corners);
     setIsProcessing(false);
 
-    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current?.getTracks().forEach(t => t.stop());
     streamRef.current = null;
     setCameraReady(false);
+    setLiveCorners(null);
     setStep("result");
-  }, [autoCropEnabled]);
+  }, [autoCropEnabled, cvReady]);
 
   const applyManualPerspective = useCallback(async () => {
     if (!capturedRaw || !adjustedCorners) return;
+
     setIsProcessing(true);
 
     const { dataUrl } = await processImage(capturedRaw, {
-      sharpen: true,
+      sharpen: false,
       perspectiveCorners: adjustedCorners,
       applyPerspective: true,
     });
@@ -570,32 +866,44 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
 
   const buildMultiPageFile = useCallback(async (pages) => {
     const images = await Promise.all(
-      pages.map((src) => new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => resolve(img);
-        img.onerror = reject;
-        img.src = src;
-      }))
+      pages.map(src =>
+        new Promise((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => resolve(img);
+          img.onerror = reject;
+          img.src = src;
+        })
+      )
     );
 
-    const width = Math.max(...images.map((img) => img.naturalWidth || img.width));
-    const heights = images.map((img) =>
-      Math.round((img.naturalHeight || img.height) * (width / (img.naturalWidth || img.width)))
+    const width = Math.max(
+      ...images.map(img => img.naturalWidth || img.width)
     );
+
+    const heights = images.map(img =>
+      Math.round(
+        (img.naturalHeight || img.height) *
+        (width / (img.naturalWidth || img.width))
+      )
+    );
+
     const canvas = document.createElement("canvas");
     canvas.width = width;
     canvas.height = heights.reduce((sum, h) => sum + h, 0);
+
     const ctx = canvas.getContext("2d");
 
     let y = 0;
+
     images.forEach((img, index) => {
       ctx.drawImage(img, 0, y, width, heights[index]);
       y += heights[index];
     });
 
-    const blob = await new Promise((resolve) =>
+    const blob = await new Promise(resolve =>
       canvas.toBlob(resolve, "image/jpeg", COMPRESS_QUALITY)
     );
+
     if (!blob) throw new Error("Gagal membuat file hasil scan");
 
     return new File(
@@ -605,72 +913,97 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
     );
   }, []);
 
-  // Scan halaman berikutnya 
   const scanAnotherPage = useCallback(() => {
     if (!processedUrl || ocrMode) return;
-    setScannedPages((prev) => [...prev, processedUrl]);
+
+    setScannedPages(prev => [...prev, processedUrl]);
     setCapturedRaw(null);
     setProcessedUrl(null);
     setDetectedCorners(null);
     setAdjustedCorners(null);
+    setLiveCorners(null);
+    liveNativeCornersRef.current = null;
     setStep("camera");
     startCamera();
   }, [processedUrl, ocrMode, startCamera]);
 
-  // kirim seluruh halaman ke parent
   const handleDone = useCallback(async () => {
     if (!processedUrl) return;
+
     setIsProcessing(true);
+
     try {
-      const pages = ocrMode ? [processedUrl] : [...scannedPages, processedUrl];
+      const pages = ocrMode
+        ? [processedUrl]
+        : [...scannedPages, processedUrl];
+
       const file = await buildMultiPageFile(pages);
       onCapture(file, pages);
     } finally {
       setIsProcessing(false);
     }
-  }, [processedUrl, scannedPages, ocrMode, buildMultiPageFile, onCapture]);
+  }, [
+    processedUrl,
+    scannedPages,
+    ocrMode,
+    buildMultiPageFile,
+    onCapture,
+  ]);
 
   const retake = useCallback(() => {
     setCapturedRaw(null);
     setProcessedUrl(null);
     setDetectedCorners(null);
     setAdjustedCorners(null);
+    setLiveCorners(null);
+    liveNativeCornersRef.current = null;
     setStep("camera");
     startCamera();
   }, [startCamera]);
 
   const updateCorner = (index, pos) => {
     if (!adjustedCorners) return;
+
     const next = [...adjustedCorners];
-    next[index] = { x: pos.x / 100 * videoSize.w, y: pos.y / 100 * videoSize.h };
+
+    next[index] = {
+      x: (pos.x / 100) * videoSize.w,
+      y: (pos.y / 100) * videoSize.h,
+    };
+
     setAdjustedCorners(next);
   };
 
-  // RENDER
   return (
     <div className="fixed inset-0 z-[200] flex flex-col bg-black">
+
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 bg-black/80 shrink-0">
         <div className="flex items-center gap-2">
           <Scan size={18} className="text-blue-400" />
+
           <span className="text-white font-semibold text-sm">
             {step === "camera" && "Pindai Dokumen"}
             {step === "adjust" && "Sesuaikan Batas Dokumen"}
             {step === "result" && "Preview Hasil Scan"}
           </span>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => { streamRef.current?.getTracks().forEach((t) => t.stop()); streamRef.current = null; onClose(); }}
-            className="p-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors"
-          >
-            <X size={18} />
-          </button>
-        </div>
+
+        <button
+          onClick={() => {
+            streamRef.current?.getTracks().forEach(t => t.stop());
+            streamRef.current = null;
+            onClose();
+          }}
+          className="p-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors"
+        >
+          <X size={18} />
+        </button>
       </div>
 
       {/* Main View */}
       <div className="flex-1 relative overflow-hidden flex items-center justify-center bg-black">
+
         {step === "camera" && (
           <>
             <video
@@ -679,50 +1012,45 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
               playsInline
               muted
               className="w-full h-full object-cover bg-black"
-              style={{ display: cameraReady ? "block" : "none" }}
+              style={{
+                display: cameraReady ? "block" : "none",
+              }}
             />
+
             {!cameraReady && (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
                 <div className="w-10 h-10 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                <span className="text-gray-400 text-sm">Memulai kamera...</span>
+                <span className="text-gray-400 text-sm">
+                  Memulai kamera...
+                </span>
               </div>
             )}
 
+            {/* REAL document border — no corner dots */}
             {cameraReady && autoCropEnabled && liveCorners && (
-              <svg
-                className="absolute inset-0 pointer-events-none"
-                style={{ width: "100%", height: "100%" }}
-              >
-                <polygon
-                  points={liveCorners.map((c) => `${c.x}%,${c.y}%`).join(" ")}
-                  fill="rgba(250,204,21,0.12)"
-                  stroke="#facc15"
-                  strokeWidth="3"
-                  strokeLinejoin="round"
-                />
-                {liveCorners.map((c, i) => (
-                  <circle key={i} cx={`${c.x}%`} cy={`${c.y}%`} r="5" fill="#facc15" />
-                ))}
-              </svg>
+              <PerspectiveOverlay
+                corners={liveCorners}
+                color="#facc15"
+                fill="rgba(250,204,21,0.08)"
+              />
             )}
 
+            {/* Neutral guide only when no document has been detected.
+                It does NOT pretend to be the document. */}
             {cameraReady && autoCropEnabled && !liveCorners && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div className="w-4/5 h-3/4 relative">
+                <div className="w-[82%] h-[72%] relative">
                   {[
-                    "top-0 left-0 border-t-2 border-l-2 rounded-tl-sm",
-                    "top-0 right-0 border-t-2 border-r-2 rounded-tr-sm",
-                    "bottom-0 left-0 border-b-2 border-l-2 rounded-bl-sm",
-                    "bottom-0 right-0 border-b-2 border-r-2 rounded-br-sm",
+                    "top-0 left-0 border-t-2 border-l-2 rounded-tl-md",
+                    "top-0 right-0 border-t-2 border-r-2 rounded-tr-md",
+                    "bottom-0 left-0 border-b-2 border-l-2 rounded-bl-md",
+                    "bottom-0 right-0 border-b-2 border-r-2 rounded-br-md",
                   ].map((cls, i) => (
-                    <div key={i} className={`absolute border-yellow-400 w-6 h-6 ${cls}`} />
+                    <div
+                      key={i}
+                      className={`absolute border-yellow-400 w-7 h-7 ${cls}`}
+                    />
                   ))}
-                  <div className="absolute inset-0 border border-dashed border-yellow-400/30 rounded" />
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-12 h-12 border border-yellow-400/50 rounded flex items-center justify-center">
-                      <Focus size={16} className="text-yellow-400/60" />
-                    </div>
-                  </div>
                 </div>
               </div>
             )}
@@ -731,30 +1059,38 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
 
         {step === "adjust" && capturedRaw && (
           <div className="relative w-full h-full flex items-center justify-center">
-            <div className="relative" style={{ maxWidth: "100%", maxHeight: "100%" }}>
+            <div
+              className="relative"
+              style={{
+                maxWidth: "100%",
+                maxHeight: "100%",
+              }}
+            >
               <img
                 src={capturedRaw}
                 alt="Sesuaikan"
                 className="block max-w-full max-h-[calc(100vh-200px)] object-contain"
                 draggable={false}
               />
-              {adjustedCorners && adjustedCorners.map((c, i) => (
+
+              {adjustedCorners?.map((c, i) => (
                 <CornerHandle
                   key={i}
                   label={["TL", "TR", "BR", "BL"][i]}
                   xPct={(c.x / videoSize.w) * 100}
                   yPct={(c.y / videoSize.h) * 100}
-                  onChange={(pos) => updateCorner(i, pos)}
+                  onChange={pos => updateCorner(i, pos)}
                 />
               ))}
+
               {adjustedCorners && (
                 <PerspectiveOverlay
-                  corners={adjustedCorners.map((c) => ({
-                    x: (c.x / videoSize.w) * 100 + "%",
-                    y: (c.y / videoSize.h) * 100 + "%",
+                  corners={adjustedCorners.map(c => ({
+                    x: (c.x / videoSize.w) * 100,
+                    y: (c.y / videoSize.h) * 100,
                   }))}
-                  containerW={100}
-                  containerH={100}
+                  color="#3b82f6"
+                  fill="rgba(59,130,246,0.10)"
                 />
               )}
             </div>
@@ -767,8 +1103,11 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
               src={processedUrl}
               alt="Hasil Scan"
               className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-              style={{ opacity: isProcessing ? 0.4 : 1 }}
+              style={{
+                opacity: isProcessing ? 0.4 : 1,
+              }}
             />
+
             {isProcessing && (
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
@@ -780,7 +1119,9 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
         {isProcessing && step === "camera" && (
           <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-3">
             <div className="w-10 h-10 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-            <span className="text-white text-sm">Memproses gambar...</span>
+            <span className="text-white text-sm">
+              Memproses gambar...
+            </span>
           </div>
         )}
 
@@ -789,17 +1130,22 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
 
       {/* Bottom Controls */}
       <div className="bg-black/90 px-4 py-4 shrink-0">
+
         {step === "camera" && (
           <div className="flex items-center justify-center gap-6">
+
             <button
               onClick={toggleTorch}
-              className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors ${torchOn ? "bg-yellow-500 text-black" : "bg-white/10 text-white"}`}
+              className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors ${
+                torchOn
+                  ? "bg-yellow-500 text-black"
+                  : "bg-white/10 text-white"
+              }`}
               title={torchOn ? "Matikan Flash" : "Nyalakan Flash"}
             >
               {torchOn ? <Zap size={20} /> : <ZapOff size={20} />}
             </button>
 
-            {/* Capture button */}
             <button
               onClick={capture}
               disabled={!cameraReady || isProcessing}
@@ -808,76 +1154,100 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
               <div className="w-12 h-12 rounded-full bg-white" />
             </button>
 
-            {/* Spacer agar tombol shutter tetap center (simetris dengan tombol flash) */}
-            <div className="w-11 h-11" aria-hidden="true" />
+            <div
+              className="w-11 h-11"
+              aria-hidden="true"
+            />
           </div>
         )}
 
-        {/* ADJUST controls */}
         {step === "adjust" && (
           <div className="space-y-3">
             <p className="text-center text-gray-400 text-xs">
               Seret titik sudut untuk menyesuaikan area dokumen
             </p>
+
             <div className="flex gap-3">
               <button
                 onClick={retake}
                 className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-white/10 text-white text-sm font-medium hover:bg-white/20 transition-colors"
               >
-                <RotateCw size={16} /> Foto Ulang
+                <RotateCw size={16} />
+                Foto Ulang
               </button>
+
               <button
                 onClick={() => {
-                  processImage(capturedRaw, { sharpen: true, applyPerspective: false })
-                    .then(({ dataUrl }) => { setProcessedUrl(dataUrl); setStep("result"); });
+                  processImage(capturedRaw, {
+                    sharpen: false,
+                    applyPerspective: false,
+                  }).then(({ dataUrl }) => {
+                    setProcessedUrl(dataUrl);
+                    setStep("result");
+                  });
                 }}
                 className="py-3 px-4 rounded-xl bg-white/10 text-white text-sm font-medium hover:bg-white/20 transition-colors"
                 title="Tanpa koreksi perspektif"
               >
                 <Maximize2 size={16} />
               </button>
+
               <button
                 onClick={applyManualPerspective}
                 disabled={isProcessing}
                 className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50"
               >
-                <ChevronRight size={16} /> Terapkan
+                <ChevronRight size={16} />
+                Terapkan
               </button>
             </div>
           </div>
         )}
 
-        {/* RESULT controls */}
         {step === "result" && (
           <div className="space-y-3">
+
             <div className="flex items-center justify-between text-xs text-gray-400 px-1">
+
               <span className="flex items-center gap-1">
-                <Check size={12} className="text-green-400" /> Siap digunakan
+                <Check size={12} className="text-green-400" />
+                Siap digunakan
               </span>
+
               {autoCropEnabled && detectedCorners && (
                 <span className="flex items-center gap-1">
-                  <Scan size={12} className="text-blue-400" /> Deteksi otomatis berhasil
+                  <Scan size={12} className="text-blue-400" />
+                  Deteksi otomatis berhasil
                 </span>
               )}
+
               {autoCropEnabled && !detectedCorners && (
                 <span className="flex items-center gap-1 text-yellow-400">
-                  <AlertTriangle size={12} /> Sesuaikan manual
+                  <AlertTriangle size={12} />
+                  Sesuaikan manual
                 </span>
               )}
             </div>
+
             {!ocrMode && scannedPages.length > 0 && (
               <div className="flex items-center gap-2 px-1 text-xs text-blue-300">
                 <Images size={14} />
-                <span>{scannedPages.length} halaman sudah tersimpan</span>
+                <span>
+                  {scannedPages.length} halaman sudah tersimpan
+                </span>
               </div>
             )}
+
             <div className="flex gap-3 flex-wrap">
+
               <button
                 onClick={retake}
                 className="flex-1 min-w-[110px] flex items-center justify-center gap-2 py-3 rounded-xl bg-white/10 text-white text-sm font-medium hover:bg-white/20 transition-colors"
               >
-                <RotateCw size={16} /> {ocrMode ? "Ambil Ulang" : "Foto Ulang"}
+                <RotateCw size={16} />
+                {ocrMode ? "Ambil Ulang" : "Foto Ulang"}
               </button>
+
               {autoCropEnabled && (
                 <button
                   onClick={() => setStep("adjust")}
@@ -887,26 +1257,36 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
                   <Maximize2 size={16} />
                 </button>
               )}
+
               {!ocrMode && (
                 <button
                   onClick={scanAnotherPage}
                   disabled={isProcessing}
                   className="flex-1 min-w-[150px] flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-white/10 text-white text-sm font-medium hover:bg-white/20 transition-colors disabled:opacity-50"
                 >
-                  <Plus size={16} /> Scan Halaman Lagi
+                  <Plus size={16} />
+                  Scan Halaman Lagi
                 </button>
               )}
+
               <button
                 onClick={handleDone}
                 disabled={isProcessing}
                 className="flex-[2] min-w-[170px] flex items-center justify-center gap-2 py-3 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50"
               >
                 {ocrMode ? (
-                  <><Scan size={16} /> Scan OCR</>
+                  <>
+                    <Scan size={16} />
+                    Scan OCR
+                  </>
                 ) : (
-                  <><Check size={16} /> Gunakan {scannedPages.length + 1} Halaman</>
+                  <>
+                    <Check size={16} />
+                    Gunakan {scannedPages.length + 1} Halaman
+                  </>
                 )}
               </button>
+
             </div>
           </div>
         )}

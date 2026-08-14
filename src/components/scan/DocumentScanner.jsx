@@ -308,7 +308,7 @@ function toPercent(value, base = 100) {
   return (Number(value) / base) * 100;
 }
 
-function PerspectiveOverlay({ corners, containerW, containerH }) {
+function PerspectiveOverlay({ corners, containerW, containerH, color = "#3b82f6", fill = "rgba(59,130,246,0.15)", dashed = true }) {
   if (!corners || corners.length !== 4) return null;
   const pts = corners
     .map((c) => `${toPercent(c.x, containerW)}%,${toPercent(c.y, containerH)}%`)
@@ -317,9 +317,35 @@ function PerspectiveOverlay({ corners, containerW, containerH }) {
     <svg
       style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 25 }}
     >
-      <polygon points={pts} fill="rgba(59,130,246,0.15)" stroke="#3b82f6" strokeWidth="2" strokeDasharray="6,4" />
+      <polygon
+        points={pts}
+        fill={fill}
+        stroke={color}
+        strokeWidth="2"
+        strokeDasharray={dashed ? "6,4" : undefined}
+      />
     </svg>
   );
+}
+
+// Live tracking: memetakan koordinat sudut (dalam resolusi asli video) ke posisi
+// persentase pada elemen <video> yang ditampilkan dengan object-cover, supaya
+// kotak kuning penanda mengikuti persis area dokumen yang terlihat di layar
+// (bukan cuma kotak statis di tengah).
+function mapVideoCornersToDisplayPercent(corners, videoEl) {
+  if (!videoEl) return null;
+  const vw = videoEl.videoWidth, vh = videoEl.videoHeight;
+  const dw = videoEl.clientWidth, dh = videoEl.clientHeight;
+  if (!vw || !vh || !dw || !dh) return null;
+
+  const scale = Math.max(dw / vw, dh / vh);
+  const offsetX = (dw - vw * scale) / 2;
+  const offsetY = (dh - vh * scale) / 2;
+
+  return corners.map((c) => ({
+    x: ((offsetX + c.x * scale) / dw) * 100,
+    y: ((offsetY + c.y * scale) / dh) * 100,
+  }));
 }
 
 // Main Component
@@ -337,6 +363,11 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
   const [scannedPages, setScannedPages] = useState([]);      
   const [detectedCorners, setDetectedCorners] = useState(null); 
   const [adjustedCorners, setAdjustedCorners] = useState(null); 
+
+  // Live tracking kotak kuning (mengikuti tepi dokumen secara real-time, ala CamScanner)
+  const [liveCorners, setLiveCorners] = useState(null);
+  const previewCanvasRef = useRef(null);
+  const liveDetectTimerRef = useRef(null);
 
   // Kamera
   const [zoomRange, setZoomRange] = useState([1, 1]);
@@ -433,6 +464,54 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
       };
     }
   }, [stream]);
+
+  // Live tracking kotak kuning: jalan berkala (bukan tiap frame) di canvas kecil
+  // supaya ringan, lalu hasil sudutnya dipetakan ke posisi layar (object-cover).
+  useEffect(() => {
+    if (step !== "camera" || !cameraReady || !autoCropEnabled) {
+      setLiveCorners(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const runDetection = () => {
+      if (cancelled) return;
+      const v = videoRef.current;
+      if (v && v.videoWidth && v.videoHeight) {
+        try {
+          if (!previewCanvasRef.current) {
+            previewCanvasRef.current = document.createElement("canvas");
+          }
+          const pc = previewCanvasRef.current;
+          const PREVIEW_W = 360;
+          const scale = PREVIEW_W / v.videoWidth;
+          pc.width = PREVIEW_W;
+          pc.height = Math.round(v.videoHeight * scale);
+          pc.getContext("2d").drawImage(v, 0, 0, pc.width, pc.height);
+
+          const corners = detectCornersFromCanvas(pc);
+          if (corners) {
+            const nativeCorners = corners.map((c) => ({ x: c.x / scale, y: c.y / scale }));
+            const mapped = mapVideoCornersToDisplayPercent(nativeCorners, v);
+            if (!cancelled) setLiveCorners(mapped);
+          } else if (!cancelled) {
+            setLiveCorners(null);
+          }
+        } catch {
+          if (!cancelled) setLiveCorners(null);
+        }
+      }
+      liveDetectTimerRef.current = setTimeout(runDetection, 700);
+    };
+
+    runDetection();
+
+    return () => {
+      cancelled = true;
+      clearTimeout(liveDetectTimerRef.current);
+    };
+  }, [step, cameraReady, autoCropEnabled]);
 
   // Torch
   const toggleTorch = useCallback(async () => {
@@ -609,7 +688,25 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
               </div>
             )}
 
-            {cameraReady && autoCropEnabled && (
+            {cameraReady && autoCropEnabled && liveCorners && (
+              <svg
+                className="absolute inset-0 pointer-events-none"
+                style={{ width: "100%", height: "100%" }}
+              >
+                <polygon
+                  points={liveCorners.map((c) => `${c.x}%,${c.y}%`).join(" ")}
+                  fill="rgba(250,204,21,0.12)"
+                  stroke="#facc15"
+                  strokeWidth="3"
+                  strokeLinejoin="round"
+                />
+                {liveCorners.map((c, i) => (
+                  <circle key={i} cx={`${c.x}%`} cy={`${c.y}%`} r="5" fill="#facc15" />
+                ))}
+              </svg>
+            )}
+
+            {cameraReady && autoCropEnabled && !liveCorners && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className="w-4/5 h-3/4 relative">
                   {[

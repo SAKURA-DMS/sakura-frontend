@@ -18,105 +18,116 @@ function resizeCanvas(src, maxW = MAX_SCAN_WIDTH) {
   return dst;
 }
 
-// ===== Deteksi tepi dokumen via Web Worker (OpenCV.js) =====
-// Dijalankan di luar main thread supaya kompilasi WASM & pemrosesan gambar
-// TIDAK PERNAH memblokir UI kamera (tombol X / flash / shutter tetap responsif).
-let detectWorker = null;
-let workerReadyPromise = null;
-let workerReadyResolve = null;
-let detectMsgId = 0;
-const pendingDetections = new Map();
+// ===== Deteksi tepi dokumen — heuristik JS murni (tanpa dependency eksternal) =====
+// Dijalankan HANYA SEKALI saat shutter ditekan (bukan live-tracking terus-menerus),
+// supaya ringan di semua device/jaringan dan tidak butuh library/CDN apapun.
 
-// Bungkus promise dengan batas waktu, supaya UI tidak pernah macet permanen
-// kalau worker gagal merespons (mis. script worker gagal dimuat di server/network).
-function withTimeout(promise, ms, fallbackValue) {
-  return new Promise((resolve) => {
-    let settled = false;
-    const timer = setTimeout(() => {
-      if (!settled) {
-        settled = true;
-        console.warn(`[Scanner] Worker deteksi tidak merespons dalam ${ms}ms, pakai fallback.`);
-        resolve(fallbackValue);
-      }
-    }, ms);
-    promise.then((value) => {
-      if (!settled) {
-        settled = true;
-        clearTimeout(timer);
-        resolve(value);
-      }
-    });
-  });
+function toGrayscale(imageData) {
+  const d = imageData.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const g = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+    d[i] = d[i + 1] = d[i + 2] = g;
+  }
+  return imageData;
 }
 
-function getDetectWorker() {
-  if (detectWorker) return detectWorker;
+function sobelEdgeMap(grayData, w, h) {
+  const d = grayData.data;
+  const edge = new Float32Array(w * h);
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const g = (row, col) => d[((y + row) * w + (x + col)) * 4];
+      const gx =
+        -g(-1, -1) + g(-1, 1) - 2 * g(0, -1) + 2 * g(0, 1) - g(1, -1) + g(1, 1);
+      const gy =
+        -g(-1, -1) - 2 * g(-1, 0) - g(-1, 1) + g(1, -1) + 2 * g(1, 0) + g(1, 1);
+      edge[y * w + x] = Math.sqrt(gx * gx + gy * gy);
+    }
+  }
+  return edge;
+}
 
-  workerReadyPromise = new Promise((resolve) => { workerReadyResolve = resolve; });
+// Deteksi 4 sudut dokumen dari edge map.
+// Perbaikan dari versi awal: threshold adaptif (mengikuti kontras foto, bukan angka
+// tetap) + tiap sudut diambil dari RATA-RATA beberapa titik edge terkuat di area
+// quadrant-nya (bukan cuma 1 titik terdekat) supaya jauh lebih tahan terhadap noise
+// dari background bertekstur (mengurangi salah-deteksi akibat 1-2 piksel liar).
+function detectDocumentCorners(edgeMap, w, h) {
+  const MARGIN = 0.05;
 
-  try {
-    detectWorker = new Worker(
-      new URL("../../workers/documentDetectWorker.js", import.meta.url)
-    );
-  } catch (err) {
-    console.warn("[Scanner] Gagal membuat worker deteksi:", err);
-    workerReadyResolve(false);
-    return null;
+  // Threshold adaptif: mean + 1.5*stddev dari edge map (di luar margin)
+  let sum = 0, sumSq = 0, count = 0;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const nx = x / w, ny = y / h;
+      if (nx < MARGIN || nx > 1 - MARGIN || ny < MARGIN || ny > 1 - MARGIN) continue;
+      const v = edgeMap[y * w + x];
+      sum += v; sumSq += v * v; count++;
+    }
+  }
+  if (count === 0) return null;
+  const mean = sum / count;
+  const variance = Math.max(0, sumSq / count - mean * mean);
+  const threshold = Math.max(40, mean + 1.5 * Math.sqrt(variance));
+
+  // Kumpulkan kandidat titik edge kuat per quadrant (TL/TR/BR/BL)
+  const buckets = { tl: [], tr: [], br: [], bl: [] };
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const strength = edgeMap[y * w + x];
+      if (strength < threshold) continue;
+      const nx = x / w, ny = y / h;
+      if (nx < MARGIN || nx > 1 - MARGIN || ny < MARGIN || ny > 1 - MARGIN) continue;
+
+      const quadrant = (ny < 0.5 ? (nx < 0.5 ? "tl" : "tr") : (nx < 0.5 ? "bl" : "br"));
+      buckets[quadrant].push({ x, y, strength });
+    }
   }
 
-  detectWorker.onmessage = (e) => {
-    const data = e.data;
-    if (data.type === "ready") {
-      workerReadyResolve(true);
-      return;
-    }
-    if (data.type === "error" && data.id === undefined) {
-      console.warn("[Scanner] OpenCV worker gagal dimuat:", data.error);
-      workerReadyResolve(false);
-      return;
-    }
-    const resolver = pendingDetections.get(data.id);
-    if (resolver) {
-      resolver(data.corners || null);
-      pendingDetections.delete(data.id);
-    }
+  // Ambil rata-rata (weighted by strength) dari titik-titik terkuat di tiap quadrant,
+  // yang paling dekat ke pojok frame quadrant tsb — bukan cuma 1 titik tunggal.
+  const TOP_K = 25;
+  const cornerFromBucket = (points, cornerX, cornerY) => {
+    if (points.length === 0) return null;
+    const sorted = [...points].sort((a, b) => {
+      const da = (a.x - cornerX) ** 2 + (a.y - cornerY) ** 2;
+      const db = (b.x - cornerX) ** 2 + (b.y - cornerY) ** 2;
+      return da - db;
+    });
+    const top = sorted.slice(0, Math.min(TOP_K, sorted.length));
+    let sx = 0, sy = 0, sw = 0;
+    top.forEach((p) => { sx += p.x * p.strength; sy += p.y * p.strength; sw += p.strength; });
+    if (sw === 0) return null;
+    return { x: sx / sw, y: sy / sw };
   };
 
-  detectWorker.onerror = (err) => {
-    console.warn("[Scanner] Worker deteksi error:", err.message);
-    if (workerReadyResolve) workerReadyResolve(false);
-    // Gagalkan semua request yang masih menunggu balasan supaya tidak menggantung
-    pendingDetections.forEach((resolve) => resolve(null));
-    pendingDetections.clear();
-  };
+  const tl = cornerFromBucket(buckets.tl, 0, 0);
+  const tr = cornerFromBucket(buckets.tr, w, 0);
+  const br = cornerFromBucket(buckets.br, w, h);
+  const bl = cornerFromBucket(buckets.bl, 0, h);
 
-  return detectWorker;
+  if (!tl || !tr || !br || !bl) return null;
+
+  // Validasi ukuran hasil kuadrilateral (hindari crop yang terlalu kecil/aneh)
+  const width1 = Math.hypot(tr.x - tl.x, tr.y - tl.y);
+  const width2 = Math.hypot(br.x - bl.x, br.y - bl.y);
+  const height1 = Math.hypot(bl.x - tl.x, bl.y - tl.y);
+  const height2 = Math.hypot(br.x - tr.x, br.y - tr.y);
+  const avgW = (width1 + width2) / 2;
+  const avgH = (height1 + height2) / 2;
+  if (avgW < w * 0.3 || avgH < h * 0.3) return null;
+
+  return [tl, tr, br, bl];
 }
 
-// Menunggu worker & OpenCV.js di dalamnya siap (dipakai untuk indikator UI)
-// Dibatasi timeout agar tidak menunggu selamanya jika worker tidak pernah merespons.
-function waitForDetectorReady() {
-  const worker = getDetectWorker();
-  if (!worker) return Promise.resolve(false);
-  return withTimeout(workerReadyPromise, 8000, false);
-}
-
-// Kirim frame (canvas) ke worker untuk dideteksi sudutnya, tanpa memblokir main thread.
-// Dibatasi timeout agar processImage()/live-detect tidak pernah macet permanen.
-function detectCornersAsync(canvas) {
-  const worker = getDetectWorker();
-  if (!worker) return Promise.resolve(null);
-
-  const detection = new Promise((resolve) => {
-    const ctx = canvas.getContext("2d");
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const id = ++detectMsgId;
-    pendingDetections.set(id, resolve);
-    const buffer = imageData.data.buffer;
-    worker.postMessage({ id, width: canvas.width, height: canvas.height, buffer }, [buffer]);
-  });
-
-  return withTimeout(detection, 5000, null);
+// Jalankan deteksi tepi sekali di atas sebuah canvas (dipanggil saat shutter ditekan)
+function detectCornersFromCanvas(canvas) {
+  const ctx = canvas.getContext("2d");
+  const w = canvas.width, h = canvas.height;
+  const imageData = ctx.getImageData(0, 0, w, h);
+  toGrayscale(imageData);
+  const edgeMap = sobelEdgeMap(imageData, w, h);
+  return detectDocumentCorners(edgeMap, w, h);
 }
 
 function applySharpen(ctx, w, h) {
@@ -207,7 +218,7 @@ async function processImage(dataUrl, opts = {}) {
       let detectedCorners = opts.perspectiveCorners || null;
       if (!detectedCorners && opts.detectCorners) {
         try {
-          detectedCorners = await detectCornersAsync(canvas);
+          detectedCorners = detectCornersFromCanvas(canvas);
         } catch (err) {
           console.warn("[Scanner] Deteksi tepi gagal:", err);
           detectedCorners = null;
@@ -332,31 +343,10 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
   const [torchOn, setTorchOn] = useState(false);
   const [videoSize, setVideoSize] = useState({ w: 1, h: 1 });
 
-  // Live edge detection (overlay auto-crop mengikuti tepi dokumen secara real-time)
-  const [liveCorners, setLiveCorners] = useState(null);
-  const [cvReady, setCvReady] = useState(false);
-  const liveDetectCanvasRef = useRef(null);
-  const detectingRef = useRef(false);
-
   // Mode
   const [step, setStep] = useState("camera"); 
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Tunggu worker (OpenCV.js di dalamnya) siap, hanya saat fitur Auto-crop aktif
-  // DAN setelah kamera sudah ready. Semua proses berat berjalan di Web Worker
-  // sehingga TIDAK PERNAH memblokir UI kamera (tombol tetap responsif).
-  useEffect(() => {
-    if (!autoCropEnabled || !cameraReady) return;
-    let cancelled = false;
-    waitForDetectorReady()
-      .then((ready) => {
-        if (!cancelled) setCvReady(!!ready);
-      })
-      .catch(() => {
-        if (!cancelled) setCvReady(false);
-      });
-    return () => { cancelled = true; };
-  }, [autoCropEnabled, cameraReady]);
 
   // Start kamera
   const startCamera = useCallback(async () => {
@@ -453,51 +443,6 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
       setTorchOn((v) => !v);
     } catch { }
   }, [stream, torchOn]);
-
-  // Deteksi tepi dokumen secara live dari frame video (dipakai untuk overlay auto-crop real-time)
-  const LIVE_DETECT_WIDTH = 240;
-  const detectLiveCorners = useCallback(async () => {
-    if (detectingRef.current) return; // hindari menumpuk request selagi worker masih memproses frame sebelumnya
-    const v = videoRef.current;
-    if (!v || !v.videoWidth || !v.videoHeight) return;
-
-    detectingRef.current = true;
-    try {
-      const scale = LIVE_DETECT_WIDTH / v.videoWidth;
-      const w = LIVE_DETECT_WIDTH;
-      const h = Math.max(1, Math.round(v.videoHeight * scale));
-
-      if (!liveDetectCanvasRef.current) {
-        liveDetectCanvasRef.current = document.createElement("canvas");
-      }
-      const canvas = liveDetectCanvasRef.current;
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(v, 0, 0, w, h);
-
-      const corners = await detectCornersAsync(canvas);
-      if (corners) {
-        setLiveCorners(corners.map((c) => ({ x: (c.x / w) * 100, y: (c.y / h) * 100 })));
-      } else {
-        setLiveCorners(null);
-      }
-    } catch {
-      setLiveCorners(null);
-    } finally {
-      detectingRef.current = false;
-    }
-  }, []);
-
-  // Jalankan deteksi tepi secara berkala selama mode kamera & Auto-crop aktif (menunggu OpenCV siap)
-  useEffect(() => {
-    if (step !== "camera" || !cameraReady || !autoCropEnabled || !cvReady) {
-      setLiveCorners(null);
-      return;
-    }
-    const intervalId = setInterval(detectLiveCorners, 350);
-    return () => clearInterval(intervalId);
-  }, [step, cameraReady, autoCropEnabled, cvReady, detectLiveCorners]);
 
   // Capture
   const capture = useCallback(async () => {
@@ -665,51 +610,23 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
             )}
 
             {cameraReady && autoCropEnabled && (
-              <div className="absolute inset-0 pointer-events-none">
-                {liveCorners ? (
-                  // Garis kuning mengikuti tepi dokumen yang terdeteksi secara real-time
-                  <svg
-                    className="absolute inset-0 w-full h-full"
-                    viewBox="0 0 100 100"
-                    preserveAspectRatio="none"
-                  >
-                    <polygon
-                      points={liveCorners.map((c) => `${c.x},${c.y}`).join(" ")}
-                      fill="rgba(250,204,21,0.12)"
-                      stroke="#facc15"
-                      strokeWidth="0.6"
-                      vectorEffect="non-scaling-stroke"
-                    />
-                    {liveCorners.map((c, i) => (
-                      <circle key={i} cx={c.x} cy={c.y} r="1.4" fill="#facc15" vectorEffect="non-scaling-stroke" />
-                    ))}
-                  </svg>
-                ) : (
-                  // Belum ada tepi terdeteksi: tampilkan guide sementara sampai dokumen terdeteksi
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="w-4/5 h-3/4 relative">
+                  {[
+                    "top-0 left-0 border-t-2 border-l-2 rounded-tl-sm",
+                    "top-0 right-0 border-t-2 border-r-2 rounded-tr-sm",
+                    "bottom-0 left-0 border-b-2 border-l-2 rounded-bl-sm",
+                    "bottom-0 right-0 border-b-2 border-r-2 rounded-br-sm",
+                  ].map((cls, i) => (
+                    <div key={i} className={`absolute border-yellow-400 w-6 h-6 ${cls}`} />
+                  ))}
+                  <div className="absolute inset-0 border border-dashed border-yellow-400/30 rounded" />
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-4/5 h-3/4 relative">
-                      {[
-                        "top-0 left-0 border-t-2 border-l-2 rounded-tl-sm",
-                        "top-0 right-0 border-t-2 border-r-2 rounded-tr-sm",
-                        "bottom-0 left-0 border-b-2 border-l-2 rounded-bl-sm",
-                        "bottom-0 right-0 border-b-2 border-r-2 rounded-br-sm",
-                      ].map((cls, i) => (
-                        <div key={i} className={`absolute border-yellow-400 w-6 h-6 ${cls}`} />
-                      ))}
-                      <div className="absolute inset-0 border border-dashed border-yellow-400/30 rounded" />
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-12 h-12 border border-yellow-400/50 rounded flex items-center justify-center">
-                          <Focus size={16} className="text-yellow-400/60" />
-                        </div>
-                      </div>
+                    <div className="w-12 h-12 border border-yellow-400/50 rounded flex items-center justify-center">
+                      <Focus size={16} className="text-yellow-400/60" />
                     </div>
-                    {!cvReady && (
-                      <div className="absolute -bottom-8 left-0 right-0 flex justify-center">
-                        <span className="text-yellow-400/70 text-[11px]">Memuat mesin deteksi...</span>
-                      </div>
-                    )}
                   </div>
-                )}
+                </div>
               </div>
             )}
           </>

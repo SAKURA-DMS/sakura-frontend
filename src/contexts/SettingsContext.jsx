@@ -3,8 +3,8 @@ import { useApp } from "@/contexts/AppContext.jsx";
 
 const DEFAULT_SETTINGS = {
   theme: "light",
-  notifications: { email: true, inApp: true, upload: true, approve: true, reject: true, folderShare: true, frequency: "realtime" },
-  scan: { autoCrop: true, compression: "medium", autoSaveFolder: "" },
+  notifications: { inApp: true, upload: true, approve: true, reject: true, folderShare: true, frequency: "realtime" },
+  scan: { compression: "medium", autoSaveFolder: "" },
   security: { twoFactor: false, sessionTimeout: "1h" },
 };
 

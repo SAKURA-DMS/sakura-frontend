@@ -536,15 +536,6 @@ export default function SettingsPage() {
           <Card title="Notifikasi" icon={Bell}>
             <div className="space-y-1 divide-y divide-border">
               <Toggle
-                label="Email"
-                desc="Kirim notifikasi ke email"
-                checked={settings.notifications.email}
-                onChange={(value) =>
-                  updateNotifications({ email: value })
-                }
-              />
-
-              <Toggle
                 label="In-App"
                 desc="Tampilkan di panel notifikasi"
                 checked={settings.notifications.inApp}
@@ -584,15 +575,6 @@ export default function SettingsPage() {
         return (
           <Card title="Scan & Upload" icon={Camera}>
             <div className="space-y-1 divide-y divide-border">
-              <Toggle
-                label="Auto-crop"
-                desc="Otomatis potong area dokumen saat scan"
-                checked={settings.scan.autoCrop}
-                onChange={(value) =>
-                  updateScan({ autoCrop: value })
-                }
-              />
-
               <div className="pt-3">
                 <label className="block text-sm font-medium text-foreground mb-1">
                   Compression Level

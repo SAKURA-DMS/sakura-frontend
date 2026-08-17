@@ -1,5 +1,6 @@
 import { useApp } from "@/contexts/AppContext";
 import { useEffect, useRef, useState } from "react";
+import { Navigate } from "react-router-dom";
 import AppHeader from "@/components/layout/AppHeader";
 import { Trash2, RefreshCcw, AlertTriangle, FileText, CheckCircle2, XCircle, Loader2, RotateCcw } from "lucide-react";
 import { format } from "date-fns";
@@ -7,11 +8,15 @@ import { Button } from "@/components/ui/button";
 
 export default function TrashPage() {
   const {
+    currentUser,
     trashedDocuments = [],
     restoreDocument,
     permanentlyDeleteDocument,
     loadTrashedDocuments,
   } = useApp();
+
+  // Role Kepala Sekolah tidak berhak mengakses fitur Sampah
+  const isKepsek = currentUser?.role === "Kepala Sekolah";
 
   // Status proses restore / delete
   const [processing, setProcessing] = useState({
@@ -289,6 +294,11 @@ export default function TrashPage() {
       });
     }
   };
+
+  // Cegah akses langsung lewat URL untuk role Kepala Sekolah
+  if (isKepsek) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   return (
     <div className="flex flex-col h-full">

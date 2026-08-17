@@ -640,20 +640,22 @@ export default function AppSidebar() {
           <div className="!my-4 mx-2 h-px bg-sidebar-border" />
 
           {/* Sampah & Pengaturan */}
-          <NavButton
-            active={
-              location.pathname ===
-              "/trash"
-            }
-            icon={Trash2}
-            label="Sampah"
-            onClick={(e) =>
-              handleNavigate(
-                e,
+          {!isKepsek && (
+            <NavButton
+              active={
+                location.pathname ===
                 "/trash"
-              )
-            }
-          />
+              }
+              icon={Trash2}
+              label="Sampah"
+              onClick={(e) =>
+                handleNavigate(
+                  e,
+                  "/trash"
+                )
+              }
+            />
+          )}
 
           <NavButton
             active={

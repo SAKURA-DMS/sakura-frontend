@@ -183,7 +183,7 @@ async function processImage(dataUrl, opts = {}) {
 
       let detectedCorners = opts.perspectiveCorners || null;
 
-      if (!detectedCorners) {
+      if (!detectedCorners && opts.applyPerspective !== false) {
         const DETECT_MAX = 960;
         const detectScale = Math.min(1, DETECT_MAX / Math.max(w, h));
 
@@ -371,7 +371,7 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
   const [brightness, setBrightness] = useState(10);
   const [contrast, setContrast] = useState(15);
   const [sharpen, setSharpen] = useState(true);
-  const [autoPerspective, setAutoPerspective] = useState(true);
+  const [autoPerspective, setAutoPerspective] = useState(false);
 
   const startCamera = useCallback(async () => {
     try {
@@ -726,12 +726,12 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
               <span className="flex items-center gap-1">
                 <Check size={12} className="text-green-400" /> Siap digunakan
               </span>
-              {detectedCorners && (
+              {autoPerspective && detectedCorners && (
                 <span className="flex items-center gap-1">
                   <Scan size={12} className="text-blue-400" /> Deteksi otomatis berhasil
                 </span>
               )}
-              {!detectedCorners && (
+              {autoPerspective && !detectedCorners && (
                 <span className="flex items-center gap-1 text-yellow-400">
                   <AlertTriangle size={12} /> Sesuaikan manual
                 </span>
@@ -746,7 +746,19 @@ export default function DocumentScanner({ onClose, onCapture, ocrMode = false })
               </button>
               {!autoPerspective && (
                 <button
-                  onClick={() => setStep("adjust")}
+                  onClick={() => {
+                    if (!adjustedCorners) {
+                      const w = videoSize.w, h = videoSize.h;
+                      const mx = w * 0.08, my = h * 0.08;
+                      setAdjustedCorners([
+                        { x: mx, y: my },
+                        { x: w - mx, y: my },
+                        { x: w - mx, y: h - my },
+                        { x: mx, y: h - my },
+                      ]);
+                    }
+                    setStep("adjust");
+                  }}
                   className="py-3 px-4 rounded-xl bg-white/10 text-white text-sm font-medium hover:bg-white/20 transition-colors"
                   title="Sesuaikan perspektif"
                 >

@@ -12,40 +12,22 @@ import { DEPARTEMEN_OPTIONS } from "@/data/departemenOptions";
 const ALL_ROLES = ["Operator/TU", "Kepala Sekolah", "Guru"];
 const EMPTY_FORM = { nama: "", email: "", role: "Guru", departemen: "", nip: "" };
 const LAINNYA = "Lainnya";
-// Departemen "Lainnya" adalah pilihan khusus di dropdown (menampilkan textbox
-// tambahan), bukan nilai yang pernah disimpan ke database — sisanya sama
-// persis dengan daftar di halaman Signup Guru.
 const DEPARTEMEN_SELECT_OPTIONS = DEPARTEMEN_OPTIONS;
 
-// Tentukan nilai awal dropdown + textbox custom dari string departemen yang
-// tersimpan di formData (dipakai saat modal Edit dibuka dengan data existing).
 function splitDepartemen(value) {
   const trimmed = (value || "").trim();
   if (!trimmed) return { select: "", custom: "" };
   if (DEPARTEMEN_SELECT_OPTIONS.includes(trimmed) && trimmed !== LAINNYA) {
     return { select: trimmed, custom: "" };
   }
-  // Nilai tersimpan tidak cocok dengan daftar baku → anggap hasil "Lainnya"
   return { select: LAINNYA, custom: trimmed };
 }
 
-// ── Form Modal (shared create & edit) ───────────────────────────────────────
-// PENTING: komponen ini didefinisikan di LEVEL MODULE (bukan di dalam
-// UserManagementPage) supaya identitasnya stabil antar-render. Kalau
-// didefinisikan di dalam komponen induk, setiap kali formData berubah (mis.
-// user mengetik satu huruf), React akan menganggap ini komponen baru dan
-// meng-unmount lalu me-remount modal — inputnya kehilangan fokus setiap
-// ketikan, sehingga terasa "macet" setelah satu huruf.
+// Form Modal (shared create & edit)
 function UserFormModal({ title, formData, setFormData, submitting, onSubmit, submitLabel, onClose }) {
-  // State dropdown + textbox custom departemen. Diinisialisasi SEKALI saat
-  // modal ini di-mount (create & edit masing-masing mount instance baru),
-  // diturunkan dari nilai formData.departemen yang sedang berjalan.
   const [deptSelect, setDeptSelect] = useState(() => splitDepartemen(formData.departemen).select);
   const [deptCustom, setDeptCustom] = useState(() => splitDepartemen(formData.departemen).custom);
 
-  // Saat pilihan dropdown berubah keluar dari "Lainnya", textbox custom
-  // otomatis hilang dan nilainya di-reset supaya tidak ada sisa nilai lama
-  // yang ikut tersimpan ke database.
   const handleDeptSelectChange = (value) => {
     setDeptSelect(value);
     if (value === LAINNYA) {
@@ -164,7 +146,7 @@ export default function UserManagementPage() {
 
   const isAdmin = currentUser?.role === "Operator/TU";
 
-  // ── Load data dari API saat komponen mount ────────────────────────────────
+  // Load data from the API when the component mounts
   useEffect(() => {
     loadUsers();
     if (isAdmin) {
@@ -172,8 +154,6 @@ export default function UserManagementPage() {
     }
   }, [loadUsers, loadPendingUsers, isAdmin]);
 
-  // Tampilkan error asli jika fetch users/pending users gagal, jangan biarkan
-  // tampil seolah-olah "kosong" padahal sebenarnya request-nya gagal.
   useEffect(() => {
     if (usersError) {
       toast({ title: "Gagal memuat data pengguna", description: usersError, variant: "destructive" });
@@ -186,7 +166,7 @@ export default function UserManagementPage() {
     }
   }, [pendingUsersError, toast]);
 
-  // ── Create user → POST /api/users ─────────────────────────────────────────
+  // Create user -> POST /api/users 
   const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   const validateUserForm = () => {
@@ -220,7 +200,7 @@ export default function UserManagementPage() {
     }
   };
 
-  // ── Edit user → PATCH /api/users/:id ─────────────────────────────────────
+  // Edit user -> PATCH /api/users/:id
   const handleEdit = async () => {
     if (!editUserId || !formData.nama.trim() || !formData.email.trim()) return;
     if (formData.role === "Guru" && !formData.nip?.trim()) {
@@ -253,7 +233,7 @@ export default function UserManagementPage() {
     }
   };
 
-  // ── Delete user → DELETE /api/users/:id ──────────────────────────────────
+  // Delete user -> DELETE /api/users/:id
   const handleDelete = async () => {
     if (!deleteUserId) return;
     const targetUser = activeUsers.find((u) => u.id === deleteUserId);
@@ -294,7 +274,7 @@ export default function UserManagementPage() {
     }
   };
 
-  // ── Reject registration → DELETE /api/users/:id/reject ───────────────────
+  // Reject registration -> DELETE /api/users/:id/reject 
   const handleRejectRegistration = async (user) => {
     try {
       await rejectRegistration(user.id);
@@ -304,7 +284,7 @@ export default function UserManagementPage() {
     }
   };
 
-  // ── Confirm role change (tetap ada flow verifikasi) ───────────────────────
+  // Confirm role change (PATCH /api/users/:id) after email verification
   const handleConfirmRoleChange = async () => {
     if (!pendingRoleChange) return;
     toast({ title: "Kode Terkirim", description: "Kode verifikasi telah dikirim ke email Anda" });
@@ -316,7 +296,7 @@ export default function UserManagementPage() {
       <AppHeader title="Manajemen User" subtitle="SMP Negeri 4 Cikarang Barat" />
       <div className="p-4 sm:p-8 space-y-6">
 
-        {/* ── Pending Approval Section ────────────────────────────────────── */}
+        {/* Pending Approval Section */}
         {isAdmin && (
           <div>
             <div className="flex items-center gap-2 mb-4">
@@ -369,14 +349,14 @@ export default function UserManagementPage() {
           </div>
         )}
 
-        {/* ── Divider ─────────────────────────────────────────────────────── */}
+        {/* Divider */}
         <div className="relative flex items-center">
           <div className="flex-1 h-px bg-border" />
           <span className="px-3 text-xs text-muted-foreground bg-background">Pengguna Aktif</span>
           <div className="flex-1 h-px bg-border" />
         </div>
 
-        {/* ── Active Users Table ───────────────────────────────────────────── */}
+        {/* Active Users Table */}
         <div>
           {isAdmin && (
             <div className="flex justify-end mb-4">
@@ -455,7 +435,7 @@ export default function UserManagementPage() {
         </div>
       </div>
 
-      {/* ── Activate Confirmation ─────────────────────────────────────────── */}
+      {/* Activate Confirmation */}
       {activateTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 backdrop-blur-sm" onClick={() => setActivateTarget(null)}>
           <div className="bg-card rounded-xl shadow-2xl w-full max-w-sm p-6 mx-4" onClick={(e) => e.stopPropagation()}>
@@ -475,7 +455,7 @@ export default function UserManagementPage() {
         </div>
       )}
 
-      {/* ── Create Modal ─────────────────────────────────────────────────── */}
+      {/* Create Modal */}
       {showCreateModal && (
         <UserFormModal
           title="Tambah User Baru"
@@ -488,7 +468,7 @@ export default function UserManagementPage() {
         />
       )}
 
-      {/* ── Edit Modal ───────────────────────────────────────────────────── */}
+      {/* Edit Modal */}
       {editUserId && (
         <UserFormModal
           title="Edit User"
@@ -501,7 +481,7 @@ export default function UserManagementPage() {
         />
       )}
 
-      {/* ── Delete Confirmation ──────────────────────────────────────────── */}
+      {/* Delete Confirmation */}
       {deleteUserId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 backdrop-blur-sm" onClick={() => { setDeleteUserId(null); setDeleteConfirmInput(""); }}>
           <div className="bg-card rounded-xl shadow-2xl w-full max-w-sm p-6 mx-4" onClick={(e) => e.stopPropagation()}>
@@ -530,7 +510,7 @@ export default function UserManagementPage() {
         </div>
       )}
 
-      {/* ── Role Change Verification Modal ──────────────────────────────── */}
+      {/* Role Change Verification Modal */}
       {showRoleConfirm && pendingRoleChange && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 backdrop-blur-sm" onClick={() => { setShowRoleConfirm(false); setPendingRoleChange(null); }}>
           <div className="bg-card rounded-xl shadow-2xl w-full max-w-sm p-6 mx-4" onClick={(e) => e.stopPropagation()}>

@@ -15,10 +15,9 @@ export default function TrashPage() {
     loadTrashedDocuments,
   } = useApp();
 
-  // Role Kepala Sekolah tidak berhak mengakses fitur Sampah
   const isKepsek = currentUser?.role === "Kepala Sekolah";
 
-  // Status proses restore / delete
+  // Status process restore / delete
   const [processing, setProcessing] = useState({
     id: null,
     action: null,
@@ -26,7 +25,7 @@ export default function TrashPage() {
 
   const [confirmation, setConfirmation] = useState(null);
 
-  // Feedback setelah aksi berhasil / gagal
+  // Feedbackafter action restore / delete
   const [actionFeedback, setActionFeedback] = useState(null);
 
   const feedbackTimerRef = useRef(null);
@@ -36,7 +35,7 @@ export default function TrashPage() {
     loadTrashedDocuments();
   }, [loadTrashedDocuments]);
 
-  // Bersihkan timer ketika component unmount
+  // Default cleanup untuk timer feedback
   useEffect(() => {
     return () => {
       if (feedbackTimerRef.current) {
@@ -125,7 +124,7 @@ export default function TrashPage() {
     });
   };
 
-  // Tampilkan konfirmasi Hapus Permanen
+  // Show confirmation popover for permanent delete
   const askDeleteConfirmation = (doc, event) => {
     if (processing.id) return;
 
@@ -146,7 +145,7 @@ export default function TrashPage() {
     });
   };
 
-  // Menampilkan feedback sukses / gagal 
+  // Show feedback popup after action restore / delete
   const showActionFeedback = ({
     buttonElement,
     type,
@@ -197,7 +196,7 @@ export default function TrashPage() {
     }, 3500);
   };
 
-  // Jalankan Restore setelah user menekan tombol "Pulihkan"
+  // Run restore action
   const handleRestore = async () => {
     if (!confirmation || confirmation.type !== "restore") return;
     if (!restoreDocument) return;
@@ -246,7 +245,7 @@ export default function TrashPage() {
     }
   };
 
-  // Jalankan hapus permanen 
+  // Run permanent delete action
   const handlePermanentDelete = async () => {
     if (!confirmation || confirmation.type !== "delete") return;
     if (!permanentlyDeleteDocument) return;
@@ -295,7 +294,7 @@ export default function TrashPage() {
     }
   };
 
-  // Cegah akses langsung lewat URL untuk role Kepala Sekolah
+  // Prevent Kepala Sekolah from accessing Trash feature
   if (isKepsek) {
     return <Navigate to="/dashboard" replace />;
   }

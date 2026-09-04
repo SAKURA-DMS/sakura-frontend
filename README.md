@@ -11,7 +11,7 @@ Watch a demo of the application here: [SAKURA Demo](https://drive.google.com/fil
 ## Features
 
 - Digital archive management: upload, categorize, and search documents
-- OCR (text extraction from scanned or photographed documents) via GEMINI API.
+- OCR (text extraction from scanned or photographed documents) via GEMINI VISION API.
 - In-browser PDF preview
 - Excel import/export for bulk data
 - Authentication and role-based access control
@@ -39,7 +39,7 @@ SAKURA supports role-based access, with each role scoped to a different level of
 | Forms & validation | React Hook Form, Zod |
 | Icons | Lucide React |
 | Animation | Framer Motion |
-| OCR | Tesseract.js |
+| OCR | Gemini Vision API |
 | PDF rendering | pdf.js (pdfjs-dist) |
 | Excel import/export | SheetJS (xlsx) |
 | Charts | Recharts |

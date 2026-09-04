@@ -11,7 +11,7 @@ Watch a demo of the application here: [SAKURA Demo](https://drive.google.com/fil
 ## Features
 
 - Digital archive management: upload, categorize, and search documents
-- OCR (text extraction from scanned or photographed documents) via Tesseract.js
+- OCR (text extraction from scanned or photographed documents) via GEMINI API.
 - In-browser PDF preview
 - Excel import/export for bulk data
 - Authentication and role-based access control

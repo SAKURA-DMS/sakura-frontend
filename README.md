@@ -7,6 +7,7 @@ This repository contains the frontend application, built with React, TypeScript,
 ## Demo
 
 Watch a demo of the application here: [SAKURA Demo](https://drive.google.com/file/d/1Cx6fMGDt0KSZLF3uTgkKOlhIJiciuRYi/view?usp=sharing)
+Take a look at the overview of SAKURA on sakuradms.com.
 
 ## Features
 
